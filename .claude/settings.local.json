@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm dev *)",
+      "Bash(cd \"C:\\\\Users\\\\USER\\\\Downloads\\\\fatdeploy-react\" && ls)",
+      "Bash(node -e ' *)",
+      "Bash(cp /tmp/solc_compile/FatTokenV5.sol \"C:/Users/USER/Downloads/fatdeploy-react/fattoken-saas/src/contracts/FatTokenV5.sol\")",
+      "Bash(cp \"C:/Users/USER/Downloads/fatdeploy-react/fattoken-saas/FatAirdrop.sol\" /tmp/solc_compile/FatAirdrop.sol)",
+      "Read(//tmp/**)",
+      "Bash(cat /tmp/solc_compile/FatAirdrop_bytecode.txt)",
+      "Bash(node scripts/compile-presale.cjs)",
+      "Bash(pnpm vite *)"
+    ]
+  }
+}
