@@ -67,6 +67,8 @@ type AppStore = {
   upgradeTier: (addr: string, tier: string, txHash: string, token: string) => void
   addDeploy: (addr: string, d: DeployRecord) => void
   patchDeploy: (addr: string, id: string, patch: Partial<DeployRecord>) => void
+  /** Merge server-authoritative fields (tier/limits) without overwriting local deploy history */
+  mergeUserData: (addr: string, patch: Partial<UserData>) => void
 
   // tier selection & payment UI
   selectedTier: 'starter' | 'pro' | 'elite'
@@ -141,6 +143,17 @@ export const useStore = create<AppStore>()(
               [key]: { ...u, deploys: u.deploys.map(d => d.id === id ? { ...d, ...patch } : d) }
             }
           }
+        })
+      },
+
+      mergeUserData: (addr, patch) => {
+        const key = addr.toLowerCase()
+        set(s => {
+          const existing = s.userData[key] ?? {
+            tier: 'free', deploysUsed: 0, deploysLimit: 0,
+            paymentTxHash: null, paymentToken: null, deploys: [],
+          }
+          return { userData: { ...s.userData, [key]: { ...existing, ...patch } } }
         })
       },
 

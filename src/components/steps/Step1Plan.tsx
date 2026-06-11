@@ -45,9 +45,9 @@ export function Step1Plan({ onNext }: { onNext: () => void }) {
     try {
       let txHash: string
       if (payMethod === 'blin') {
-        txHash = await payWithBLIN(selectedTier, walletClient as any, publicClient as any, setStatus)
+        txHash = await payWithBLIN(selectedTier, walletClient as any, publicClient as any, setStatus, price.blin)
       } else {
-        txHash = await payWithNative(selectedTier, walletClient as any, publicClient as any, setStatus)
+        txHash = await payWithNative(selectedTier, walletClient as any, publicClient as any, setStatus, price.native)
       }
       upgradeTier(address, selectedTier, txHash, payMethod === 'blin' ? 'BLIN' : 'native')
       setPaid(true)

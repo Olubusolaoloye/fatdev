@@ -74,6 +74,24 @@ export async function getAppConfig<T = any>(key: string, fallback: T): Promise<T
   return data.value as T
 }
 
+// ── Fetch user row from Supabase (for syncing admin changes to active session) ──
+export async function fetchUserFromSupabase(wallet: string): Promise<Partial<UserData> | null> {
+  if (!supabaseReady) return null
+  const { data, error } = await supabase
+    .from('users')
+    .select('tier, deploys_used, deploys_limit, payment_tx_hash, payment_token')
+    .eq('wallet', wallet.toLowerCase())
+    .single()
+  if (error || !data) return null
+  return {
+    tier:           data.tier as UserData['tier'],
+    deploysUsed:    data.deploys_used,
+    deploysLimit:   data.deploys_limit,
+    paymentTxHash:  data.payment_tx_hash,
+    paymentToken:   data.payment_token,
+  }
+}
+
 function safeParseSnapshot(s: string): any {
   try { return JSON.parse(s) } catch { return null }
 }

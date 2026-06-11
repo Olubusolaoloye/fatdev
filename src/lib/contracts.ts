@@ -53,10 +53,14 @@ export async function payWithBLIN(
   tier: string,
   walletClient: WalletClient,
   _publicClient: PublicClient, // kept for API compat, but we use ethMainnetClient for reads
-  onStatus: (s: string) => void
+  onStatus: (s: string) => void,
+  overrideBlinAmount?: bigint,  // explicit amount from Supabase dynamic pricing
 ): Promise<string> {
-  const price = TIER_PRICES[tier as keyof typeof TIER_PRICES]
-  if (!price) throw new Error('Unknown tier')
+  const fallback = TIER_PRICES[tier as keyof typeof TIER_PRICES]
+  const blinAmount = overrideBlinAmount ?? fallback?.blin
+  if (!blinAmount) throw new Error('Unknown tier')
+  // Build a price-like object so the rest of the function stays unchanged
+  const price = { blin: blinAmount }
 
   const [account] = await walletClient.getAddresses()
 
@@ -114,16 +118,18 @@ export async function payWithNative(
   tier: string,
   walletClient: WalletClient,
   publicClient: PublicClient,
-  onStatus: (s: string) => void
+  onStatus: (s: string) => void,
+  overrideNativeAmount?: bigint,  // explicit amount from Supabase dynamic pricing
 ): Promise<string> {
-  const price = TIER_PRICES[tier as keyof typeof TIER_PRICES]
-  if (!price) throw new Error('Unknown tier')
+  const fallback = TIER_PRICES[tier as keyof typeof TIER_PRICES]
+  const nativeAmount = overrideNativeAmount ?? fallback?.native
+  if (!nativeAmount) throw new Error('Unknown tier')
   const [account] = await walletClient.getAddresses()
 
   onStatus('Sending payment…')
   const hash = await walletClient.sendTransaction({
     to: TREASURY,
-    value: price.native,
+    value: nativeAmount,
     account,
     chain: walletClient.chain!,
   })

@@ -1,8 +1,9 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useAccount, useChainId } from 'wagmi'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useStore } from './lib/store'
 import { useAppConfig } from './hooks/useAppConfig'
+import { fetchUserFromSupabase } from './lib/db'
 import { Step0Connect } from './components/steps/Step0Connect'
 import { Step1Plan }    from './components/steps/Step1Plan'
 import { Step2Identity } from './components/steps/Step2Identity'
@@ -34,30 +35,103 @@ const taxTotal = (cfg: any, side: 'buy' | 'sell') =>
     ? cfg.buyFund + cfg.buyLP + cfg.buyReward + cfg.buyBurn
     : cfg.sellFund + cfg.sellLP + cfg.sellReward + cfg.sellBurn
 
+// ── Maintenance page ──────────────────────────────────────────────────────────
+function MaintenancePage({ message }: { message: string }) {
+  return (
+    <div style={{
+      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'var(--navy)', color: '#fff', flexDirection: 'column',
+      gap: 0, padding: '2rem', textAlign: 'center',
+    }}>
+      {/* Animated SVG */}
+      <div style={{ marginBottom: 32 }}>
+        <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+          {/* Outer glow ring */}
+          <circle cx="60" cy="60" r="56" stroke="rgba(255,215,0,0.15)" strokeWidth="1.5" />
+          <circle cx="60" cy="60" r="46" stroke="rgba(255,215,0,0.08)" strokeWidth="8" />
+          {/* Gear body */}
+          <path d="
+            M60 28 L63.5 20 L56.5 20 Z
+            M60 92 L63.5 100 L56.5 100 Z
+            M28 60 L20 56.5 L20 63.5 Z
+            M92 60 L100 63.5 L100 56.5 Z
+            M37.6 37.6 L31.5 31.5 L26.9 36.1 Z
+            M82.4 82.4 L88.5 88.5 L93.1 83.9 Z
+            M37.6 82.4 L31.5 88.5 L36.1 93.1 Z
+            M82.4 37.6 L88.5 31.5 L83.9 26.9 Z
+          " fill="rgba(255,215,0,0.6)" />
+          {/* Inner gear ring */}
+          <circle cx="60" cy="60" r="26" stroke="var(--gold)" strokeWidth="3" fill="rgba(255,215,0,0.06)" />
+          <circle cx="60" cy="60" r="14" stroke="rgba(255,215,0,0.5)" strokeWidth="2" fill="rgba(255,215,0,0.04)" />
+          {/* Lock body */}
+          <rect x="49" y="57" width="22" height="16" rx="3" fill="var(--gold)" />
+          <path d="M53 57 C53 50 67 50 67 57" stroke="var(--gold)" strokeWidth="3" fill="none" strokeLinecap="round" />
+          {/* Lock keyhole */}
+          <circle cx="60" cy="64" r="3" fill="var(--navy)" />
+          <rect x="58.5" y="64" width="3" height="5" rx="1" fill="var(--navy)" />
+        </svg>
+      </div>
+
+      {/* Logo */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24 }}>
+        <div style={{
+          width: 28, height: 28, borderRadius: 6, background: 'var(--gold)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <span style={{ color: 'var(--navy)', fontSize: 14, fontWeight: 800 }}>F</span>
+        </div>
+        <span style={{ fontWeight: 800, fontSize: 18 }}>FatDev</span>
+      </div>
+
+      <h1 style={{ fontSize: 28, fontWeight: 800, margin: '0 0 12px', color: '#fff' }}>
+        Under Maintenance
+      </h1>
+
+      <p style={{
+        fontSize: 15, color: 'var(--text-secondary)', maxWidth: 460,
+        lineHeight: 1.7, margin: '0 0 32px',
+      }}>
+        {message}
+      </p>
+
+      {/* Status bar */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px',
+        borderRadius: 40, background: 'rgba(255,215,0,0.07)',
+        border: '0.5px solid rgba(255,215,0,0.2)',
+      }}>
+        <span style={{
+          width: 8, height: 8, borderRadius: '50%', background: 'var(--gold)',
+          boxShadow: '0 0 8px var(--gold)', display: 'inline-block',
+          animation: 'pulse 1.8s ease-in-out infinite',
+        }} />
+        <span style={{ fontSize: 12, color: 'var(--gold)', fontFamily: "'Space Mono',monospace" }}>
+          We'll be back shortly
+        </span>
+      </div>
+
+      <p style={{
+        marginTop: 40, fontSize: 11, color: 'rgba(255,255,255,0.2)',
+        fontFamily: "'Space Mono',monospace",
+      }}>
+        FatDev · fatdev.io
+      </p>
+    </div>
+  )
+}
+
 export default function App() {
-  const isAdmin = useMemo(() => new URLSearchParams(window.location.search).get('admin') === '1', [])
-  if (isAdmin) return <AdminDashboard />
+  // ── ALL HOOKS MUST BE CALLED UNCONDITIONALLY (Rules of Hooks) ────────────────
+  const isAdmin  = useMemo(() => new URLSearchParams(window.location.search).get('admin') === '1', [])
+  const isBypass = useMemo(() => new URLSearchParams(window.location.search).get('bypass') === 'fatadmin', [])
 
   const { maintenanceMode, maintenanceMessage, loading: configLoading } = useAppConfig()
-
-  // Maintenance mode — admins can bypass with ?bypass=fatadmin
-  const isBypass = useMemo(() => new URLSearchParams(window.location.search).get('bypass') === 'fatadmin', [])
-  if (!configLoading && maintenanceMode && !isBypass) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'var(--navy)', color: '#fff', flexDirection: 'column', gap: 20, padding: '2rem', textAlign: 'center' }}>
-        <div style={{ width: 56, height: 56, borderRadius: 14, background: 'var(--gold)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, fontWeight: 900, color: 'var(--navy)' }}>⚙</div>
-        <h1 style={{ fontSize: 28, fontWeight: 800, margin: 0 }}>Under Maintenance</h1>
-        <p style={{ fontSize: 15, color: 'var(--text-muted)', maxWidth: 460, lineHeight: 1.7, margin: 0 }}>{maintenanceMessage}</p>
-        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)', fontFamily: "'Space Mono',monospace" }}>FatDev · fatdev.io</p>
-      </div>
-    )
-  }
-
   const { address, isConnected } = useAccount()
   const chainId = useChainId()
-  const { step, setStep, cfg, getUserData } = useStore()
+  const { step, setStep, cfg, getUserData, mergeUserData } = useStore()
+
+  // Track which wallets have already been synced this session
+  const syncedWallets = useRef<Set<string>>(new Set())
 
   // Auto-advance past connect step when wallet connects
   useEffect(() => {
@@ -68,6 +142,21 @@ export default function App() {
   useEffect(() => {
     if (!isConnected && step > 0) setStep(0)
   }, [isConnected])
+
+  // Sync Supabase → Zustand on wallet connect (picks up admin tier/credit changes)
+  useEffect(() => {
+    if (!isConnected || !address) return
+    const key = address.toLowerCase()
+    if (syncedWallets.current.has(key)) return   // already synced this session
+    syncedWallets.current.add(key)
+    fetchUserFromSupabase(key).then(remote => {
+      if (remote) mergeUserData(key, remote)
+    })
+  }, [isConnected, address])
+
+  // ── Conditional renders (after ALL hooks) ────────────────────────────────────
+  if (isAdmin) return <AdminDashboard />
+  if (!configLoading && maintenanceMode && !isBypass) return <MaintenancePage message={maintenanceMessage} />
 
   const user = address ? getUserData(address) : null
   const deploysLeft = user
