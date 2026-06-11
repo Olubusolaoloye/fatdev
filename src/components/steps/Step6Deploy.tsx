@@ -5,6 +5,7 @@ import { deployFatToken, generateParams } from '../../lib/contracts'
 import { verifyContract } from '../../lib/verify'
 import { CHAIN_EXPLORERS } from '../../lib/wagmi'
 import { StatusBox, Spinner, SumTile } from '../ui-kit'
+import { LiquidityLaunch } from './LiquidityLaunch'
 
 type DeployResult = { contractAddress: string; txHash: string }
 type VerifyState = 'idle' | 'pending' | 'ok' | 'fail'
@@ -153,6 +154,13 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
           </button>
           <button className="btn-primary" onClick={() => setStep(7)}>View dashboard →</button>
         </div>
+
+        {/* ── Launch sequence (approve → addLiquidityETH → startLP → launch) ── */}
+        <LiquidityLaunch
+          contractAddress={result.contractAddress}
+          tokenSymbol={cfg.symbol}
+          tokenDecimals={cfg.decimals}
+        />
       </div>
     )
   }

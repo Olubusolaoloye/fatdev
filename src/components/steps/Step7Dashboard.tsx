@@ -1,11 +1,16 @@
-import { useAccount } from 'wagmi'
+import { useState } from 'react'
+import { useAccount, useChainId } from 'wagmi'
 import { useStore } from '../../lib/store'
 import { CHAIN_EXPLORERS } from '../../lib/wagmi'
 import { SumTile } from '../ui-kit'
+import { LiquidityLaunch } from './LiquidityLaunch'
 
 export function Step7Dashboard() {
   const { address } = useAccount()
+  const chainId = useChainId()
   const { getUserData, resetCfg, setStep } = useStore()
+  // Track which deploy row has its launch panel expanded
+  const [expandedLaunch, setExpandedLaunch] = useState<string | null>(null)
   const user = address ? getUserData(address) : null
   const deploys = user?.deploys ?? []
   const deploysLeft = user ? (user.deploysLimit >= 999 ? '∞' : user.deploysLimit - user.deploysUsed) : 0
@@ -51,27 +56,50 @@ export function Step7Dashboard() {
             </button>
           </div>
         ) : deploys.map(d => (
-          <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderBottom: '0.5px solid var(--border)' }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>
-                {d.tokenName} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>({d.tokenSymbol})</span>
-              </div>
-              {d.contractAddress && (
-                <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                  {d.contractAddress}
+          <div key={d.id} style={{ borderBottom: '0.5px solid var(--border)' }}>
+            {/* ── Deploy row ── */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>
+                  {d.tokenName} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>({d.tokenSymbol})</span>
                 </div>
+                {d.contractAddress && (
+                  <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                    {d.contractAddress}
+                  </div>
+                )}
+              </div>
+              <span className="pill pill-gold" style={{ fontFamily: "'Space Mono',monospace", fontSize: 10 }}>{d.chainName}</span>
+              {d.txHash && (
+                <a href={`${CHAIN_EXPLORERS[d.chainId]}/tx/${d.txHash}`} target="_blank" rel="noopener"
+                  className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>
+                  Explorer →
+                </a>
               )}
+              {/* Launch sequence button — only for deployed tokens on connected chain */}
+              {d.contractAddress && d.chainId === chainId && (
+                <button
+                  className={expandedLaunch === d.id ? 'btn-primary' : 'btn-ghost'}
+                  style={{ fontSize: 11, padding: '4px 10px', whiteSpace: 'nowrap' }}
+                  onClick={() => setExpandedLaunch(expandedLaunch === d.id ? null : d.id)}>
+                  {expandedLaunch === d.id ? '▲ Close' : '💧 Launch'}
+                </button>
+              )}
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                {new Date(d.deployedAt).toLocaleDateString()}
+              </span>
             </div>
-            <span className="pill pill-gold" style={{ fontFamily: "'Space Mono',monospace", fontSize: 10 }}>{d.chainName}</span>
-            {d.txHash && (
-              <a href={`${CHAIN_EXPLORERS[d.chainId]}/tx/${d.txHash}`} target="_blank" rel="noopener"
-                className="btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }}>
-                Explorer →
-              </a>
+
+            {/* ── Expanded launch panel ── */}
+            {expandedLaunch === d.id && d.contractAddress && (
+              <div style={{ paddingBottom: 12 }}>
+                <LiquidityLaunch
+                  contractAddress={d.contractAddress}
+                  tokenSymbol={d.tokenSymbol}
+                  tokenDecimals={d.decimals}
+                />
+              </div>
             )}
-            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-              {new Date(d.deployedAt).toLocaleDateString()}
-            </span>
           </div>
         ))}
       </div>
