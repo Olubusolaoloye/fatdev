@@ -170,7 +170,7 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ fontWeight: 700, marginBottom: 6 }}>One-click deploy + auto-verify</div>
         <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>
-          Deploys FatTokenV5 to <strong style={{ color: '#fff' }}>{chainName}</strong> and automatically
+          Deploys FatTokenV6 to <strong style={{ color: '#fff' }}>{chainName}</strong> and automatically
           submits the source code for verification on the block explorer.
         </div>
 
@@ -183,7 +183,7 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
 
         <button className="btn-primary" style={{ width: '100%', padding: 14, fontSize: 15 }}
           onClick={doDeploy} disabled={deploying || !canDeploy}>
-          {!canDeploy ? 'No deploys remaining — upgrade plan' : deploying ? 'Deploying…' : '🚀 Deploy & Verify FatTokenV5'}
+          {!canDeploy ? 'No deploys remaining — upgrade plan' : deploying ? 'Deploying…' : '🚀 Deploy & Verify FatTokenV6'}
         </button>
         {deploying && <Spinner />}
         {status && <StatusBox msg={status} type="info" />}
@@ -194,7 +194,7 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
       <div className="card">
         <div style={{ fontWeight: 600, marginBottom: 10, fontSize: 14 }}>Or deploy manually via Remix</div>
         {[
-          ['01', 'Open Remix',       'remix.ethereum.org → paste FatTokenV5.sol'],
+          ['01', 'Open Remix',       'remix.ethereum.org → paste FatTokenV6.sol'],
           ['02', 'Compiler',         'Solidity 0.8.4 · Optimization · 200 runs'],
           ['03', 'Connect wallet',   `MetaMask → switch to ${chainName}`],
           ['04', 'Paste params',     'Use Review step export above'],

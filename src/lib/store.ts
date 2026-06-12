@@ -32,7 +32,7 @@ export type TokenConfig = {
   sellFund: number; sellLP: number; sellReward: number; sellBurn: number
   maxBuyAmount: string; maxWalletAmount: string
   enableChangeTax: boolean; enableKillBlock: boolean; enableSwapLimit: boolean
-  enableWalletLimit: boolean; enableRewardList: boolean; enableOffTrade: boolean
+  enableWalletLimit: boolean; enableOffTrade: boolean
   enableKillBatchBots: boolean; enableTransferFee: boolean; antiSYNC: boolean
   currencyIsEth: boolean; kb: number; killBatchBlockNumber: number; airdropNumbs: number
 }
@@ -44,7 +44,7 @@ export const DEFAULT_CFG: TokenConfig = {
   sellFund: 200, sellLP: 100, sellReward: 100, sellBurn: 0,
   maxBuyAmount: '10000000', maxWalletAmount: '20000000',
   enableChangeTax: true, enableKillBlock: true, enableSwapLimit: true,
-  enableWalletLimit: true, enableRewardList: true, enableOffTrade: true,
+  enableWalletLimit: true, enableOffTrade: true,
   enableKillBatchBots: true, enableTransferFee: false, antiSYNC: true,
   currencyIsEth: true, kb: 3, killBatchBlockNumber: 3, airdropNumbs: 1,
 }

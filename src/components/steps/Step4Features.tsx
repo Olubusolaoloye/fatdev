@@ -8,10 +8,9 @@ export function Step4Features() {
     <div className="step-panel">
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
         <Toggle on={cfg.enableChangeTax}    onChange={v => setCfg({ enableChangeTax: v })}    name="Post-deploy tax edits"    desc="Owner can call completeCustoms() after deploy" />
-        <Toggle on={cfg.enableKillBlock}    onChange={v => setCfg({ enableKillBlock: v })}    name={`Kill-block snipers (${cfg.kb} blocks)`} desc={`Blacklists buyers in first ${cfg.kb} blocks`} />
+        <Toggle on={cfg.enableKillBlock}    onChange={v => setCfg({ enableKillBlock: v })}    name={`Kill-block snipers (${cfg.kb} blocks)`} desc={`90% fee penalty in first ${cfg.kb} blocks — no permanent ban`} />
         <Toggle on={cfg.enableSwapLimit}    onChange={v => setCfg({ enableSwapLimit: v })}    name="Buy limit per tx"          desc="Enforce maxBuyAmount" />
         <Toggle on={cfg.enableWalletLimit}  onChange={v => setCfg({ enableWalletLimit: v })}  name="Wallet size cap"           desc="Enforce maxWalletAmount" />
-        <Toggle on={cfg.enableRewardList}   onChange={v => setCfg({ enableRewardList: v })}   name="Blacklist"                 desc="Owner can blacklist wallets" />
         <Toggle on={cfg.enableOffTrade}     onChange={v => setCfg({ enableOffTrade: v })}     name="Trade gate"                desc="Require launch() before trading opens" />
         <Toggle on={cfg.enableKillBatchBots} onChange={v => setCfg({ enableKillBatchBots: v })} name="Kill batch bots"        desc="Block same-block multi-buy by same origin" />
         <Toggle on={cfg.antiSYNC}           onChange={v => setCfg({ antiSYNC: v })}           name="AntiSYNC"                  desc="Prevents pair reserve manipulation" />
