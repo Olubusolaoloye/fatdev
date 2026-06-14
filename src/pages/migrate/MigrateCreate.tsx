@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useWalletClient, usePublicClient } from 'wagmi'
 import { useStore } from '../../lib/store'
 import { deployVault } from '../../lib/migrate/contracts'
 import { StatusBox, Spinner } from '../../components/ui-kit'
@@ -28,6 +29,8 @@ const DEFAULTS: FormData = {
 
 export function MigrateCreate() {
   const navigate = useNavigate()
+  const { data: walletClient } = useWalletClient()
+  const publicClient = usePublicClient()
   const { addMigration } = useStore()
   const [wStep, setWStep] = useState(0)
   const [form, setForm] = useState<FormData>(DEFAULTS)
@@ -39,21 +42,30 @@ export function MigrateCreate() {
   }
 
   async function handleDeploy() {
+    if (!walletClient || !publicClient) {
+      setStatus({ msg: 'Connect your wallet first', type: 'err' })
+      return
+    }
     setLoading(true)
     setStatus(null)
     try {
-      await deployVault({
-        v1Token: form.v1Token,
-        v2Token: form.v2Token,
-        ratio: form.ratio,
-        windowSeconds: form.windowDays * 86400,
-        cap: form.cap ? BigInt(form.cap) : BigInt(0),
-        oracleMode: form.oracleMode,
-        postWindowEnabled: form.postWindowEnabled,
-      })
-    } catch (e: unknown) {
-      // Stub: create a local migration record for demo
+      setStatus({ msg: 'Deploying vault…', type: 'info' })
+      const { contractAddress, txHash } = await deployVault(
+        {
+          v1Token: form.v1Token,
+          v2Token: form.v2Token,
+          ratioNumerator: BigInt(Math.round(form.ratio * 1000)),
+          ratioDenominator: 1000n,
+          windowSeconds: BigInt(form.windowDays * 86400),
+          supplyCap: form.cap ? BigInt(form.cap) : 0n,
+        },
+        walletClient as any,
+        publicClient as any,
+        msg => setStatus({ msg, type: 'info' })
+      )
+
       const id = `mig_${Date.now().toString(36)}`
+      const [account] = await walletClient.getAddresses()
       const m: MigrationConfig = {
         id,
         title: form.title || 'My Migration',
@@ -65,12 +77,15 @@ export function MigrateCreate() {
         cap: form.cap,
         oracleMode: form.oracleMode,
         postWindowEnabled: form.postWindowEnabled,
-        vaultAddress: null,
-        status: 'draft',
+        vaultAddress: contractAddress,
+        status: 'active',
         createdAt: new Date().toISOString(),
-        owner: 'demo',
+        owner: account,
       }
       addMigration(m)
+      setStatus({ msg: `Vault deployed at ${contractAddress} (tx: ${txHash})`, type: 'ok' })
+      setTimeout(() => navigate('/migrate/dashboard'), 2000)
+    } catch (e: unknown) {
       setStatus({ msg: e instanceof Error ? e.message : String(e), type: 'err' })
     } finally {
       setLoading(false)

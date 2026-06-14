@@ -1,16 +1,18 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { useAccount } from 'wagmi'
+import { useAccount, useWalletClient, usePublicClient } from 'wagmi'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useStore } from '../../lib/store'
 import { CountdownTimer } from '../../components/migrate/CountdownTimer'
 import { SwapBox } from '../../components/migrate/SwapBox'
 import { StatusBox } from '../../components/ui-kit'
-import { swap } from '../../lib/migrate/contracts'
+import { swapV1 } from '../../lib/migrate/contracts'
 
 export function HolderSwap() {
   const { id } = useParams<{ id: string }>()
   const { isConnected } = useAccount()
+  const { data: walletClient } = useWalletClient()
+  const publicClient = usePublicClient()
   const { migrations, vaultStats } = useStore()
 
   const migration = migrations.find(m => m.id === id)
@@ -20,11 +22,28 @@ export function HolderSwap() {
   const [swapStatus, setSwapStatus] = useState<{ msg: string; type: 'info' | 'ok' | 'err' } | null>(null)
 
   async function handleSwap(v1Amount: string) {
+    if (!walletClient || !publicClient) {
+      setSwapStatus({ msg: 'Wallet not connected', type: 'err' })
+      return
+    }
+    if (!migration?.vaultAddress) {
+      setSwapStatus({ msg: 'Vault not yet deployed', type: 'err' })
+      return
+    }
     setLoading(true)
     setSwapStatus(null)
     try {
-      await swap({ vaultAddress: migration?.vaultAddress ?? '0x0', v1Amount: BigInt(v1Amount) })
-      setSwapStatus({ msg: 'Swap successful!', type: 'ok' })
+      const txHash = await swapV1(
+        {
+          vaultAddress: migration.vaultAddress,
+          v1TokenAddress: migration.v1Token,
+          v1Amount: BigInt(v1Amount),
+        },
+        walletClient as any,
+        publicClient as any,
+        msg => setSwapStatus({ msg, type: 'info' })
+      )
+      setSwapStatus({ msg: `Swap successful! Tx: ${txHash}`, type: 'ok' })
     } catch (e: unknown) {
       setSwapStatus({ msg: e instanceof Error ? e.message : String(e), type: 'err' })
     } finally {
