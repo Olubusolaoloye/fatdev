@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import { useAccount, useChainId } from 'wagmi'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useStore } from './lib/store'
@@ -190,6 +191,17 @@ export default function App() {
 
           {/* Right side */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Link
+              to="/migrate"
+              style={{
+                fontSize: 12, color: 'var(--gold)', textDecoration: 'none',
+                padding: '5px 12px', borderRadius: 6,
+                border: '0.5px solid rgba(255,215,0,0.3)',
+                fontWeight: 600,
+              }}
+            >
+              Migrate ↗
+            </Link>
             {isConnected && (
               <span className="pill pill-gold" style={{ fontFamily: "'Space Mono',monospace", fontSize: 10 }}>
                 {chainName}

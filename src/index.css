@@ -250,3 +250,17 @@ body::before {
 
 /* ── RainbowKit overrides ── */
 [data-rk] button { font-family: 'Syne', sans-serif !important; }
+
+/* ── Migration Protocol ── */
+.migrate-page { min-height: 100vh; background: var(--navy); padding-bottom: 60px; }
+.migrate-hero { background: linear-gradient(140deg, #0a1e30 0%, var(--navy-card) 60%); border: 1px solid var(--border); border-radius: 16px; }
+.migrate-step-bar { height: 3px; border-radius: 2px; background: var(--border); }
+.migrate-step-bar-fill { height: 3px; border-radius: 2px; background: var(--gold); transition: width 0.3s ease; }
+.vault-bar { height: 6px; border-radius: 99px; background: var(--border); overflow: hidden; }
+.vault-bar-fill { height: 100%; border-radius: 99px; background: var(--green); transition: width 0.4s ease; }
+.event-row { display: flex; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border); gap: 10px; }
+.event-row:last-child { border-bottom: none; }
+.countdown-digit { background: var(--navy-card); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; color: var(--red); font-size: 22px; font-weight: 900; font-family: 'Space Mono', monospace; }
+.swap-box { background: var(--navy-card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; }
+.swap-box.receive { border-color: rgba(0,230,118,0.3); }
+.swap-input { background: transparent; border: none; outline: none; color: #fff; font-size: 20px; font-weight: 700; width: 60%; font-family: 'Space Mono', monospace; }

@@ -2,6 +2,50 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { syncUser, insertDeploy, patchDeployDb, insertPayment } from './db'
 
+// ── Migrate types ─────────────────────────────────────────────────────────────
+export type MigrationConfig = {
+  id: string
+  title: string
+  description: string
+  v1Token: string
+  v2Token: string
+  ratio: number
+  windowSeconds: number
+  cap: string
+  oracleMode: boolean
+  postWindowEnabled: boolean
+  vaultAddress: string | null
+  status: 'draft' | 'active' | 'paused' | 'completed' | 'stopped'
+  createdAt: string
+  owner: string
+}
+
+export type VaultStats = {
+  migrationId: string
+  totalDeposited: string
+  totalSwapped: string
+  participantCount: number
+  vaultBalance: string
+  windowEnd: number | null
+}
+
+export type OracleEvent = {
+  id: string
+  migrationId: string
+  type: 'swap' | 'disburse' | 'deposit' | 'error'
+  txHash: string | null
+  address: string
+  amount: string
+  timestamp: number
+  status: 'ok' | 'failed' | 'pending'
+}
+
+export type SnapshotHolder = {
+  address: string
+  v1Balance: string
+  v2Allocation: string
+}
+
 export type DeployRecord = {
   id: string
   tokenName: string
@@ -51,7 +95,21 @@ export const DEFAULT_CFG: TokenConfig = {
 
 const TIER_LIMITS: Record<string, number> = { free: 0, starter: 1, pro: 3, elite: 999 }
 
-type AppStore = {
+type MigrateStore = {
+  migrations: MigrationConfig[]
+  activeMigrationId: string | null
+  vaultStats: Record<string, VaultStats>
+  oracleEvents: Record<string, OracleEvent[]>
+  snapshotData: Record<string, SnapshotHolder[]>
+  addMigration: (m: MigrationConfig) => void
+  updateMigration: (id: string, patch: Partial<MigrationConfig>) => void
+  setActiveMigration: (id: string | null) => void
+  setVaultStats: (id: string, stats: VaultStats) => void
+  addOracleEvent: (id: string, event: OracleEvent) => void
+  setSnapshotData: (id: string, holders: SnapshotHolder[]) => void
+}
+
+type AppStore = MigrateStore & {
   // wizard
   step: number
   setStep: (s: number) => void
@@ -80,6 +138,24 @@ type AppStore = {
 export const useStore = create<AppStore>()(
   persist(
     (set, get) => ({
+      // ── Migrate slice ──────────────────────────────────────────────────────
+      migrations: [],
+      activeMigrationId: null,
+      vaultStats: {},
+      oracleEvents: {},
+      snapshotData: {},
+      addMigration: (m) => set(s => ({ migrations: [m, ...s.migrations] })),
+      updateMigration: (id, patch) => set(s => ({
+        migrations: s.migrations.map(m => m.id === id ? { ...m, ...patch } : m)
+      })),
+      setActiveMigration: (id) => set({ activeMigrationId: id }),
+      setVaultStats: (id, stats) => set(s => ({ vaultStats: { ...s.vaultStats, [id]: stats } })),
+      addOracleEvent: (id, event) => set(s => ({
+        oracleEvents: { ...s.oracleEvents, [id]: [event, ...(s.oracleEvents[id] ?? [])] }
+      })),
+      setSnapshotData: (id, holders) => set(s => ({ snapshotData: { ...s.snapshotData, [id]: holders } })),
+
+      // ── Wizard ────────────────────────────────────────────────────────────
       step: 0,
       setStep: (step) => set({ step }),
 
