@@ -9,7 +9,7 @@
  */
 import { useState } from 'react'
 import { useWalletClient, usePublicClient, useChainId, useAccount } from 'wagmi'
-import { parseEther, formatUnits, parseUnits, maxUint256 } from 'viem'
+import { parseEther, parseUnits, maxUint256 } from 'viem'
 import { ROUTERS, CHAIN_EXPLORERS } from '../../lib/wagmi'
 import { StatusBox, Spinner } from '../ui-kit'
 
@@ -220,7 +220,7 @@ export function LiquidityLaunch({ contractAddress, tokenSymbol, tokenDecimals = 
         </div>
 
         {/* Input row */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px', gap: 10, marginBottom: 14 }}>
+        <div className="grid-2" style={{ gap: 10, marginBottom: 14 }}>
           <div>
             <div className="field-label">Token amount for LP ({tokenSymbol})</div>
             <input className="field-input" type="number" min="0" placeholder="e.g. 500000000"

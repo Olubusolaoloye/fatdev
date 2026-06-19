@@ -1,7 +1,7 @@
 export type SnapshotHolder = {
   address: string
-  v1Balance: bigint
-  v2Allocation: bigint
+  v1Balance: string
+  v2Allocation: string
 }
 
 /**

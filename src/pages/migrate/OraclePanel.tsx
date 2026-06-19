@@ -41,7 +41,7 @@ export function OraclePanel() {
         </div>
 
         {/* Stats row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 28 }}>
+        <div className="grid-4" style={{ gap: 10, marginBottom: 28 }}>
           {[
             { val: events.filter(e => e.status === 'ok').length.toString(), label: 'Events OK' },
             { val: events.filter(e => e.status === 'failed').length.toString(), label: 'Failed' },
@@ -57,7 +57,7 @@ export function OraclePanel() {
         </div>
 
         {/* 2-col layout */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 20 }}>
+        <div className="grid-2-collapse" style={{ gap: 20 }}>
 
           {/* Event feed */}
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -118,7 +118,7 @@ export function OraclePanel() {
             <div className="card">
               <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>Vault Controls</div>
               <VaultControls
-                migrationId={id ?? ''}
+                vaultAddress={migration?.vaultAddress}
                 paused={migration?.status === 'paused'}
               />
             </div>

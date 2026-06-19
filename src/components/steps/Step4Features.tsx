@@ -6,7 +6,7 @@ export function Step4Features() {
 
   return (
     <div className="step-panel">
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+      <div className="grid-2" style={{ gap: 10, marginBottom: 16 }}>
         <Toggle on={cfg.enableChangeTax}    onChange={v => setCfg({ enableChangeTax: v })}    name="Post-deploy tax edits"    desc="Owner can call completeCustoms() after deploy" />
         <Toggle on={cfg.enableKillBlock}    onChange={v => setCfg({ enableKillBlock: v })}    name={`Kill-block snipers (${cfg.kb} blocks)`} desc={`90% fee penalty in first ${cfg.kb} blocks — no permanent ban`} />
         <Toggle on={cfg.enableSwapLimit}    onChange={v => setCfg({ enableSwapLimit: v })}    name="Buy limit per tx"          desc="Enforce maxBuyAmount" />
@@ -17,7 +17,7 @@ export function Step4Features() {
         <Toggle on={cfg.currencyIsEth}      onChange={v => setCfg({ currencyIsEth: v })}      name="Native currency pair"      desc="Use WETH/WBNB as pair token" />
         <Toggle on={cfg.enableTransferFee}  onChange={v => setCfg({ enableTransferFee: v })}  name="Transfer fee"              desc="Apply sell-rate on wallet-to-wallet transfers" />
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+      <div className="grid-3" style={{ gap: 12 }}>
         <FieldGroup label="Kill blocks (kb)">
           <input className="field-input" type="number" min={0} max={10} value={cfg.kb}
             onChange={e => setCfg({ kb: +e.target.value })} />

@@ -276,7 +276,7 @@ export function AirdropTool() {
 
         {/* Summary box */}
         {tokenInfo && validRows.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 14 }}>
+          <div className="grid-3" style={{ gap: 10, marginBottom: 14 }}>
             {[
               { label: 'Recipients', value: validRows.length },
               { label: 'Total to send', value: `${totalAmt.toLocaleString()} ${tokenInfo.symbol}` },

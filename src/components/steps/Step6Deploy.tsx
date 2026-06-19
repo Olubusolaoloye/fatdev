@@ -174,7 +174,7 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
           submits the source code for verification on the block explorer.
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 16 }}>
+        <div className="grid-4" style={{ marginBottom: 16 }}>
           <SumTile val={cfg.name || '—'} label="Name" />
           <SumTile val={cfg.symbol || '—'} label="Symbol" />
           <SumTile val={chainName} label="Chain" />

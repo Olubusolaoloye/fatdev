@@ -47,8 +47,8 @@ export function MigrateLanding() {
   return (
     <div className="migrate-page step-panel">
       {/* Hero */}
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '3rem 2rem 0' }}>
-        <div className="migrate-hero" style={{ padding: '4rem 3rem', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '3rem 2rem 0', boxSizing: 'border-box' }}>
+        <div className="migrate-hero" style={{ padding: '4rem 3rem', textAlign: 'center', position: 'relative', overflow: 'hidden', boxSizing: 'border-box' }}>
           {/* Glow orbs */}
           <div style={{
             position: 'absolute', top: -80, left: '20%', width: 320, height: 320,
@@ -65,7 +65,7 @@ export function MigrateLanding() {
             <span className="pill pill-gold" style={{ marginBottom: 16, display: 'inline-block' }}>
               Migration Protocol
             </span>
-            <h1 style={{ fontSize: 46, fontWeight: 800, lineHeight: 1.15, marginBottom: 16, maxWidth: 640, margin: '0 auto 16px' }}>
+            <h1 style={{ fontSize: 'clamp(26px, 5vw, 46px)', fontWeight: 800, lineHeight: 1.15, marginBottom: 16, maxWidth: 640, margin: '0 auto 16px' }}>
               Token Migration,{' '}
               <span style={{ color: 'var(--gold)' }}>Done Right</span>
             </h1>
@@ -92,7 +92,7 @@ export function MigrateLanding() {
         </div>
 
         {/* Platform stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginTop: 24 }}>
+        <div className="grid-4" style={{ marginTop: 24 }}>
           {PLATFORM_STATS.map(s => (
             <div key={s.label} className="sum-tile">
               <div className="sum-val">{s.val}</div>
@@ -107,7 +107,7 @@ export function MigrateLanding() {
           <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 14, marginBottom: 32 }}>
             Four steps from old token to fully migrated community
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
+          <div className="grid-2" style={{ gap: 16 }}>
             {HOW_IT_WORKS.map(s => (
               <div key={s.step} className="card" style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
                 <div style={{

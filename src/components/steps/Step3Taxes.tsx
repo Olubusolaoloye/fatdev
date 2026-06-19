@@ -24,7 +24,7 @@ export function Step3Taxes() {
         </div>
         <TaxBar val={total} />
         <div style={{ height: 12 }} />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div className="grid-2" style={{ gap: 10 }}>
           {side === 'buy' ? (<>
             <FeeInput label="Fund"   value={cfg.buyFund}   onChange={v => setCfg({ buyFund: v })} />
             <FeeInput label="LP"     value={cfg.buyLP}     onChange={v => setCfg({ buyLP: v })} />
@@ -45,10 +45,10 @@ export function Step3Taxes() {
 
   return (
     <div className="step-panel">
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      <div className="grid-2" style={{ gap: 20 }}>
         <TaxCard side="buy" /><TaxCard side="sell" />
       </div>
-      <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div className="grid-2" style={{ marginTop: 16 }}>
         <FieldGroup label="Max buy amount (tokens)">
           <input className="field-input" type="number" value={cfg.maxBuyAmount}
             onChange={e => setCfg({ maxBuyAmount: e.target.value })} />

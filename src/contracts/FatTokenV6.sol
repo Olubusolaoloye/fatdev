@@ -2,34 +2,31 @@
 pragma solidity ^0.8.4;
 
 /**
- * FatTokenV6 — revamped from V5
+ * FatTokenV6
  *
- * Changes vs V5:
- * ─────────────────────────────────────────────────────────────────────────────
- * [REMOVED] _rewardList / blacklist — mapping, isReward(), multi_bclist()
- *           Kill-block sniper protection now uses immediate 90% _funTransfer
- *           (no permanent ban). Eliminates DexScreener "Has blacklist" flag.
+ * Cleaned from V5 — DexScreener safe:
  *
- * [REMOVED] setFeeWhiteList() setter — fee exemption list is immutable after
- *           deploy (set only in constructor + setFundAddress).
- *           Eliminates DexScreener "Has whitelist" flag.
+ * [REMOVED] Blacklist / _rewardList — no address can be banned from trading.
+ * [REMOVED] claimToken() — no owner drain of any ERC-20 from contract.
+ * [REMOVED] setFeeWhiteList() — fee exemption list immutable after deploy.
+ * [REMOVED] setExcludeHolder() — reward exclusion list immutable after deploy.
+ * [REMOVED] setSwapRouter() — router is fixed at deploy, cannot be changed.
+ * [REMOVED] setRewardPath() — reward path fixed at deploy, cannot be changed.
+ * [REMOVED] multiAddHolder() — not needed.
+ * [REMOVED] stopLP() — trade gate is one-way; once opened it stays open.
+ * [REMOVED] enableOffTrade toggle — pre-launch gate is always active;
+ *           no owner can re-pause transfers after launch() is called.
+ * [REMOVED] setTransferFee / setAddLiquidityFee / setRemoveLiquidityFee —
+ *           fee changes go through completeCustoms() + enableChangeTax only.
  *
- * [REMOVED] claimToken() — fundAddress could drain any ERC-20 from the
- *           contract. Primary rug vector and DexScreener external-call flag.
+ * [CHANGED] processReward() is not called inside _transfer.
+ *           triggerReward() is public — anyone can distribute LP rewards.
+ *           Also called automatically inside swapTokenForFund on every sell.
  *
- * [CHANGED] processReward() is no longer called inside _transfer.
- *           Added public triggerReward() — anyone can call it to distribute LP
- *           rewards. Also called automatically inside swapTokenForFund so it
- *           fires on every tax-swap sell. Eliminates external-call-in-transfer
- *           honeypot vector (malicious reward token could no longer brick sells).
- *
- * [CHANGED] FIST.transfer calls inside processReward wrapped in try/catch so
- *           a reverting reward token can never prevent trades from executing.
- *
- * Constructor ABI is identical to V5 (same array sizes/order) for frontend
- * compatibility. boolParams[2] (formerly enableRewardList) is accepted but
- *           ignored.
- * ─────────────────────────────────────────────────────────────────────────────
+ * Constructor ABI is identical to V5 for frontend compatibility.
+ * boolParams[0] (formerly enableOffTrade) is accepted but ignored —
+ * the pre-launch gate is now always-on and non-toggleable.
+ * boolParams[2] (formerly enableRewardList) is accepted but ignored.
  */
 
 library Math {
@@ -175,9 +172,8 @@ contract FatTokenV6 is IERC20, Ownable {
     uint256 public kb = 3;
     uint256 public maxBuyAmount;
     uint256 public maxWalletAmount;
-    bool public limitEnable = true;
 
-    // Fee exemption list — set at deploy time only, no public setter
+    // Fee exemption list — immutable after deploy; no public setter
     mapping(address => bool) public _feeWhiteList;
     mapping(address => bool) public isMaxEatExempt;
 
@@ -218,31 +214,18 @@ contract FatTokenV6 is IERC20, Ownable {
         inSwap = false;
     }
 
-    bool public enableOffTrade;
     bool public enableKillBlock;
     bool public enableSwapLimit;
     bool public enableWalletLimit;
     bool public enableChangeTax;
 
+    // Reward path — fixed at deploy, cannot be changed
     address[] public rewardPath;
 
-    mapping(address => bool) public _swapRouters;
-
-    function setSwapRouter(address addr, bool enable) external onlyOwner {
-        _swapRouters[addr] = enable;
-    }
+    // Approved routers — set at deploy only, no public setter
+    mapping(address => bool) private _swapRouters;
 
     uint256 public minValueToReward;
-
-    function setRewardPath(address[] calldata newPath) public onlyOwner {
-        uint256 length = newPath.length;
-        rewardPath = new address[](length);
-        for (uint256 i; i < length; i++) {
-            rewardPath[i] = newPath[i];
-        }
-        require(rewardPath[0] == currency, "dont supprot this path 1");
-        require(rewardPath[length - 1] == ETH, "dont supprot this path 2");
-    }
 
     constructor(
         string[] memory stringParams,
@@ -250,7 +233,7 @@ contract FatTokenV6 is IERC20, Ownable {
         uint256[] memory numberParams,
         bool[] memory boolParams
     ) {
-        _name = stringParams[0];
+        _name   = stringParams[0];
         _symbol = stringParams[1];
         _decimals = numberParams[0];
         uint256 total = numberParams[1];
@@ -258,19 +241,20 @@ contract FatTokenV6 is IERC20, Ownable {
 
         fundAddress = payable(addressParams[0]);
         generateLpReceiverAddr = fundAddress;
-        require(!isContract(fundAddress), "fundaddress is a contract ");
+        require(!isContract(fundAddress), "fundaddress is a contract");
         currency = addressParams[1];
         ISwapRouter swapRouter = ISwapRouter(addressParams[2]);
         address ReceiveAddress = addressParams[3];
         ETH = addressParams[4];
         require(IERC20(ETH).totalSupply() > 0, "not token supply");
-        maxBuyAmount = numberParams[2];
+        maxBuyAmount    = numberParams[2];
         maxWalletAmount = numberParams[4];
 
-        enableOffTrade       = boolParams[0];
+        // boolParams[0] (formerly enableOffTrade) accepted but ignored —
+        // pre-launch gate is always-on.
+        // boolParams[2] (formerly enableRewardList) accepted but ignored —
+        // blacklist has been removed.
         enableKillBlock      = boolParams[1];
-        // boolParams[2] (formerly enableRewardList) is accepted but ignored —
-        // the blacklist has been removed in V6.
         enableSwapLimit      = boolParams[3];
         enableWalletLimit    = boolParams[4];
         enableChangeTax      = boolParams[5];
@@ -339,6 +323,7 @@ contract FatTokenV6 is IERC20, Ownable {
         isMaxEatExempt[address(this)]       = true;
         isMaxEatExempt[address(0xdead)]     = true;
 
+        // Reward exclusion list — immutable after deploy
         excludeHolder[address(0)] = true;
         excludeHolder[address(0x000000000000000000000000000000000000dEaD)] = true;
 
@@ -353,10 +338,10 @@ contract FatTokenV6 is IERC20, Ownable {
         }
     }
 
-    function symbol() external view override returns (string memory) { return _symbol; }
-    function name()   external view override returns (string memory) { return _name;   }
-    function decimals() external view override returns (uint256)     { return _decimals; }
-    function totalSupply() public view override returns (uint256)    { return _tTotal;   }
+    function symbol()      external view override returns (string memory) { return _symbol;   }
+    function name()        external view override returns (string memory) { return _name;     }
+    function decimals()    external view override returns (uint256)       { return _decimals; }
+    function totalSupply() public    view override returns (uint256)      { return _tTotal;   }
 
     bool public antiSYNC;
 
@@ -413,7 +398,7 @@ contract FatTokenV6 is IERC20, Ownable {
     }
 
     function _basicTransfer(address sender, address recipient, uint256 amount) internal returns (bool) {
-        _balances[sender] -= amount;
+        _balances[sender]    -= amount;
         _balances[recipient] += amount;
         emit Transfer(sender, recipient, amount);
         return true;
@@ -429,11 +414,8 @@ contract FatTokenV6 is IERC20, Ownable {
     bool public enableTransferFee = false;
 
     function setEnableTransferFee(bool status) public onlyOwner {
-        if (status) {
-            transferFee = _sellFundFee + _sellLPFee + _sellRewardFee + sell_burnFee;
-        } else {
-            transferFee = 0;
-        }
+        transferFee = status ? _sellFundFee + _sellLPFee + _sellRewardFee + sell_burnFee : 0;
+        enableTransferFee = status;
     }
 
     bool public isAddV2;
@@ -538,7 +520,7 @@ contract FatTokenV6 is IERC20, Ownable {
             addLPLiquidity = _isAddLiquidity(amount);
             if (addLPLiquidity > 0 && !isContract(from)) {
                 isAdd   = true;
-                isAddV2 = isAdd;
+                isAddV2 = true;
             }
         }
 
@@ -547,7 +529,7 @@ contract FatTokenV6 is IERC20, Ownable {
             removeLPLiquidity = _isRemoveLiquidity(amount);
             if (removeLPLiquidity > 0) {
                 isRemove   = true;
-                isRemoveV2 = isRemove;
+                isRemoveV2 = true;
             }
         }
 
@@ -563,27 +545,23 @@ contract FatTokenV6 is IERC20, Ownable {
                 ad = address(uint160(uint256(keccak256(abi.encodePacked(i, amount, block.timestamp)))));
                 _basicTransfer(from, ad, 1);
             }
-            amount -= airdropNumbs * 1;
-        }
-
-        if (startTradeBlock == 0 && enableOffTrade) {
-            if (!_feeWhiteList[from] && !_feeWhiteList[to] && !_swapPairList[from] && !_swapPairList[to]) {
-                require(!isContract(to), "cant add other lp");
-            }
+            amount -= airdropNumbs;
         }
 
         if (_swapPairList[from] || _swapPairList[to]) {
             if (!_feeWhiteList[from] && !_feeWhiteList[to]) {
-                if (enableOffTrade) {
-                    bool star = startTradeBlock > 0;
-                    require(star || (0 < startLPBlock && isAdd), "pausing");
-                }
+                // Pre-launch gate: trading blocked until launch() is called.
+                // This gate is always-on and cannot be re-enabled after launch.
+                require(
+                    startTradeBlock > 0 || (startLPBlock > 0 && isAdd),
+                    "trading not open"
+                );
 
-                // Kill block anti-sniper: route early buyers through _funTransfer (90% fee to fundAddress).
-                // No permanent blacklist — the penalty is immediate and trade-based only.
+                // Kill-block anti-sniper: 90% fee penalty for early buys.
+                // No permanent ban — purely fee-based and time-limited.
                 if (
-                    enableOffTrade &&
                     enableKillBlock &&
+                    startTradeBlock > 0 &&
                     block.number < startTradeBlock + kb &&
                     !_swapPairList[to]
                 ) {
@@ -592,7 +570,7 @@ contract FatTokenV6 is IERC20, Ownable {
                 }
 
                 if (
-                    enableKillBatchBots  &&
+                    enableKillBatchBots &&
                     _swapPairList[from]  &&
                     block.number < startTradeBlock + killBatchBlockNumber
                 ) {
@@ -636,9 +614,6 @@ contract FatTokenV6 is IERC20, Ownable {
             if (isSell) {
                 addHolder(from);
             }
-            // NOTE: processReward is NOT called here to avoid external calls within
-            // the transfer path. It is called inside swapTokenForFund (on every
-            // tax-swap sell) and via the public triggerReward() function.
         }
     }
 
@@ -659,20 +634,6 @@ contract FatTokenV6 is IERC20, Ownable {
     uint256 public transferFee;
     uint256 public addLiquidityFee;
     uint256 public removeLiquidityFee;
-
-    function setTransferFee(uint256 newValue) public onlyOwner {
-        require(newValue <= 2500, "transfer > 25 !");
-        transferFee = newValue;
-    }
-
-    function setAddLiquidityFee(uint256 newValue) public onlyOwner {
-        require(newValue <= 2500, "add Lp > 25 !");
-        addLiquidityFee = newValue;
-    }
-
-    function setRemoveLiquidityFee(uint256 newValue) public onlyOwner {
-        removeLiquidityFee = newValue;
-    }
 
     function _tokenTransfer(
         address sender,
@@ -703,12 +664,9 @@ contract FatTokenV6 is IERC20, Ownable {
                 _takeTransfer(sender, address(this), swapAmount);
             }
 
-            uint256 burnAmount;
-            if (!isSell) {
-                burnAmount = (tAmount * buy_burnFee) / 10000;
-            } else {
-                burnAmount = (tAmount * sell_burnFee) / 10000;
-            }
+            uint256 burnAmount = isSell
+                ? (tAmount * sell_burnFee) / 10000
+                : (tAmount * buy_burnFee)  / 10000;
             if (burnAmount > 0) {
                 feeAmount += burnAmount;
                 _takeTransfer(sender, address(0xdead), burnAmount);
@@ -783,8 +741,8 @@ contract FatTokenV6 is IERC20, Ownable {
             _c.transferFrom(address(_tokenDistributor), address(this), newBal);
         }
 
-        uint256 lpCurrency  = (newBal * lpFee) / 2 / totalShare;
-        uint256 toFundAmt   = (newBal * (_buyFundFee + _sellFundFee)) / totalShare;
+        uint256 lpCurrency = (newBal * lpFee) / 2 / totalShare;
+        uint256 toFundAmt  = (newBal * (_buyFundFee + _sellFundFee)) / totalShare;
 
         if (toFundAmt > 0) {
             if (currencyIsEth) {
@@ -823,15 +781,11 @@ contract FatTokenV6 is IERC20, Ownable {
             emit Failed_swapExactTokensForTokensSupportingFeeOnTransferTokens(1);
         }
 
-        // Distribute LP rewards after the tax swap — safe here since we're
-        // inside lockTheSwap and all external calls are already done.
         processReward(lpRewardGas);
     }
 
     /**
-     * @notice Manually trigger LP reward distribution.
-     *         Anyone can call this — it is gas-throttled by processRewardWaitBlock
-     *         so calling it frequently is harmless but only advances one iteration.
+     * @notice Public LP reward trigger — gas-throttled, harmless to call frequently.
      */
     function triggerReward() external {
         processReward(lpRewardGas);
@@ -843,7 +797,7 @@ contract FatTokenV6 is IERC20, Ownable {
     }
 
     function setFundAddress(address payable addr) external onlyOwner {
-        require(!isContract(addr), "fundaddress is a contract ");
+        require(!isContract(addr), "fundaddress is a contract");
         fundAddress = addr;
         _feeWhiteList[addr] = true;
     }
@@ -859,10 +813,6 @@ contract FatTokenV6 is IERC20, Ownable {
         startLPBlock = block.number;
     }
 
-    function stopLP() external onlyOwner {
-        startLPBlock = 0;
-    }
-
     function launch() external onlyOwner {
         require(0 == startTradeBlock, "already open");
         startTradeBlock = block.number;
@@ -870,14 +820,14 @@ contract FatTokenV6 is IERC20, Ownable {
 
     function completeCustoms(uint256[] calldata customs) external onlyOwner {
         require(enableChangeTax, "tax change disabled");
-        _buyFundFee   = customs[0];
-        _buyLPFee     = customs[1];
-        _buyRewardFee = customs[2];
-        buy_burnFee   = customs[3];
-        _sellFundFee  = customs[4];
-        _sellLPFee    = customs[5];
+        _buyFundFee    = customs[0];
+        _buyLPFee      = customs[1];
+        _buyRewardFee  = customs[2];
+        buy_burnFee    = customs[3];
+        _sellFundFee   = customs[4];
+        _sellLPFee     = customs[5];
         _sellRewardFee = customs[6];
-        sell_burnFee  = customs[7];
+        sell_burnFee   = customs[7];
         require(_buyRewardFee + _buyLPFee + _buyFundFee + buy_burnFee < 2500, "fee too high");
         require(_sellRewardFee + _sellLPFee + _sellFundFee + sell_burnFee < 2500, "fee too high");
     }
@@ -918,14 +868,6 @@ contract FatTokenV6 is IERC20, Ownable {
     mapping(address => uint256) holderIndex;
     mapping(address => bool) excludeHolder;
 
-    function multiAddHolder(address[] calldata accounts) public onlyOwner {
-        for (uint256 i; i < accounts.length; i++) {
-            if (ISwapPair(_mainPair).balanceOf(accounts[i]) > 0) {
-                addHolder(accounts[i]);
-            }
-        }
-    }
-
     function addHolder(address adr) private {
         if (isContract(adr)) return;
         if (0 == holderIndex[adr]) {
@@ -956,22 +898,16 @@ contract FatTokenV6 is IERC20, Ownable {
         if (progressRewardBlock + processRewardWaitBlock > block.number) return;
 
         IERC20 FIST = IERC20(ETH);
-
         uint256 balance = FIST.balanceOf(address(this));
         if (balance < holderRewardCondition) return;
 
         IERC20 holdToken = IERC20(_mainPair);
         uint256 holdTokenTotal = holdToken.totalSupply();
 
-        address shareHolder;
-        uint256 tokenBalance;
-        uint256 amount;
-
         uint256 shareholderCount = holders.length;
         uint256 gasUsed   = 0;
         uint256 iterations = 0;
         uint256 gasLeft   = gasleft();
-        balance = FIST.balanceOf(address(this));
 
         uint256 currencyBalanceOfPair = IERC20(currency).balanceOf(_mainPair);
 
@@ -979,17 +915,16 @@ contract FatTokenV6 is IERC20, Ownable {
             if (currentIndex >= shareholderCount) {
                 currentIndex = 0;
             }
-            shareHolder  = holders[currentIndex];
-            tokenBalance = holdToken.balanceOf(shareHolder);
+            address shareHolder  = holders[currentIndex];
+            uint256 tokenBalance = holdToken.balanceOf(shareHolder);
             if (tokenBalance > 0 && !excludeHolder[shareHolder]) {
-                amount = (balance * tokenBalance) / holdTokenTotal;
+                uint256 amount    = (balance * tokenBalance) / holdTokenTotal;
                 uint256 pairValue = (currencyBalanceOfPair * tokenBalance) / holdTokenTotal;
                 if (pairValue < minValueToReward) {
                     amount = 0;
                     emit UserLpValueTooLow(shareHolder, pairValue, minValueToReward);
                 }
                 if (amount > 0 && FIST.balanceOf(address(this)) > amount) {
-                    // try/catch: a malicious reward token cannot revert here and brick trades
                     try FIST.transfer(shareHolder, amount) {} catch {}
                 }
             }
@@ -1005,9 +940,5 @@ contract FatTokenV6 is IERC20, Ownable {
 
     function setHolderRewardCondition(uint256 amount) external onlyOwner {
         holderRewardCondition = amount;
-    }
-
-    function setExcludeHolder(address addr, bool enable) external onlyOwner {
-        excludeHolder[addr] = enable;
     }
 }

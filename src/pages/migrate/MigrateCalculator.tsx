@@ -29,7 +29,7 @@ export function MigrateCalculator() {
         {/* Token params row */}
         <div className="card" style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 14, color: 'var(--text-secondary)' }}>Token Parameters</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div className="grid-2" style={{ gap: 16 }}>
             <div>
               <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
                 V1 Total Supply
@@ -76,7 +76,7 @@ export function MigrateCalculator() {
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: 'var(--text-secondary)' }}>
           Quick Scenarios
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
+        <div className="grid-3" style={{ gap: 12, marginBottom: 24 }}>
           {SCENARIOS.map(sc => {
             const needed = calcVaultNeeded(supply, ratio, sc.pct)
             const isActive = participation === sc.pct

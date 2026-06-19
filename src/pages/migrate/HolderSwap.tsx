@@ -161,7 +161,7 @@ export function HolderSwap() {
         </div>
 
         {/* Stats row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+        <div className="grid-3" style={{ gap: 10 }}>
           <div className="sum-tile">
             <div className="sum-val" style={{ fontSize: 16 }}>{m.ratio}×</div>
             <div className="sum-label">Rate</div>

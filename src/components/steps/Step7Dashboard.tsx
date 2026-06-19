@@ -22,7 +22,7 @@ export function Step7Dashboard() {
 
   return (
     <div className="step-panel">
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
+      <div className="grid-4" style={{ marginBottom: 20 }}>
         <SumTile val={address ? `${address.slice(0,6)}…${address.slice(-4)}` : '—'} label="Wallet" />
         <SumTile val={<span style={{ textTransform: 'uppercase' }}>{user?.tier ?? '—'}</span>} label="Plan" />
         <SumTile val={user?.deploysUsed ?? 0} label="Deploys used" />

@@ -15,67 +15,71 @@ export function MigrateNav() {
   return (
     <header style={{
       borderBottom: '0.5px solid var(--border)',
-      padding: '0 2rem',
       position: 'sticky',
       top: 0,
       zIndex: 50,
       background: 'var(--navy)',
     }}>
-      <div style={{
-        maxWidth: 1100,
-        margin: '0 auto',
-        height: 60,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 16,
-      }}>
-        {/* Brand */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{
-            width: 28, height: 28, borderRadius: 6, background: 'var(--gold)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <span style={{ color: 'var(--navy)', fontSize: 14, fontWeight: 800 }}>F</span>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 1.25rem' }}>
+
+        {/* Top row: brand + actions */}
+        <div style={{
+          height: 52,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 8,
+        }}>
+          {/* Brand */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <div style={{
+              width: 26, height: 26, borderRadius: 6, background: 'var(--gold)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <span style={{ color: 'var(--navy)', fontSize: 13, fontWeight: 800 }}>F</span>
+            </div>
+            <span className="migrate-nav-brand" style={{ fontWeight: 800, fontSize: 15 }}>FatDeploy</span>
+            <span style={{
+              fontSize: 10, fontWeight: 700, color: 'var(--navy)',
+              background: 'var(--gold)', padding: '1px 7px', borderRadius: 10,
+              letterSpacing: '0.06em',
+            }}>migrate</span>
           </div>
-          <span style={{ fontWeight: 800, fontSize: 15 }}>FatDeploy</span>
-          <span style={{
-            fontSize: 10, fontWeight: 700, color: 'var(--navy)',
-            background: 'var(--gold)', padding: '1px 7px', borderRadius: 10,
-            marginLeft: 4, letterSpacing: '0.06em',
-          }}>migrate</span>
+
+          {/* Right: deployer link + connect */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <NavLink
+              to="/"
+              style={{
+                fontSize: 11,
+                color: 'var(--text-muted)',
+                textDecoration: 'none',
+                padding: '4px 8px',
+                borderRadius: 6,
+                border: '0.5px solid var(--border)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              ← Deployer
+            </NavLink>
+            <ConnectButton accountStatus="avatar" chainStatus="icon" showBalance={false} />
+          </div>
         </div>
 
-        {/* Nav links */}
-        <nav style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-          <NavLink to="/migrate" end style={({ isActive }) => linkStyle(isActive)}>
-            Overview
-          </NavLink>
-          <NavLink to="/migrate/calculator" style={({ isActive }) => linkStyle(isActive)}>
-            Calculator
-          </NavLink>
-          <NavLink to="/migrate/dashboard" style={({ isActive }) => linkStyle(isActive)}>
-            Dashboard
-          </NavLink>
+        {/* Bottom row: nav tabs */}
+        <nav style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 20,
+          overflowX: 'auto',
+          paddingBottom: 1,
+          scrollbarWidth: 'none',
+        }}>
+          <NavLink to="/migrate" end style={({ isActive }) => linkStyle(isActive)}>Overview</NavLink>
+          <NavLink to="/migrate/calculator" style={({ isActive }) => linkStyle(isActive)}>Calculator</NavLink>
+          <NavLink to="/migrate/dashboard" style={({ isActive }) => linkStyle(isActive)}>Dashboard</NavLink>
         </nav>
 
-        {/* Right */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <NavLink
-            to="/"
-            style={{
-              fontSize: 12,
-              color: 'var(--text-muted)',
-              textDecoration: 'none',
-              padding: '5px 10px',
-              borderRadius: 6,
-              border: '0.5px solid var(--border)',
-            }}
-          >
-            ← Deployer
-          </NavLink>
-          <ConnectButton accountStatus="avatar" chainStatus="icon" showBalance={false} />
-        </div>
       </div>
     </header>
   )

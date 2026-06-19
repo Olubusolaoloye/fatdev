@@ -70,7 +70,7 @@ export function Step1Plan({ onNext }: { onNext: () => void }) {
       )}
 
       {/* Tier cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, margin: '16px 0' }}>
+      <div className="tier-cards-grid grid-3" style={{ margin: '16px 0' }}>
         {(Object.entries(TIERS) as [string, typeof TIERS['pro']][]).map(([key, tier]) => (
           <div key={key}
             className={`tier-card card-hover ${selectedTier === key ? 'selected' : ''}`}

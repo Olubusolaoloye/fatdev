@@ -32,7 +32,7 @@ export function Step5Review() {
 
   return (
     <div className="step-panel">
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
+      <div className="grid-4" style={{ marginBottom: 20 }}>
         <SumTile val={cfg.name || '—'} label="Name" />
         <SumTile val={cfg.symbol || '—'} label="Symbol" />
         <SumTile val={fmt(buyTotal)} label="Buy tax" />

@@ -18,7 +18,7 @@ export function MigrateDashboard() {
       <div style={{ maxWidth: 1000, margin: '0 auto', padding: '3rem 2rem' }}>
 
         {/* Header stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 32 }}>
+        <div className="grid-4" style={{ marginBottom: 32 }}>
           <div className="sum-tile">
             <div className="sum-val">{active.length}</div>
             <div className="sum-label">Active Vaults</div>

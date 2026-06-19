@@ -23,7 +23,7 @@ export function Step2Identity() {
 
   return (
     <div className="step-panel">
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+      <div className="grid-2" style={{ marginBottom: 16 }}>
         <FieldGroup label="Token name">
           <input className="field-input" placeholder="e.g. Blin Token" value={cfg.name}
             onChange={e => setCfg({ name: e.target.value })} />

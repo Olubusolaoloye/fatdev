@@ -38,7 +38,7 @@ export function ParticipationSlider({ totalV1Supply, ratio, participation, onCha
       </div>
 
       {/* Live tiles */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+      <div className="grid-3" style={{ gap: 12 }}>
         <div className="sum-tile">
           <div className="sum-val">{tokensToMigrate.toLocaleString()}</div>
           <div className="sum-label">Tokens to Migrate</div>

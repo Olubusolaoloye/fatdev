@@ -178,48 +178,48 @@ export default function App() {
   return (
     <div className="app">
       {/* ── Header ── */}
-      <header style={{ borderBottom: '0.5px solid var(--border)', padding: '0 2rem' }}>
-        <div style={{ maxWidth: 920, margin: '0 auto', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <header className="app-header" style={{ borderBottom: '0.5px solid var(--border)', padding: '0 2rem' }}>
+        <div className="app-header-inner" style={{ maxWidth: 920, margin: '0 auto', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           {/* Logo */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
             <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <span style={{ color: 'var(--navy)', fontSize: 14, fontWeight: 800 }}>F</span>
             </div>
-            <span style={{ fontWeight: 800, fontSize: 16 }}>FatDev</span>
-            <span className="pill pill-gold" style={{ marginLeft: 4 }}>BETA</span>
+            <span className="header-logo-text" style={{ fontWeight: 800, fontSize: 16 }}>FatDev</span>
+            <span className="pill pill-gold header-hide-mobile" style={{ marginLeft: 4 }}>BETA</span>
           </div>
 
           {/* Right side */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Link
               to="/migrate"
               style={{
                 fontSize: 12, color: 'var(--gold)', textDecoration: 'none',
                 padding: '5px 12px', borderRadius: 6,
                 border: '0.5px solid rgba(255,215,0,0.3)',
-                fontWeight: 600,
+                fontWeight: 600, whiteSpace: 'nowrap',
               }}
             >
               Migrate ↗
             </Link>
             {isConnected && (
-              <span className="pill pill-gold" style={{ fontFamily: "'Space Mono',monospace", fontSize: 10 }}>
+              <span className="pill pill-gold header-hide-mobile" style={{ fontFamily: "'Space Mono',monospace", fontSize: 10 }}>
                 {chainName}
               </span>
             )}
             {isConnected && user?.tier !== 'free' && (
-              <span className="pill pill-ok" style={{ fontSize: 10 }}>
+              <span className="pill pill-ok header-hide-mobile" style={{ fontSize: 10 }}>
                 {user?.tier.toUpperCase()} · {deploysLeft} left
               </span>
             )}
             {isConnected && (
-              <button className="btn-ghost" style={{ padding: '5px 12px', fontSize: 12 }}
+              <button className="btn-ghost header-hide-mobile" style={{ padding: '5px 12px', fontSize: 12 }}
                 onClick={() => setStep(7)}>
                 Dashboard
               </button>
             )}
             {isConnected && (
-              <button className="btn-ghost" style={{ padding: '5px 12px', fontSize: 12 }}
+              <button className="btn-ghost header-hide-mobile" style={{ padding: '5px 12px', fontSize: 12 }}
                 onClick={() => setStep(8)}>
                 🛠 Tools
               </button>
@@ -234,7 +234,7 @@ export default function App() {
       </header>
 
       {/* ── Main ── */}
-      <main style={{ flex: 1, maxWidth: 920, margin: '0 auto', width: '100%', padding: '2rem' }}>
+      <main style={{ flex: 1, maxWidth: 920, margin: '0 auto', width: '100%', padding: '2rem', boxSizing: 'border-box' }}>
         {/* Step nav */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: '2.5rem', justifyContent: 'center' }}>
           {STEPS.map((s, i) => (
@@ -260,7 +260,7 @@ export default function App() {
           <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: "'Space Mono',monospace", letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 6 }}>
             Step {step + 1} / {STEPS.length}
           </div>
-          <h1 style={{ fontSize: 26, fontWeight: 800 }}>{STEP_TITLES[step]}</h1>
+          <h1 className="step-title" style={{ fontSize: 26, fontWeight: 800 }}>{STEP_TITLES[step]}</h1>
         </div>
 
         {/* Step panels */}
@@ -276,7 +276,7 @@ export default function App() {
 
         {/* Nav buttons */}
         {step > 0 && step < 7 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2rem', gap: 10, flexWrap: 'wrap' }}>
             <button className="btn-ghost" onClick={() => setStep(step - 1)}>← Back</button>
             {step < 6 && (
               <button className="btn-primary" onClick={() => setStep(step + 1)} disabled={!canNext}>

@@ -164,7 +164,7 @@ export function MigrateCreate() {
         {wStep === 1 && (
           <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ fontWeight: 700, marginBottom: 4 }}>Vault Configuration</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div className="grid-2" style={{ gap: 16 }}>
               <div>
                 <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>V2 per V1 Ratio</label>
                 <input className="field-input" style={{ width: '100%' }} type="number" step="0.01" min="0.01" value={form.ratio} onChange={e => patch({ ratio: Number(e.target.value) })} />

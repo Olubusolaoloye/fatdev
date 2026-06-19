@@ -293,7 +293,7 @@ export function PresaleTool() {
 
         {/* Stats */}
         {presaleStatus && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
+          <div className="grid-4" style={{ gap: 10 }}>
             {[
               { label: 'Raised', value: `${raised} ${currency}` },
               { label: 'Hard Cap', value: `${activePresale.hardCap} ${currency}` },

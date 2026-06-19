@@ -80,7 +80,7 @@ export function SnapshotTool() {
         </div>
 
         {/* Stats row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 28 }}>
+        <div className="grid-4" style={{ gap: 10, marginBottom: 28 }}>
           <div className="sum-tile">
             <div className="sum-val">{holders.length.toLocaleString()}</div>
             <div className="sum-label">Holders Found</div>
