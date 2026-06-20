@@ -10,7 +10,7 @@
 import { useState, useEffect } from 'react'
 import { useWalletClient, usePublicClient, useChainId, useAccount } from 'wagmi'
 import { parseEther, parseUnits, formatUnits, maxUint256 } from 'viem'
-import { ROUTERS, CHAIN_EXPLORERS } from '../../lib/wagmi'
+import { CHAIN_EXPLORERS } from '../../lib/wagmi'
 import { StatusBox, Spinner } from '../ui-kit'
 
 // ── Minimal ABIs ──────────────────────────────────────────────────────────────
@@ -26,6 +26,14 @@ const ERC20_ABI = [
     inputs: [{ name: 'owner', type: 'address' }, { name: 'spender', type: 'address' }],
     outputs: [{ type: 'uint256' }] },
 ] as const
+
+// Reads the router + currency the token was actually deployed with
+const FAT_CONFIG_ABI = [
+  { name: '_swapRouter',  type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
+  { name: 'currency',     type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
+  { name: 'currencyIsEth',type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
+] as const
+
 
 const FAT_ABI = [
   { name: 'startLP', type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [] },
@@ -86,17 +94,21 @@ export function LiquidityLaunch({ contractAddress, tokenSymbol, tokenDecimals = 
   const [decimals,  setDecimals]  = useState<number>(tokenDecimals)
   const [balLoading, setBalLoading] = useState(false)
 
+  // Token's own router + currency (read from contract, not hardcoded)
+  const [tokenRouter, setTokenRouter]       = useState<string | null>(null)
+  const [tokenCurrencyIsEth, setTokenCurrencyIsEth] = useState<boolean | null>(null)
+  const [tokenCurrency, setTokenCurrency]   = useState<string | null>(null)
+
   // Execution state
   const [steps, setSteps]         = useState<LaunchState>(INIT)
   const [msgs,  setMsgs]          = useState<Partial<Record<keyof LaunchState, string>>>({})
   const [running, setRunning]     = useState(false)
   const [txLinks, setTxLinks]     = useState<Partial<Record<keyof LaunchState, string>>>({})
 
-  const router       = ROUTERS[chainId]
   const explorer     = CHAIN_EXPLORERS[chainId]
   const nativeSymbol = chainId === 56 || chainId === 97 ? 'BNB' : 'ETH'
 
-  // ── Read actual decimals + balance from chain ──────────────────────────────
+  // ── Read decimals, balance, AND the token's own router from chain ──────────
   useEffect(() => {
     if (!publicClient || !address || !contractAddress.startsWith('0x')) return
     const token = contractAddress as `0x${string}`
@@ -104,11 +116,16 @@ export function LiquidityLaunch({ contractAddress, tokenSymbol, tokenDecimals = 
     Promise.all([
       publicClient.readContract({ address: token, abi: ERC20_ABI, functionName: 'decimals' }),
       publicClient.readContract({ address: token, abi: ERC20_ABI, functionName: 'balanceOf', args: [address as `0x${string}`] }),
+      publicClient.readContract({ address: token, abi: FAT_CONFIG_ABI, functionName: '_swapRouter' }),
+      publicClient.readContract({ address: token, abi: FAT_CONFIG_ABI, functionName: 'currencyIsEth' }),
+      publicClient.readContract({ address: token, abi: FAT_CONFIG_ABI, functionName: 'currency' }),
     ])
-      .then(([dec, bal]) => {
-        const d = Number(dec as bigint | number)
-        setDecimals(d)
+      .then(([dec, bal, router, isEth, currency]) => {
+        setDecimals(Number(dec as bigint | number))
         setTokenBal(bal as bigint)
+        setTokenRouter((router as string).toLowerCase())
+        setTokenCurrencyIsEth(isEth as boolean)
+        setTokenCurrency(currency as string)
       })
       .catch(() => {})
       .finally(() => setBalLoading(false))
@@ -139,13 +156,27 @@ export function LiquidityLaunch({ contractAddress, tokenSymbol, tokenDecimals = 
       return
     }
 
+    // Guard: non-ETH currency needs addLiquidity, not addLiquidityETH
+    if (tokenCurrencyIsEth === false) {
+      setStep('approve', 'err',
+        `This token is paired with ${tokenCurrency ? tokenCurrency.slice(0,8)+'…' : 'a non-native token'}, not ${nativeSymbol}. ` +
+        `Use your DEX's "Add Liquidity" UI directly with both token addresses.`)
+      return
+    }
+
+    if (!tokenRouter) {
+      setStep('approve', 'err', 'Still reading token contract data — wait a moment and retry.')
+      return
+    }
+
     setRunning(true)
     setSteps(INIT)
     setMsgs({})
     setTxLinks({})
 
     const tokenAddress  = contractAddress as `0x${string}`
-    const routerAddress = router as `0x${string}`
+    // Use the router the token was ACTUALLY deployed with, not a hardcoded constant
+    const routerAddress = tokenRouter as `0x${string}`
     const slippageBps    = Math.round(Number(slippage) * 100)
     const slippageFactor = 10000 - slippageBps
 
@@ -332,10 +363,20 @@ export function LiquidityLaunch({ contractAddress, tokenSymbol, tokenDecimals = 
           </div>
         </div>
 
-        {/* DEX router info */}
-        {router && (
+        {/* DEX router info (read from token contract) */}
+        {tokenRouter ? (
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 14, fontFamily: "'Space Mono',monospace" }}>
-            Router: <span style={{ color: 'var(--gold)' }}>{router}</span>
+            Router (from contract): <span style={{ color: 'var(--gold)' }}>{tokenRouter}</span>
+          </div>
+        ) : balLoading ? (
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 14 }}>Reading token contract…</div>
+        ) : null}
+        {tokenCurrencyIsEth === false && (
+          <div style={{ marginBottom: 14, padding: '8px 12px', borderRadius: 8,
+            background: 'rgba(255,82,82,0.07)', border: '0.5px solid rgba(255,82,82,0.25)',
+            fontSize: 12, color: 'var(--red)', lineHeight: 1.6 }}>
+            ⚠ This token is paired with a non-native token (not {nativeSymbol}).
+            Use your DEX's Add Liquidity interface directly with both token contract addresses.
           </div>
         )}
 
@@ -410,7 +451,7 @@ export function LiquidityLaunch({ contractAddress, tokenSymbol, tokenDecimals = 
           <button
             className="btn-primary" style={{ width: '100%', padding: 13 }}
             onClick={run}
-            disabled={running || !tokenAmt || !ethAmt || !walletClient || !router || balInsufficient}>
+            disabled={running || !tokenAmt || !ethAmt || !walletClient || !tokenRouter || balInsufficient || tokenCurrencyIsEth === false}>
             {running
               ? 'Running launch sequence…'
               : hasError
@@ -419,8 +460,8 @@ export function LiquidityLaunch({ contractAddress, tokenSymbol, tokenDecimals = 
           </button>
         )}
 
-        {!router && (
-          <StatusBox msg="No DEX router configured for this chain. Add it to ROUTERS in lib/wagmi.ts." type="err" />
+        {!tokenRouter && !balLoading && contractAddress.startsWith('0x') && (
+          <StatusBox msg="Could not read router from token contract. Make sure you're on the right chain." type="err" />
         )}
 
         {/* Warning about launch() being irreversible */}
