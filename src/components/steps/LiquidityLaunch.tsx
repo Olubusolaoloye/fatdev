@@ -7,9 +7,9 @@
  *   3. startLP()      (enable LP additions on the contract)
  *   4. launch()       (open public trading — irreversible)
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useWalletClient, usePublicClient, useChainId, useAccount } from 'wagmi'
-import { parseEther, parseUnits, maxUint256 } from 'viem'
+import { parseEther, parseUnits, formatUnits, maxUint256 } from 'viem'
 import { ROUTERS, CHAIN_EXPLORERS } from '../../lib/wagmi'
 import { StatusBox, Spinner } from '../ui-kit'
 
@@ -77,9 +77,14 @@ export function LiquidityLaunch({ contractAddress, tokenSymbol, tokenDecimals = 
   const publicClient = usePublicClient()
 
   // Form inputs
-  const [tokenAmt,  setTokenAmt]  = useState('')          // token amount for LP
-  const [ethAmt,    setEthAmt]    = useState('')          // ETH/BNB amount for LP
-  const [slippage,  setSlippage]  = useState('1')         // % slippage tolerance
+  const [tokenAmt,  setTokenAmt]  = useState('')
+  const [ethAmt,    setEthAmt]    = useState('')
+  const [slippage,  setSlippage]  = useState('5')   // default 5% — tolerant for new pools
+
+  // On-chain balance & decimals
+  const [tokenBal,  setTokenBal]  = useState<bigint | null>(null)
+  const [decimals,  setDecimals]  = useState<number>(tokenDecimals)
+  const [balLoading, setBalLoading] = useState(false)
 
   // Execution state
   const [steps, setSteps]         = useState<LaunchState>(INIT)
@@ -87,9 +92,32 @@ export function LiquidityLaunch({ contractAddress, tokenSymbol, tokenDecimals = 
   const [running, setRunning]     = useState(false)
   const [txLinks, setTxLinks]     = useState<Partial<Record<keyof LaunchState, string>>>({})
 
-  const router    = ROUTERS[chainId]
-  const explorer  = CHAIN_EXPLORERS[chainId]
+  const router       = ROUTERS[chainId]
+  const explorer     = CHAIN_EXPLORERS[chainId]
   const nativeSymbol = chainId === 56 || chainId === 97 ? 'BNB' : 'ETH'
+
+  // ── Read actual decimals + balance from chain ──────────────────────────────
+  useEffect(() => {
+    if (!publicClient || !address || !contractAddress.startsWith('0x')) return
+    const token = contractAddress as `0x${string}`
+    setBalLoading(true)
+    Promise.all([
+      publicClient.readContract({ address: token, abi: ERC20_ABI, functionName: 'decimals' }),
+      publicClient.readContract({ address: token, abi: ERC20_ABI, functionName: 'balanceOf', args: [address as `0x${string}`] }),
+    ])
+      .then(([dec, bal]) => {
+        const d = Number(dec as bigint | number)
+        setDecimals(d)
+        setTokenBal(bal as bigint)
+      })
+      .catch(() => {})
+      .finally(() => setBalLoading(false))
+  }, [publicClient, address, contractAddress])
+
+  const balFormatted = tokenBal !== null ? formatUnits(tokenBal, decimals) : null
+  const balNum       = balFormatted ? parseFloat(balFormatted) : 0
+  const inputNum     = parseFloat(tokenAmt) || 0
+  const balInsufficient = tokenBal !== null && tokenAmt !== '' && inputNum > balNum
 
   function setStep(key: keyof LaunchState, state: StepState, msg?: string) {
     setSteps(s => ({ ...s, [key]: state }))
@@ -102,40 +130,65 @@ export function LiquidityLaunch({ contractAddress, tokenSymbol, tokenDecimals = 
   async function run() {
     if (!walletClient || !publicClient || !address) return
     if (!tokenAmt || !ethAmt) return
+
+    // Guard: check balance before doing anything
+    if (balInsufficient) {
+      setStep('approve', 'err',
+        `Your wallet only holds ${Number(balFormatted).toLocaleString()} ${tokenSymbol}. ` +
+        `Reduce the token amount or transfer tokens to this wallet first.`)
+      return
+    }
+
     setRunning(true)
     setSteps(INIT)
     setMsgs({})
     setTxLinks({})
 
-    const tokenAddress = contractAddress as `0x${string}`
+    const tokenAddress  = contractAddress as `0x${string}`
     const routerAddress = router as `0x${string}`
-    const slippageBps = Math.round(Number(slippage) * 100)    // e.g. 1% → 100
-    const slippageFactor = 10000 - slippageBps               // e.g. 9900
+    const slippageBps    = Math.round(Number(slippage) * 100)
+    const slippageFactor = 10000 - slippageBps
 
     try {
       // ── STEP 1: Approve ────────────────────────────────────────────────────
       setStep('approve', 'pending', 'Checking existing allowance…')
 
       const [acct] = await walletClient.getAddresses()
+
+      // Re-read live balance at run time (user may have received tokens after mount)
+      const liveBal = await publicClient.readContract({
+        address: tokenAddress, abi: ERC20_ABI,
+        functionName: 'balanceOf', args: [acct],
+      }) as bigint
+
+      const tokenAmtBig = parseUnits(tokenAmt, decimals)
+
+      if (liveBal < tokenAmtBig) {
+        throw new Error(
+          `Wallet balance too low: you have ${formatUnits(liveBal, decimals)} ${tokenSymbol} ` +
+          `but entered ${tokenAmt}. Use the MAX button or reduce the amount.`
+        )
+      }
+
       const currentAllowance = await publicClient.readContract({
         address: tokenAddress, abi: ERC20_ABI,
         functionName: 'allowance',
         args: [acct, routerAddress],
       }) as bigint
 
-      const tokenAmtBig = parseUnits(tokenAmt, tokenDecimals)
-
       if (currentAllowance < tokenAmtBig) {
-        setStep('approve', 'pending', `Approving ${routerAddress.slice(0, 10)}… to spend your tokens…`)
+        setStep('approve', 'pending', 'Approving router to spend your tokens (unlimited approval)…')
         const appHash = await walletClient.writeContract({
           address: tokenAddress, abi: ERC20_ABI,
           functionName: 'approve',
           args: [routerAddress, maxUint256],
           account: acct, chain: walletClient.chain!,
         })
-        setStep('approve', 'pending', 'Waiting for approval confirmation…')
+        setStep('approve', 'pending', 'Waiting for approval tx to confirm…')
         await publicClient.waitForTransactionReceipt({ hash: appHash })
         setTxLink('approve', appHash)
+        // Brief pause — some chains need 1–2 blocks before allowance is queryable
+        await new Promise(r => setTimeout(r, 2000))
         setStep('approve', 'ok', 'Router approved ✓')
       } else {
         setStep('approve', 'ok', 'Router already approved ✓')
@@ -191,11 +244,15 @@ export function LiquidityLaunch({ contractAddress, tokenSymbol, tokenDecimals = 
       const raw = e.message ?? String(e)
       // Friendly error translation
       const friendly =
-        raw.includes('TRANSFER_FROM_FAILED') ? 'Approve step failed — the router was not approved to spend your tokens. This was the bug! Re-run the sequence.' :
-        raw.includes('INSUFFICIENT_OUTPUT')  ? `Slippage too tight — try increasing slippage above ${slippage}%` :
-        raw.includes('EXPIRED')              ? 'Transaction expired — please try again' :
-        raw.includes('insufficient funds')   ? `Insufficient ${nativeSymbol} for liquidity + gas` :
-        raw.includes('user rejected')        ? 'Transaction rejected in wallet' :
+        raw.includes('Wallet balance too low')      ? raw :
+        raw.includes('TRANSFER_FROM_FAILED')        ? `Token transfer failed — your wallet may not hold enough ${tokenSymbol}. Check your balance and use the MAX button.` :
+        raw.includes('INSUFFICIENT_A')              ? `Slippage too tight — increase slippage above ${slippage}%` :
+        raw.includes('INSUFFICIENT_OUTPUT')         ? `Slippage too tight — increase slippage above ${slippage}%` :
+        raw.includes('insufficient allowance')      ? 'Approval did not register in time — click Retry to re-run.' :
+        raw.includes('EXPIRED')                     ? 'Transaction expired — please try again' :
+        raw.includes('insufficient funds')          ? `Not enough ${nativeSymbol} in wallet for liquidity + gas fees` :
+        raw.includes('user rejected')               ? 'Transaction rejected in wallet' :
+        raw.includes('execution reverted')          ? `Contract reverted — check token amount vs your balance, or increase slippage to ${Math.min(Number(slippage) + 5, 49)}%` :
         raw
       setStep(failKey, 'err', friendly)
     }
@@ -219,12 +276,49 @@ export function LiquidityLaunch({ contractAddress, tokenSymbol, tokenDecimals = 
           Skips the approve if the router already has sufficient allowance.
         </div>
 
+        {/* Balance display */}
+        <div style={{
+          marginBottom: 14, padding: '10px 14px', borderRadius: 8,
+          background: 'rgba(255,215,0,0.05)', border: '0.5px solid rgba(255,215,0,0.15)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+          flexWrap: 'wrap',
+        }}>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+            {balLoading
+              ? 'Reading wallet balance…'
+              : tokenBal === null
+                ? 'Connect wallet to see balance'
+                : balNum === 0
+                  ? <span style={{ color: 'var(--red)' }}>
+                      ⚠ No {tokenSymbol} in this wallet. Tokens were sent to the receiveAddress — switch wallet or transfer tokens here first.
+                    </span>
+                  : <span>Wallet balance: <strong style={{ color: 'var(--green)', fontFamily: "'Space Mono',monospace" }}>
+                      {Number(balFormatted).toLocaleString()} {tokenSymbol}
+                    </strong></span>
+            }
+          </div>
+          {balNum > 0 && (
+            <button onClick={() => setTokenAmt(balFormatted!)}
+              style={{ fontSize: 10, padding: '3px 10px', borderRadius: 20,
+                background: 'rgba(255,215,0,0.15)', color: 'var(--gold)',
+                border: '0.5px solid rgba(255,215,0,0.3)', cursor: 'pointer', fontWeight: 700 }}>
+              USE MAX
+            </button>
+          )}
+        </div>
+
         {/* Input row */}
         <div className="grid-2" style={{ gap: 10, marginBottom: 14 }}>
           <div>
             <div className="field-label">Token amount for LP ({tokenSymbol})</div>
             <input className="field-input" type="number" min="0" placeholder="e.g. 500000000"
-              value={tokenAmt} onChange={e => setTokenAmt(e.target.value)} />
+              value={tokenAmt} onChange={e => setTokenAmt(e.target.value)}
+              style={{ borderColor: balInsufficient ? 'var(--red)' : undefined }} />
+            {balInsufficient && (
+              <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>
+                Exceeds balance — use MAX or reduce amount
+              </div>
+            )}
           </div>
           <div>
             <div className="field-label">{nativeSymbol} amount for LP</div>
@@ -232,8 +326,8 @@ export function LiquidityLaunch({ contractAddress, tokenSymbol, tokenDecimals = 
               value={ethAmt} onChange={e => setEthAmt(e.target.value)} />
           </div>
           <div>
-            <div className="field-label">Slippage %</div>
-            <input className="field-input" type="number" min="0.1" max="50" step="0.1"
+            <div className="field-label">Slippage % <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(5–10% recommended for new pools)</span></div>
+            <input className="field-input" type="number" min="1" max="50" step="0.5"
               value={slippage} onChange={e => setSlippage(e.target.value)} />
           </div>
         </div>
@@ -316,7 +410,7 @@ export function LiquidityLaunch({ contractAddress, tokenSymbol, tokenDecimals = 
           <button
             className="btn-primary" style={{ width: '100%', padding: 13 }}
             onClick={run}
-            disabled={running || !tokenAmt || !ethAmt || !walletClient || !router}>
+            disabled={running || !tokenAmt || !ethAmt || !walletClient || !router || balInsufficient}>
             {running
               ? 'Running launch sequence…'
               : hasError
