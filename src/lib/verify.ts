@@ -1,4 +1,4 @@
-import SOURCE from '../contracts/FatTokenV5.sol?raw'
+import SOURCE from '../contracts/FatTokenV6.sol?raw'
 
 // Etherscan API V2 — single endpoint, chainId param selects the chain
 const VERIFY_API = 'https://api.etherscan.io/v2/api'
@@ -21,12 +21,12 @@ export async function verifyContract(
     contractaddress:     contractAddress,
     sourceCode:          SOURCE,
     codeformat:          'solidity-single-file',
-    contractname:        'FatTokenV5',
+    contractname:        'FatTokenV6',
     compilerversion:     COMPILER_VERSION,
     optimizationUsed:    '1',
     runs:                '200',
     constructorArguements: constructorArgs, // note: Etherscan typo is intentional
-    licenseType:         '3', // MIT
+    licenseType:         '1', // MIT
   })
 
   let guid: string
