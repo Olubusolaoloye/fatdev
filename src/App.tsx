@@ -139,9 +139,9 @@ export default function App() {
     if (isConnected && step === 0) setStep(1)
   }, [isConnected])
 
-  // Fall back to step 0 if disconnected
+  // Fall back to step 0 if disconnected — step 8 (Tools) is freely accessible
   useEffect(() => {
-    if (!isConnected && step > 0) setStep(0)
+    if (!isConnected && step > 0 && step !== 8) setStep(0)
   }, [isConnected])
 
   // Sync Supabase → Zustand on wallet connect (picks up admin tier/credit changes)
@@ -218,12 +218,10 @@ export default function App() {
                 Dashboard
               </button>
             )}
-            {isConnected && (
-              <button className="btn-ghost header-hide-mobile" style={{ padding: '5px 12px', fontSize: 12 }}
-                onClick={() => setStep(8)}>
-                🛠 Tools
-              </button>
-            )}
+            <button className="btn-ghost header-hide-mobile" style={{ padding: '5px 12px', fontSize: 12 }}
+              onClick={() => setStep(8)}>
+              🛠 Tools
+            </button>
             <ConnectButton
               accountStatus="avatar"
               chainStatus="icon"
@@ -241,7 +239,7 @@ export default function App() {
             <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <button
                 className={`step-dot ${i === step ? 'active' : i < step ? 'done' : ''}`}
-                onClick={() => i < step && setStep(i)}
+                onClick={() => (i < step || i === 8) && setStep(i)}
                 title={s}
               />
               {i < STEPS.length - 1 && (

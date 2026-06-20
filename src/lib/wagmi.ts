@@ -4,7 +4,7 @@ import { getDefaultConfig } from '@rainbow-me/rainbowkit'
 
 export const config = getDefaultConfig({
   appName: 'FatDev',
-  projectId: 'fatdev-demo',
+  projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'fatdev-demo',
   chains: [bsc, mainnet, arbitrum, bscTestnet],
   transports: {
     [bsc.id]: fallback([
