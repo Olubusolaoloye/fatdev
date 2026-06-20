@@ -29,15 +29,19 @@ const ERC20_ABI = [
 
 // Reads the router + currency the token was actually deployed with
 const FAT_CONFIG_ABI = [
-  { name: '_swapRouter',  type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
-  { name: 'currency',     type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
-  { name: 'currencyIsEth',type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
+  { name: '_swapRouter',      type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
+  { name: 'currency',         type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
+  { name: 'currencyIsEth',    type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
+  { name: 'antiSYNC',         type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
+  { name: 'startTradeBlock',  type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { name: 'startLPBlock',     type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
 ] as const
 
-
 const FAT_ABI = [
-  { name: 'startLP', type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [] },
-  { name: 'launch',  type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [] },
+  { name: 'startLP',            type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [] },
+  { name: 'launch',             type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [] },
+  { name: 'setAntiSYNCEnable',  type: 'function', stateMutability: 'nonpayable',
+    inputs: [{ name: 's', type: 'bool' }], outputs: [] },
 ] as const
 
 const ROUTER_ABI = [
@@ -95,9 +99,12 @@ export function LiquidityLaunch({ contractAddress, tokenSymbol, tokenDecimals = 
   const [balLoading, setBalLoading] = useState(false)
 
   // Token's own router + currency (read from contract, not hardcoded)
-  const [tokenRouter, setTokenRouter]       = useState<string | null>(null)
-  const [tokenCurrencyIsEth, setTokenCurrencyIsEth] = useState<boolean | null>(null)
-  const [tokenCurrency, setTokenCurrency]   = useState<string | null>(null)
+  const [tokenRouter, setTokenRouter]                 = useState<string | null>(null)
+  const [tokenCurrencyIsEth, setTokenCurrencyIsEth]   = useState<boolean | null>(null)
+  const [tokenCurrency, setTokenCurrency]             = useState<string | null>(null)
+  const [antiSyncEnabled, setAntiSyncEnabled]         = useState<boolean>(false)
+  const [alreadyLaunched, setAlreadyLaunched]         = useState<boolean>(false)
+  const [alreadyStartedLP, setAlreadyStartedLP]       = useState<boolean>(false)
 
   // Execution state
   const [steps, setSteps]         = useState<LaunchState>(INIT)
@@ -119,13 +126,19 @@ export function LiquidityLaunch({ contractAddress, tokenSymbol, tokenDecimals = 
       publicClient.readContract({ address: token, abi: FAT_CONFIG_ABI, functionName: '_swapRouter' }),
       publicClient.readContract({ address: token, abi: FAT_CONFIG_ABI, functionName: 'currencyIsEth' }),
       publicClient.readContract({ address: token, abi: FAT_CONFIG_ABI, functionName: 'currency' }),
+      publicClient.readContract({ address: token, abi: FAT_CONFIG_ABI, functionName: 'antiSYNC' }),
+      publicClient.readContract({ address: token, abi: FAT_CONFIG_ABI, functionName: 'startTradeBlock' }),
+      publicClient.readContract({ address: token, abi: FAT_CONFIG_ABI, functionName: 'startLPBlock' }),
     ])
-      .then(([dec, bal, router, isEth, currency]) => {
+      .then(([dec, bal, router, isEth, currency, antiSync, tradeBlock, lpBlock]) => {
         setDecimals(Number(dec as bigint | number))
         setTokenBal(bal as bigint)
         setTokenRouter((router as string).toLowerCase())
         setTokenCurrencyIsEth(isEth as boolean)
         setTokenCurrency(currency as string)
+        setAntiSyncEnabled(antiSync as boolean)
+        setAlreadyLaunched((tradeBlock as bigint) > 0n)
+        setAlreadyStartedLP((lpBlock as bigint) > 0n)
       })
       .catch(() => {})
       .finally(() => setBalLoading(false))
@@ -177,18 +190,32 @@ export function LiquidityLaunch({ contractAddress, tokenSymbol, tokenDecimals = 
     const tokenAddress  = contractAddress as `0x${string}`
     // Use the router the token was ACTUALLY deployed with, not a hardcoded constant
     const routerAddress = tokenRouter as `0x${string}`
-    const slippageBps    = Math.round(Number(slippage) * 100)
-    const slippageFactor = 10000 - slippageBps
+    void slippage // minimums are 0n for first add — no existing price to protect
 
     try {
-      // ── STEP 1: Approve ────────────────────────────────────────────────────
-      setStep('approve', 'pending', 'Checking existing allowance…')
-
       const [acct] = await walletClient.getAddresses()
 
+      // ── STEP 0 (inside approve): Disable antiSYNC if on ───────────────────
+      // antiSYNC blocks the PancakeSwap pair from calling balanceOf(pair)
+      // during mint() when the pool is empty — first LP add always reverts.
+      setStep('approve', 'pending', antiSyncEnabled ? 'Disabling antiSYNC (required for first liquidity add)…' : 'Checking existing allowance…')
+
+      if (antiSyncEnabled) {
+        const disableHash = await walletClient.writeContract({
+          address: tokenAddress as `0x${string}`, abi: FAT_ABI,
+          functionName: 'setAntiSYNCEnable',
+          args: [false],
+          account: acct, chain: walletClient.chain!,
+        })
+        await publicClient.waitForTransactionReceipt({ hash: disableHash })
+        setAntiSyncEnabled(false)
+        setStep('approve', 'pending', 'antiSYNC disabled. Checking allowance…')
+      }
+
+      // ── STEP 1: Approve ────────────────────────────────────────────────────
       // Re-read live balance at run time (user may have received tokens after mount)
       const liveBal = await publicClient.readContract({
-        address: tokenAddress, abi: ERC20_ABI,
+        address: tokenAddress as `0x${string}`, abi: ERC20_ABI,
         functionName: 'balanceOf', args: [acct],
       }) as bigint
 
@@ -202,7 +229,7 @@ export function LiquidityLaunch({ contractAddress, tokenSymbol, tokenDecimals = 
       }
 
       const currentAllowance = await publicClient.readContract({
-        address: tokenAddress, abi: ERC20_ABI,
+        address: tokenAddress as `0x${string}`, abi: ERC20_ABI,
         functionName: 'allowance',
         args: [acct, routerAddress],
       }) as bigint
@@ -210,7 +237,7 @@ export function LiquidityLaunch({ contractAddress, tokenSymbol, tokenDecimals = 
       if (currentAllowance < tokenAmtBig) {
         setStep('approve', 'pending', 'Approving router to spend your tokens (unlimited approval)…')
         const appHash = await walletClient.writeContract({
-          address: tokenAddress, abi: ERC20_ABI,
+          address: tokenAddress as `0x${string}`, abi: ERC20_ABI,
           functionName: 'approve',
           args: [routerAddress, maxUint256],
           account: acct, chain: walletClient.chain!,
@@ -229,14 +256,15 @@ export function LiquidityLaunch({ contractAddress, tokenSymbol, tokenDecimals = 
       setStep('addLiq', 'pending', `Adding ${tokenAmt} ${tokenSymbol} + ${ethAmt} ${nativeSymbol} to liquidity pool…`)
 
       const ethAmtBig      = parseEther(ethAmt)
-      const tokenAmtMin    = (tokenAmtBig * BigInt(slippageFactor)) / 10000n
-      const ethAmtMin      = (ethAmtBig   * BigInt(slippageFactor)) / 10000n
+      // Use 0 minimums for the very first liquidity add — no existing price to protect
+      const tokenAmtMin    = 0n
+      const ethAmtMin      = 0n
       const deadline       = BigInt(Math.floor(Date.now() / 1000) + 1200) // 20 min
 
       const liqHash = await walletClient.writeContract({
         address: routerAddress, abi: ROUTER_ABI,
         functionName: 'addLiquidityETH',
-        args: [tokenAddress, tokenAmtBig, tokenAmtMin, ethAmtMin, acct, deadline],
+        args: [tokenAddress as `0x${string}`, tokenAmtBig, tokenAmtMin, ethAmtMin, acct, deadline],
         value: ethAmtBig,
         account: acct, chain: walletClient.chain!,
       })
@@ -245,27 +273,37 @@ export function LiquidityLaunch({ contractAddress, tokenSymbol, tokenDecimals = 
       setTxLink('addLiq', liqHash)
       setStep('addLiq', 'ok', 'Liquidity added ✓')
 
-      // ── STEP 3: startLP ────────────────────────────────────────────────────
-      setStep('startLP', 'pending', 'Calling startLP() to enable LP additions…')
-      const startLPHash = await walletClient.writeContract({
-        address: tokenAddress, abi: FAT_ABI,
-        functionName: 'startLP',
-        account: acct, chain: walletClient.chain!,
-      })
-      await publicClient.waitForTransactionReceipt({ hash: startLPHash })
-      setTxLink('startLP', startLPHash)
-      setStep('startLP', 'ok', 'startLP() confirmed ✓')
+      // ── STEP 3: startLP (skip if already done) ────────────────────────────
+      if (alreadyStartedLP) {
+        setStep('startLP', 'ok', 'startLP() already called ✓')
+      } else {
+        setStep('startLP', 'pending', 'Calling startLP() to enable LP additions…')
+        const startLPHash = await walletClient.writeContract({
+          address: tokenAddress as `0x${string}`, abi: FAT_ABI,
+          functionName: 'startLP',
+          account: acct, chain: walletClient.chain!,
+        })
+        await publicClient.waitForTransactionReceipt({ hash: startLPHash })
+        setTxLink('startLP', startLPHash)
+        setAlreadyStartedLP(true)
+        setStep('startLP', 'ok', 'startLP() confirmed ✓')
+      }
 
-      // ── STEP 4: launch ─────────────────────────────────────────────────────
-      setStep('launch', 'pending', 'Calling launch() — this opens public trading…')
-      const launchHash = await walletClient.writeContract({
-        address: tokenAddress, abi: FAT_ABI,
-        functionName: 'launch',
-        account: acct, chain: walletClient.chain!,
-      })
-      await publicClient.waitForTransactionReceipt({ hash: launchHash })
-      setTxLink('launch', launchHash)
-      setStep('launch', 'ok', `🚀 ${tokenSymbol} is now live for public trading!`)
+      // ── STEP 4: launch (skip if already done) ─────────────────────────────
+      if (alreadyLaunched) {
+        setStep('launch', 'ok', `${tokenSymbol} trading was already open ✓`)
+      } else {
+        setStep('launch', 'pending', 'Calling launch() — this opens public trading…')
+        const launchHash = await walletClient.writeContract({
+          address: tokenAddress as `0x${string}`, abi: FAT_ABI,
+          functionName: 'launch',
+          account: acct, chain: walletClient.chain!,
+        })
+        await publicClient.waitForTransactionReceipt({ hash: launchHash })
+        setTxLink('launch', launchHash)
+        setAlreadyLaunched(true)
+        setStep('launch', 'ok', `🚀 ${tokenSymbol} is now live for public trading!`)
+      }
 
     } catch (e: any) {
       // Mark whichever step is still pending as failed
@@ -277,13 +315,16 @@ export function LiquidityLaunch({ contractAddress, tokenSymbol, tokenDecimals = 
       const friendly =
         raw.includes('Wallet balance too low')      ? raw :
         raw.includes('TRANSFER_FROM_FAILED')        ? `Token transfer failed — your wallet may not hold enough ${tokenSymbol}. Check your balance and use the MAX button.` :
-        raw.includes('INSUFFICIENT_A')              ? `Slippage too tight — increase slippage above ${slippage}%` :
-        raw.includes('INSUFFICIENT_OUTPUT')         ? `Slippage too tight — increase slippage above ${slippage}%` :
+        raw.includes('!sync')                       ? 'antiSYNC is blocking the pool — click Retry and it will be disabled automatically.' :
+        raw.includes('INSUFFICIENT_A')              ? 'Add liquidity failed (INSUFFICIENT_A) — try again, amounts are already 0-slippage.' :
+        raw.includes('INSUFFICIENT_OUTPUT')         ? 'Add liquidity failed (INSUFFICIENT_OUTPUT) — try again.' :
         raw.includes('insufficient allowance')      ? 'Approval did not register in time — click Retry to re-run.' :
+        raw.includes('startedAddLP')                ? 'startLP() already called — click Retry, it will be skipped.' :
+        raw.includes('already open')                ? 'launch() already called — click Retry, it will be skipped.' :
         raw.includes('EXPIRED')                     ? 'Transaction expired — please try again' :
         raw.includes('insufficient funds')          ? `Not enough ${nativeSymbol} in wallet for liquidity + gas fees` :
         raw.includes('user rejected')               ? 'Transaction rejected in wallet' :
-        raw.includes('execution reverted')          ? `Contract reverted — check token amount vs your balance, or increase slippage to ${Math.min(Number(slippage) + 5, 49)}%` :
+        raw.includes('execution reverted')          ? `Contract reverted: ${raw.slice(0, 120)}` :
         raw
       setStep(failKey, 'err', friendly)
     }
@@ -337,6 +378,25 @@ export function LiquidityLaunch({ contractAddress, tokenSymbol, tokenDecimals = 
             </button>
           )}
         </div>
+
+        {/* antiSYNC auto-fix notice */}
+        {antiSyncEnabled && (
+          <div style={{ marginBottom: 14, padding: '8px 12px', borderRadius: 8,
+            background: 'rgba(255,152,0,0.07)', border: '0.5px solid rgba(255,152,0,0.3)',
+            fontSize: 12, color: '#ffab40', lineHeight: 1.6 }}>
+            ⚡ <strong>antiSYNC is ON</strong> — this blocks the first liquidity add.
+            It will be <strong>automatically disabled</strong> as step 1 of the sequence.
+          </div>
+        )}
+
+        {/* Already-launched notice */}
+        {alreadyLaunched && (
+          <div style={{ marginBottom: 14, padding: '8px 12px', borderRadius: 8,
+            background: 'rgba(0,230,118,0.07)', border: '0.5px solid rgba(0,230,118,0.25)',
+            fontSize: 12, color: 'var(--green)', lineHeight: 1.6 }}>
+            ✓ Trading is already open. You can still add more liquidity — startLP/launch steps will be skipped.
+          </div>
+        )}
 
         {/* Input row */}
         <div className="grid-2" style={{ gap: 10, marginBottom: 14 }}>
