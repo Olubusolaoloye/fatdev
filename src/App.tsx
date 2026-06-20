@@ -13,11 +13,10 @@ import { Step4Features } from './components/steps/Step4Features'
 import { Step5Review }  from './components/steps/Step5Review'
 import { Step6Deploy }  from './components/steps/Step6Deploy'
 import { Step7Dashboard } from './components/steps/Step7Dashboard'
-import { ToolsHub }       from './components/tools/ToolsHub'
 import { AdminDashboard } from './components/admin/AdminDashboard'
 import './index.css'
 
-const STEPS = ['Connect', 'Plan', 'Identity', 'Taxes', 'Features', 'Review', 'Deploy', 'Dashboard', 'Tools']
+const STEPS = ['Connect', 'Plan', 'Identity', 'Taxes', 'Features', 'Review', 'Deploy', 'Dashboard']
 
 const STEP_TITLES = [
   'Connect Wallet',
@@ -28,7 +27,6 @@ const STEP_TITLES = [
   'Review & Export',
   'Deploy On-Chain',
   'My Deploys',
-  'Tools',
 ]
 
 const taxTotal = (cfg: any, side: 'buy' | 'sell') =>
@@ -139,9 +137,9 @@ export default function App() {
     if (isConnected && step === 0) setStep(1)
   }, [isConnected])
 
-  // Fall back to step 0 if disconnected — step 8 (Tools) is freely accessible
+  // Fall back to step 0 if disconnected
   useEffect(() => {
-    if (!isConnected && step > 0 && step !== 8) setStep(0)
+    if (!isConnected && step > 0) setStep(0)
   }, [isConnected])
 
   // Sync Supabase → Zustand on wallet connect (picks up admin tier/credit changes)
@@ -181,27 +179,26 @@ export default function App() {
       <header className="app-header" style={{ borderBottom: '0.5px solid var(--border)', padding: '0 2rem' }}>
         <div className="app-header-inner" style={{ maxWidth: 920, margin: '0 auto', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           {/* Logo */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, textDecoration: 'none', color: 'inherit' }}>
             <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <span style={{ color: 'var(--navy)', fontSize: 14, fontWeight: 800 }}>F</span>
             </div>
             <span className="header-logo-text" style={{ fontWeight: 800, fontSize: 16 }}>FatDev</span>
             <span className="pill pill-gold header-hide-mobile" style={{ marginLeft: 4 }}>BETA</span>
-          </div>
+          </Link>
 
           {/* Right side */}
           <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Link
-              to="/migrate"
-              style={{
-                fontSize: 12, color: 'var(--gold)', textDecoration: 'none',
-                padding: '5px 12px', borderRadius: 6,
-                border: '0.5px solid rgba(255,215,0,0.3)',
-                fontWeight: 600, whiteSpace: 'nowrap',
-              }}
-            >
-              Migrate ↗
-            </Link>
+            <Link to="/tools" style={{
+              fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none',
+              padding: '5px 12px', borderRadius: 6, fontWeight: 600,
+            }} className="header-hide-mobile">🛠 Tools</Link>
+            <Link to="/migrate" style={{
+              fontSize: 12, color: 'var(--gold)', textDecoration: 'none',
+              padding: '5px 12px', borderRadius: 6,
+              border: '0.5px solid rgba(255,215,0,0.3)',
+              fontWeight: 600, whiteSpace: 'nowrap',
+            }}>Migrate ↗</Link>
             {isConnected && (
               <span className="pill pill-gold header-hide-mobile" style={{ fontFamily: "'Space Mono',monospace", fontSize: 10 }}>
                 {chainName}
@@ -218,10 +215,6 @@ export default function App() {
                 Dashboard
               </button>
             )}
-            <button className="btn-ghost header-hide-mobile" style={{ padding: '5px 12px', fontSize: 12 }}
-              onClick={() => setStep(8)}>
-              🛠 Tools
-            </button>
             <ConnectButton
               accountStatus="avatar"
               chainStatus="icon"
@@ -239,7 +232,7 @@ export default function App() {
             <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <button
                 className={`step-dot ${i === step ? 'active' : i < step ? 'done' : ''}`}
-                onClick={() => (i < step || i === 8) && setStep(i)}
+                onClick={() => i < step && setStep(i)}
                 title={s}
               />
               {i < STEPS.length - 1 && (
@@ -270,7 +263,6 @@ export default function App() {
         {step === 5 && <Step5Review />}
         {step === 6 && <Step6Deploy onSuccess={() => setStep(7)} />}
         {step === 7 && <Step7Dashboard />}
-        {step === 8 && <ToolsHub />}
 
         {/* Nav buttons */}
         {step > 0 && step < 7 && (
