@@ -1,13 +1,21 @@
 import { useState } from 'react'
-import { AirdropTool }    from './AirdropTool'
+import { AirdropTool }     from './AirdropTool'
 import { HolderAnalytics } from './HolderAnalytics'
-import { AuditScore }     from './AuditScore'
-import { PresaleTool }    from './PresaleTool'
-import { SocialTools }    from './SocialTools'
+import { AuditScore }      from './AuditScore'
+import { PresaleTool }     from './PresaleTool'
+import { SocialTools }     from './SocialTools'
+import { SecurityScanner } from './SecurityScanner'
 
-type Tool = 'airdrop' | 'analytics' | 'audit' | 'presale' | 'social'
+type Tool = 'airdrop' | 'analytics' | 'audit' | 'presale' | 'social' | 'scanner'
 
 const TOOLS: { key: Tool; icon: string; title: string; desc: string; badge?: string }[] = [
+  {
+    key:   'scanner',
+    icon:  '🔍',
+    title: 'Security Scanner',
+    desc:  'Full on-chain security audit — honeypot detection, blacklist, mint risk, tax simulation, LP lock %, and a live 0–100 trust score. Powered by GoPlus + Honeypot.is.',
+    badge: 'New',
+  },
   {
     key:   'audit',
     icon:  '🛡️',
@@ -20,14 +28,12 @@ const TOOLS: { key: Tool; icon: string; title: string; desc: string; badge?: str
     icon:  '🎯',
     title: 'Presale / Fairlaunch',
     desc:  'Deploy a presale contract with hard cap, soft cap, whitelist, and price. Auto-adds liquidity on finalise. No PinkSale needed.',
-    badge: 'New',
   },
   {
     key:   'social',
     icon:  '📢',
     title: 'Social & Community',
     desc:  'One-click announcement templates for Telegram, X, and Discord pre-filled with your tokenomics. Plus an embeddable website widget.',
-    badge: 'New',
   },
   {
     key:   'airdrop',
@@ -61,6 +67,7 @@ export function ToolsHub() {
             <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>{tool.desc}</p>
           </div>
         </div>
+        {active === 'scanner'   && <SecurityScanner />}
         {active === 'airdrop'   && <AirdropTool />}
         {active === 'analytics' && <HolderAnalytics />}
         {active === 'audit'     && <AuditScore />}
