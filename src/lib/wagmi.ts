@@ -4,7 +4,10 @@ import { getDefaultConfig } from '@rainbow-me/rainbowkit'
 
 export const config = getDefaultConfig({
   appName: 'FatDev',
-  projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'fatdev-demo',
+  appDescription: 'No-code BEP-20 / ERC-20 token deployer — deploy FatToken without writing Solidity.',
+  appUrl: import.meta.env.VITE_APP_URL || 'https://fatdev.io',
+  appIcon: (import.meta.env.VITE_APP_URL || 'https://fatdev.io') + '/logo.png',
+  projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '',
   chains: [bsc, mainnet, arbitrum, bscTestnet],
   transports: {
     [bsc.id]: fallback([
