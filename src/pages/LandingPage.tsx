@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useAccount } from 'wagmi'
+import Navbar from '../components/Navbar'
 
 // ── Intersection observer for scroll-reveal ───────────────────────────────────
 function useReveal() {
@@ -46,98 +46,6 @@ function Reveal({ children, delay = 0, style }: { children: React.ReactNode; del
       ...style,
     }}>
       {children}
-    </div>
-  )
-}
-
-// ── Mobile nav ────────────────────────────────────────────────────────────────
-function MobileNav({ open, onClose }: { open: boolean; onClose: () => void }) {
-  useEffect(() => {
-    document.body.style.overflow = open ? 'hidden' : ''
-    return () => { document.body.style.overflow = '' }
-  }, [open])
-
-  const links = [
-    { to: '/',        label: 'Home'      },
-    { to: '/tools',   label: 'Tools'     },
-    { to: '/migrate', label: 'Migrate'   },
-    { to: '/app',     label: 'Launch App' },
-  ]
-
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 200,
-      pointerEvents: open ? 'all' : 'none',
-    }}>
-      {/* Backdrop */}
-      <div onClick={onClose} style={{
-        position: 'absolute', inset: 0,
-        background: 'rgba(4,13,24,0.85)',
-        backdropFilter: 'blur(8px)',
-        opacity: open ? 1 : 0,
-        transition: 'opacity 0.3s ease',
-      }} />
-      {/* Drawer from right */}
-      <div style={{
-        position: 'absolute', top: 0, right: 0, bottom: 0,
-        width: 'min(320px, 85vw)',
-        background: 'linear-gradient(160deg, #0a1929 0%, #040d18 100%)',
-        borderLeft: '0.5px solid rgba(255,215,0,0.15)',
-        transform: open ? 'translateX(0)' : 'translateX(100%)',
-        transition: 'transform 0.35s cubic-bezier(0.4,0,0.2,1)',
-        display: 'flex', flexDirection: 'column',
-        padding: '0',
-      }}>
-        {/* Drawer header */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '0 24px', height: 64,
-          borderBottom: '0.5px solid rgba(255,215,0,0.1)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 26, height: 26, borderRadius: 6, background: 'var(--gold)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ color: 'var(--navy)', fontSize: 13, fontWeight: 800 }}>F</span>
-            </div>
-            <span style={{ fontWeight: 800, fontSize: 15, fontFamily: "'Orbitron',sans-serif" }}>FatDev</span>
-          </div>
-          <button onClick={onClose} style={{
-            background: 'rgba(255,255,255,0.05)', border: '0.5px solid var(--border)',
-            borderRadius: 8, width: 36, height: 36, cursor: 'pointer', color: '#fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
-          }}>✕</button>
-        </div>
-
-        {/* Links */}
-        <nav style={{ padding: '24px 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {links.map((l, i) => (
-            <Link key={l.to} to={l.to} onClick={onClose} style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              padding: '14px 16px', borderRadius: 10, textDecoration: 'none',
-              color: l.label === 'Launch App' ? 'var(--gold)' : '#fff',
-              background: l.label === 'Launch App' ? 'rgba(255,215,0,0.08)' : 'transparent',
-              border: l.label === 'Launch App' ? '0.5px solid rgba(255,215,0,0.25)' : '0.5px solid transparent',
-              fontWeight: l.label === 'Launch App' ? 700 : 500,
-              fontSize: 15,
-              opacity: open ? 1 : 0,
-              transform: open ? 'translateX(0)' : 'translateX(20px)',
-              transition: `opacity 0.3s ease ${120 + i * 60}ms, transform 0.3s ease ${120 + i * 60}ms, background 0.2s`,
-            }}>
-              <span style={{ fontSize: 11, fontFamily: "'Space Mono',monospace",
-                color: 'var(--text-muted)', minWidth: 20 }}>0{i + 1}</span>
-              {l.label}
-              {l.label === 'Launch App' && <span style={{ marginLeft: 'auto', fontSize: 14 }}>→</span>}
-            </Link>
-          ))}
-        </nav>
-
-        {/* Connect button inside drawer */}
-        <div style={{ padding: '0 24px', marginTop: 'auto', paddingBottom: 32 }}>
-          <div style={{ borderTop: '0.5px solid rgba(255,215,0,0.1)', paddingTop: 24 }}>
-            <ConnectButton accountStatus="full" chainStatus="none" showBalance={false} />
-          </div>
-        </div>
-      </div>
     </div>
   )
 }
@@ -378,14 +286,6 @@ function FCard({ icon, title, desc, tag, to }: {
 // ── Main ──────────────────────────────────────────────────────────────────────
 export function LandingPage() {
   const { isConnected } = useAccount()
-  const [menuOpen, setMenuOpen] = useState(false)
-  const [scrolled, setScrolled] = useState(false)
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 40)
-    window.addEventListener('scroll', onScroll)
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--navy)', color: '#fff',
@@ -437,86 +337,13 @@ export function LandingPage() {
         }
       `}</style>
 
-      {/* ── Mobile nav drawer ── */}
-      <MobileNav open={menuOpen} onClose={() => setMenuOpen(false)} />
-
-      {/* ── Sticky nav ── */}
-      <header style={{
-        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-        borderBottom: scrolled ? '0.5px solid rgba(255,215,0,0.1)' : '0.5px solid transparent',
-        background: scrolled ? 'rgba(4,13,24,0.92)' : 'transparent',
-        backdropFilter: scrolled ? 'blur(20px)' : 'none',
-        WebkitBackdropFilter: scrolled ? 'blur(20px)' : 'none',
-        transition: 'all 0.35s ease',
-      }}>
-        <div style={{
-          maxWidth: 1140, margin: '0 auto', padding: '0 clamp(16px, 4vw, 2rem)',
-          height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        }}>
-          {/* Logo */}
-          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10,
-            textDecoration: 'none', color: 'inherit', flexShrink: 0 }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: 8, background: 'var(--gold)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 0 16px rgba(255,215,0,0.3)',
-            }}>
-              <span style={{ color: 'var(--navy)', fontSize: 15, fontWeight: 900,
-                fontFamily: "'Orbitron',sans-serif" }}>F</span>
-            </div>
-            <span style={{ fontWeight: 800, fontSize: 17,
-              fontFamily: "'Orbitron',sans-serif", letterSpacing: '.04em' }}>FatDev</span>
-            <span style={{
-              fontSize: 8, fontWeight: 800, padding: '2px 7px', borderRadius: 20,
-              background: 'rgba(255,215,0,0.12)', color: 'var(--gold)',
-              border: '0.5px solid rgba(255,215,0,0.2)',
-              letterSpacing: '.1em', textTransform: 'uppercase',
-            }}>BETA</span>
-          </Link>
-
-          {/* Desktop nav */}
-          <nav className="desktop-nav" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            {[{ to: '/tools', label: 'Tools' }, { to: '/migrate', label: 'Migrate' }].map(l => (
-              <Link key={l.to} to={l.to} className="nav-link" style={{
-                fontSize: 14, color: 'var(--text-secondary)', textDecoration: 'none',
-                padding: '6px 16px', borderRadius: 8, fontWeight: 500,
-                transition: 'color 0.2s',
-              }}>{l.label}</Link>
-            ))}
-            <Link to="/app" style={{
-              padding: '8px 20px', borderRadius: 10, fontSize: 14, fontWeight: 700,
-              background: 'rgba(255,215,0,0.1)', color: 'var(--gold)',
-              border: '0.5px solid rgba(255,215,0,0.3)', textDecoration: 'none',
-              marginLeft: 8, transition: 'background 0.2s',
-              fontFamily: "'Syne',sans-serif",
-            }}>Launch App ↗</Link>
-            <div style={{ marginLeft: 8 }}>
-              <ConnectButton accountStatus="avatar" chainStatus="none" showBalance={false} />
-            </div>
-          </nav>
-
-          {/* Hamburger */}
-          <button className="hamburger-btn" onClick={() => setMenuOpen(true)} style={{
-            background: 'rgba(255,255,255,0.05)', border: '0.5px solid rgba(255,215,0,0.2)',
-            borderRadius: 10, width: 42, height: 42, cursor: 'pointer',
-            color: '#fff', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', gap: 5, padding: 0,
-          }}>
-            {[0,1,2].map(i => (
-              <span key={i} style={{
-                display: 'block', width: 18, height: 1.5, borderRadius: 1,
-                background: i === 1 ? 'var(--gold)' : 'rgba(255,255,255,0.7)',
-              }} />
-            ))}
-          </button>
-        </div>
-      </header>
+      <Navbar />
 
       {/* ── HERO ── */}
       <section style={{
         minHeight: '100svh', display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        padding: 'clamp(100px, 16vw, 140px) clamp(16px, 4vw, 2rem) 80px',
+        padding: 'clamp(120px, 16vw, 160px) clamp(16px, 4vw, 2rem) 80px',
         position: 'relative', textAlign: 'center', overflow: 'hidden',
       }}>
         {/* Background radial glow */}

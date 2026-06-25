@@ -8,6 +8,15 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        'fd-void':    'var(--fd-void)',
+        'fd-deep':    'var(--fd-deep)',
+        'fd-surface': 'var(--fd-surface)',
+        'fd-slate':   'var(--fd-slate)',
+        'fd-cyan':    'var(--fd-cyan)',
+        'fd-green':   'var(--fd-green)',
+        'fd-purple':  'var(--fd-purple)',
+        'fd-white':   'var(--fd-white)',
+        'fd-ghost':   'var(--fd-ghost)',
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -42,7 +51,14 @@ module.exports = {
           foreground: "hsl(var(--card-foreground))",
         },
       },
+      fontFamily: {
+        display: ['Space Grotesk', 'sans-serif'],
+        mono:    ['JetBrains Mono', 'monospace'],
+      },
       borderRadius: {
+        'fd':    'var(--fd-radius)',
+        'fd-lg': 'var(--fd-radius-lg)',
+        'fd-xl': 'var(--fd-radius-xl)',
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",

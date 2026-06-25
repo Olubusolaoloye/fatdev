@@ -14,8 +14,8 @@ import '@rainbow-me/rainbowkit/styles.css'
 const queryClient = new QueryClient()
 
 const rbkTheme = darkTheme({
-  accentColor: '#FFD700',
-  accentColorForeground: '#040D18',
+  accentColor: '#00CFFF',
+  accentColorForeground: '#080C18',
   borderRadius: 'medium',
   fontStack: 'system',
   overlayBlur: 'small',

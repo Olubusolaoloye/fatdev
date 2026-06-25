@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800;900&family=Inter:wght@400;500;600;700;800&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
@@ -6,27 +7,51 @@
 
 /* ── CSS Variables ── */
 :root {
-  --gold: #FFD700;
-  --gold-dim: #B8960A;
-  --gold-glow: rgba(255, 215, 0, 0.15);
-  --navy: #040D18;
-  --navy-2: #071525;
-  --navy-card: #0A1929;
-  --border: rgba(255, 215, 0, 0.12);
-  --border-strong: rgba(255, 215, 0, 0.3);
-  --text-muted: rgba(255, 255, 255, 0.45);
-  --text-secondary: rgba(255, 255, 255, 0.7);
-  --green: #00E676;
-  --red: #FF5252;
-  --blue: #4A90E2;
+  /* Backgrounds */
+  --fd-void:    #080C18;
+  --fd-deep:    #0D1427;
+  --fd-surface: #131B35;
+  --fd-slate:   #1E2B4A;
+  --fd-muted:   #2E3F66;
+
+  /* Brand accents */
+  --fd-cyan:       #00CFFF;
+  --fd-cyan-dim:   #0099CC;
+  --fd-cyan-ghost: rgba(0, 207, 255, 0.12);
+  --fd-green:      #00E57A;
+  --fd-green-dim:  #00A855;
+  --fd-green-ghost: rgba(0, 229, 122, 0.10);
+  --fd-purple:     #937FFF;
+  --fd-purple-ghost: rgba(147, 111, 255, 0.10);
+
+  /* Text */
+  --fd-white:  #EEF2FF;
+  --fd-ghost:  #8A9BC2;
+  --fd-hint:   #3A4F7A;
+
+  /* Typography */
+  --fd-font-display: 'Space Grotesk', sans-serif;
+  --fd-font-mono:    'JetBrains Mono', monospace;
+
+  /* Borders */
+  --fd-border:       rgba(255,255,255,0.07);
+  --fd-border-cyan:  rgba(0,207,255,0.20);
+  --fd-border-green: rgba(0,229,122,0.18);
+
+  /* Radius */
+  --fd-radius-sm: 6px;
+  --fd-radius:    10px;
+  --fd-radius-lg: 16px;
+  --fd-radius-xl: 24px;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  background: var(--navy);
-  color: #fff;
-  font-family: 'Syne', sans-serif;
+  background: var(--fd-void);
+  color: var(--fd-white);
+  font-family: var(--fd-font-display);
+  -webkit-font-smoothing: antialiased;
   min-height: 100vh;
   overflow-x: hidden;
 }

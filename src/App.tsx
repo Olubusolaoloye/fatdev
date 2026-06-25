@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { Link } from 'react-router-dom'
-import { useAccount, useChainId } from 'wagmi'
-import { ConnectButton } from '@rainbow-me/rainbowkit'
+import { useAccount } from 'wagmi'
 import { useStore } from './lib/store'
 import { useAppConfig } from './hooks/useAppConfig'
 import { fetchUserFromSupabase } from './lib/db'
+import Navbar from './components/Navbar'
 import { Step0Connect } from './components/steps/Step0Connect'
 import { Step1Plan }    from './components/steps/Step1Plan'
 import { Step2Identity } from './components/steps/Step2Identity'
@@ -126,7 +125,6 @@ export default function App() {
 
   const { maintenanceMode, maintenanceMessage, loading: configLoading } = useAppConfig()
   const { address, isConnected } = useAccount()
-  const chainId = useChainId()
   const { step, setStep, cfg, getUserData, mergeUserData } = useStore()
 
   // Track which wallets have already been synced this session
@@ -158,9 +156,6 @@ export default function App() {
   if (!configLoading && maintenanceMode && !isBypass) return <MaintenancePage message={maintenanceMessage} />
 
   const user = address ? getUserData(address) : null
-  const deploysLeft = user
-    ? (user.deploysLimit >= 999 ? '∞' : user.deploysLimit - user.deploysUsed)
-    : 0
 
   const buyOk  = taxTotal(cfg, 'buy')  < 2500
   const sellOk = taxTotal(cfg, 'sell') < 2500
@@ -171,61 +166,12 @@ export default function App() {
     : step === 3 ? (buyOk && sellOk)
     : true
 
-  const chainName = { 56: 'BNB Chain', 1: 'Ethereum', 42161: 'Arbitrum One', 97: 'BSC Testnet' }[chainId] ?? `Chain ${chainId}`
-
   return (
     <div className="app">
-      {/* ── Header ── */}
-      <header className="app-header" style={{ borderBottom: '0.5px solid var(--border)', padding: '0 2rem' }}>
-        <div className="app-header-inner" style={{ maxWidth: 920, margin: '0 auto', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          {/* Logo */}
-          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, textDecoration: 'none', color: 'inherit' }}>
-            <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ color: 'var(--navy)', fontSize: 14, fontWeight: 800 }}>F</span>
-            </div>
-            <span className="header-logo-text" style={{ fontWeight: 800, fontSize: 16 }}>FatDev</span>
-            <span className="pill pill-gold header-hide-mobile" style={{ marginLeft: 4 }}>BETA</span>
-          </Link>
-
-          {/* Right side */}
-          <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Link to="/tools" style={{
-              fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none',
-              padding: '5px 12px', borderRadius: 6, fontWeight: 600,
-            }} className="header-hide-mobile">🛠 Tools</Link>
-            <Link to="/migrate" style={{
-              fontSize: 12, color: 'var(--gold)', textDecoration: 'none',
-              padding: '5px 12px', borderRadius: 6,
-              border: '0.5px solid rgba(255,215,0,0.3)',
-              fontWeight: 600, whiteSpace: 'nowrap',
-            }}>Migrate ↗</Link>
-            {isConnected && (
-              <span className="pill pill-gold header-hide-mobile" style={{ fontFamily: "'Space Mono',monospace", fontSize: 10 }}>
-                {chainName}
-              </span>
-            )}
-            {isConnected && user?.tier !== 'free' && (
-              <span className="pill pill-ok header-hide-mobile" style={{ fontSize: 10 }}>
-                {user?.tier.toUpperCase()} · {deploysLeft} left
-              </span>
-            )}
-            {isConnected && (
-              <button className="btn-ghost header-hide-mobile" style={{ padding: '5px 12px', fontSize: 12 }}
-                onClick={() => setStep(7)}>
-                Dashboard
-              </button>
-            )}
-            <ConnectButton
-              accountStatus="avatar"
-              chainStatus="icon"
-              showBalance={false}
-            />
-          </div>
-        </div>
-      </header>
+      <Navbar />
 
       {/* ── Main ── */}
-      <main style={{ flex: 1, maxWidth: 920, margin: '0 auto', width: '100%', padding: '2rem', boxSizing: 'border-box' }}>
+      <main style={{ flex: 1, maxWidth: 920, margin: '0 auto', width: '100%', padding: '2rem', paddingTop: 'calc(60px + 2rem)', boxSizing: 'border-box' }}>
         {/* Step nav */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: '2.5rem', justifyContent: 'center' }}>
           {STEPS.map((s, i) => (
