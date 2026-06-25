@@ -69,8 +69,8 @@ function HeroRings() {
         {/* Bright dot on ring */}
         <div style={{
           position: 'absolute', top: -3, left: '50%', transform: 'translateX(-50%)',
-          width: 6, height: 6, borderRadius: '50%', background: 'var(--gold)',
-          boxShadow: '0 0 12px var(--gold), 0 0 24px rgba(255,215,0,0.4)',
+          width: 6, height: 6, borderRadius: '50%', background: 'var(--fd-cyan)',
+          boxShadow: '0 0 12px var(--fd-cyan), 0 0 24px rgba(255,215,0,0.4)',
         }} />
       </div>
       {/* Ring 2 - counter spin */}
@@ -168,7 +168,7 @@ function ScanCard() {
             <div style={{ fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', gap: 6 }}>
               Blin
               <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 9,
-                color: 'var(--gold)', padding: '1px 6px', background: 'rgba(255,215,0,0.12)',
+                color: 'var(--fd-cyan)', padding: '1px 6px', background: 'rgba(255,215,0,0.12)',
                 borderRadius: 4, border: '0.5px solid rgba(255,215,0,0.2)' }}>BLIN</span>
             </div>
             <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
@@ -206,7 +206,7 @@ function ScanCard() {
 
       {/* Tax bars */}
       <div style={{ display: 'flex', gap: 12 }}>
-        {[{ l: 'Buy', pct: 5, color: 'var(--green)' }, { l: 'Sell', pct: 7, color: 'var(--gold)' }].map(t => (
+        {[{ l: 'Buy', pct: 5, color: 'var(--green)' }, { l: 'Sell', pct: 7, color: 'var(--fd-cyan)' }].map(t => (
           <div key={t.l} style={{ flex: 1 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
               <span style={{ fontSize: 9, color: 'var(--text-muted)' }}>{t.l} Tax</span>
@@ -264,7 +264,7 @@ function FCard({ icon, title, desc, tag, to }: {
               position: 'absolute', top: 16, right: 16,
               fontSize: 8, fontWeight: 800, padding: '2px 8px', borderRadius: 20,
               background: tag === 'Free' ? 'rgba(0,230,118,0.15)' : 'rgba(255,215,0,0.12)',
-              color: tag === 'Free' ? 'var(--green)' : 'var(--gold)',
+              color: tag === 'Free' ? 'var(--green)' : 'var(--fd-cyan)',
               border: `0.5px solid ${tag === 'Free' ? 'rgba(0,230,118,0.3)' : 'rgba(255,215,0,0.2)'}`,
               textTransform: 'uppercase', letterSpacing: '.08em',
             }}>{tag}</span>
@@ -274,8 +274,8 @@ function FCard({ icon, title, desc, tag, to }: {
             marginBottom: 8 }}>{title}</div>
           <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.65 }}>{desc}</div>
           <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 11, color: 'var(--gold)', fontWeight: 600 }}>Explore</span>
-            <span style={{ fontSize: 11, color: 'var(--gold)', transition: 'transform 0.2s' }}>→</span>
+            <span style={{ fontSize: 11, color: 'var(--fd-cyan)', fontWeight: 600 }}>Explore</span>
+            <span style={{ fontSize: 11, color: 'var(--fd-cyan)', transition: 'transform 0.2s' }}>→</span>
           </div>
         </div>
       </Link>
@@ -288,7 +288,7 @@ export function LandingPage() {
   const { isConnected } = useAccount()
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--navy)', color: '#fff',
+    <div style={{ minHeight: '100vh', background: 'var(--fd-void)', color: '#fff',
       overflowX: 'hidden', fontFamily: "'Inter',sans-serif" }}>
 
       {/* ── Global keyframes ── */}
@@ -430,7 +430,7 @@ export function LandingPage() {
             <Link to="/app" className="hero-cta-primary" style={{
               padding: 'clamp(12px,2vw,15px) clamp(24px,4vw,36px)',
               borderRadius: 12, fontSize: 'clamp(14px,1.5vw,16px)', fontWeight: 800,
-              background: 'var(--gold)', color: 'var(--navy)', textDecoration: 'none',
+              background: 'var(--fd-cyan)', color: 'var(--fd-void)', textDecoration: 'none',
               boxShadow: '0 0 28px rgba(255,215,0,0.3)',
               transition: 'box-shadow 0.25s, transform 0.25s',
               fontFamily: "'Syne',sans-serif",
@@ -456,7 +456,7 @@ export function LandingPage() {
             flexWrap: 'wrap', animation: 'hero-in 0.7s ease 0.65s both' }}>
             <FloatingBadge label="GoPlus Powered" color="var(--green)"
               style={{ animationDelay: '0s' }} />
-            <FloatingBadge label="No KYC Required" color="var(--gold)"
+            <FloatingBadge label="No KYC Required" color="var(--fd-cyan)"
               style={{ animationDelay: '0.4s' }} />
             <FloatingBadge label="On-Chain Deploy" color="var(--blue)"
               style={{ animationDelay: '0.8s' }} />
@@ -471,7 +471,7 @@ export function LandingPage() {
         }}>
           <span style={{ fontSize: 10, fontFamily: "'Space Mono',monospace",
             letterSpacing: '.1em', color: 'var(--text-muted)' }}>SCROLL</span>
-          <div style={{ width: 1, height: 32, background: 'linear-gradient(to bottom, var(--gold), transparent)' }} />
+          <div style={{ width: 1, height: 32, background: 'linear-gradient(to bottom, var(--fd-cyan), transparent)' }} />
         </div>
       </section>
 
@@ -498,7 +498,7 @@ export function LandingPage() {
               <div key={s.label} style={{ textAlign: 'center' }}>
                 <div style={{
                   fontFamily: "'Orbitron',sans-serif", fontSize: 'clamp(26px,3vw,38px)',
-                  fontWeight: 800, color: 'var(--gold)', lineHeight: 1,
+                  fontWeight: 800, color: 'var(--fd-cyan)', lineHeight: 1,
                   textShadow: '0 0 24px rgba(255,215,0,0.35)',
                 }}>
                   <Counter to={s.val} suffix={s.suffix} />
@@ -523,9 +523,9 @@ export function LandingPage() {
           {/* Left */}
           <Reveal>
             <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.15em',
-              color: 'var(--gold)', marginBottom: 16, fontFamily: "'Space Mono',monospace",
+              color: 'var(--fd-cyan)', marginBottom: 16, fontFamily: "'Space Mono',monospace",
               display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ width: 24, height: 0.5, background: 'var(--gold)', display: 'inline-block' }} />
+              <span style={{ width: 24, height: 0.5, background: 'var(--fd-cyan)', display: 'inline-block' }} />
               Security Scanner
             </div>
             <h2 style={{
@@ -544,7 +544,7 @@ export function LandingPage() {
             <Link to="/tools" style={{
               display: 'inline-flex', alignItems: 'center', gap: 10, padding: '12px 24px',
               borderRadius: 10, fontSize: 14, fontWeight: 700,
-              background: 'rgba(255,215,0,0.08)', color: 'var(--gold)',
+              background: 'rgba(255,215,0,0.08)', color: 'var(--fd-cyan)',
               border: '0.5px solid rgba(255,215,0,0.25)', textDecoration: 'none',
               transition: 'background 0.2s',
               fontFamily: "'Syne',sans-serif",
@@ -648,7 +648,7 @@ export function LandingPage() {
                 <Link to="/app" style={{
                   padding: 'clamp(12px,1.5vw,15px) clamp(28px,3vw,40px)',
                   borderRadius: 12, fontSize: 'clamp(14px,1.3vw,16px)', fontWeight: 800,
-                  background: 'var(--gold)', color: 'var(--navy)', textDecoration: 'none',
+                  background: 'var(--fd-cyan)', color: 'var(--fd-void)', textDecoration: 'none',
                   boxShadow: '0 0 28px rgba(255,215,0,0.3)',
                   fontFamily: "'Syne',sans-serif",
                 }}>
@@ -678,9 +678,9 @@ export function LandingPage() {
         <div style={{ maxWidth: 1140, margin: '0 auto', display: 'flex',
           flexDirection: 'column', alignItems: 'center', gap: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 24, height: 24, borderRadius: 6, background: 'var(--gold)',
+            <div style={{ width: 24, height: 24, borderRadius: 6, background: 'var(--fd-cyan)',
               display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ color: 'var(--navy)', fontSize: 12, fontWeight: 900,
+              <span style={{ color: 'var(--fd-void)', fontSize: 12, fontWeight: 900,
                 fontFamily: "'Orbitron',sans-serif" }}>F</span>
             </div>
             <span style={{ fontWeight: 700, fontFamily: "'Orbitron',sans-serif",

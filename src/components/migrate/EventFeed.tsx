@@ -8,7 +8,7 @@ interface EventFeedProps {
 const TYPE_COLOR: Record<OracleEvent['type'], string> = {
   swap: 'var(--green)',
   disburse: 'var(--blue)',
-  deposit: 'var(--gold)',
+  deposit: 'var(--fd-cyan)',
   error: 'var(--red)',
 }
 

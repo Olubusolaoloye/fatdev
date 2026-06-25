@@ -231,7 +231,7 @@ export function AuditScore() {
   const maxScore   = sections.flatMap(s => s.checks).reduce((a, c) => a + c.max,   0)
   const pct        = Math.round((totalScore / maxScore) * 100)
   const grade      = pct >= 85 ? 'A' : pct >= 70 ? 'B' : pct >= 55 ? 'C' : 'D'
-  const gradeColor = grade === 'A' ? 'var(--green)' : grade === 'B' ? 'var(--gold)' : grade === 'C' ? '#FF9800' : 'var(--red)'
+  const gradeColor = grade === 'A' ? 'var(--green)' : grade === 'B' ? 'var(--fd-cyan)' : grade === 'C' ? '#FF9800' : 'var(--red)'
 
   function copyShareText() {
     const pass  = sections.flatMap(s => s.checks).filter(c => c.pass).length
@@ -359,7 +359,7 @@ export function AuditScore() {
             ].map(({ key, label }) => (
               <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12 }}>
                 <div style={{ width: 36, height: 20, borderRadius: 10, flexShrink: 0, cursor: 'pointer',
-                  background: (manual as any)[key] ? 'var(--gold)' : 'rgba(255,255,255,0.1)',
+                  background: (manual as any)[key] ? 'var(--fd-cyan)' : 'rgba(255,255,255,0.1)',
                   position: 'relative', transition: 'background 0.2s' }}
                   onClick={() => setManual(m => ({ ...m, [key]: !(m as any)[key] }))}>
                   <div style={{ width: 16, height: 16, borderRadius: 8, background: '#fff',
@@ -432,7 +432,7 @@ export function AuditScore() {
             <div key={section.title} className="card" style={{ padding: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                 <span style={{ fontWeight: 700, fontSize: 13 }}>{section.icon} {section.title}</span>
-                <span style={{ fontSize: 12, fontFamily: "'Space Mono',monospace", color: 'var(--gold)' }}>
+                <span style={{ fontSize: 12, fontFamily: "'Space Mono',monospace", color: 'var(--fd-cyan)' }}>
                   {secScore}/{secMax}
                 </span>
               </div>
@@ -447,7 +447,7 @@ export function AuditScore() {
                       <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>{check.detail}</div>
                     </div>
                     <span style={{ fontSize: 10, fontFamily: "'Space Mono',monospace", flexShrink: 0,
-                      color: check.score === check.max ? 'var(--green)' : check.score > 0 ? 'var(--gold)' : 'var(--red)' }}>
+                      color: check.score === check.max ? 'var(--green)' : check.score > 0 ? 'var(--fd-cyan)' : 'var(--red)' }}>
                       {check.score}/{check.max}
                     </span>
                   </div>

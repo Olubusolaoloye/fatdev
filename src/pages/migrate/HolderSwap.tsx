@@ -92,7 +92,7 @@ export function HolderSwap() {
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
           <div style={{
             width: 64, height: 64, borderRadius: '50%',
-            background: 'linear-gradient(135deg, var(--gold), #B8960A)',
+            background: 'linear-gradient(135deg, var(--fd-cyan), #B8960A)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 28, margin: '0 auto 12px',
             boxShadow: '0 0 30px rgba(255,215,0,0.3)',

@@ -215,7 +215,7 @@ export function AirdropTool() {
       <div className="card">
         <div style={{ fontWeight: 700, marginBottom: 4 }}>2 · Recipient list</div>
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10 }}>
-          One per line: <code style={{ color: 'var(--gold)' }}>0xAddress, amount</code>
+          One per line: <code style={{ color: 'var(--fd-cyan)' }}>0xAddress, amount</code>
         </div>
         <textarea
           style={{ width: '100%', minHeight: 130, background: 'rgba(255,255,255,0.04)',

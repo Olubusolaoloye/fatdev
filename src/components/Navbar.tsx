@@ -6,7 +6,7 @@ import Logo from './ui-kit/Logo'
 const NAV_LINKS = [
   { label: 'Deploy',  to: '/app'      },
   { label: 'History', to: '/app'      },
-  { label: 'Pricing', to: '/#pricing' },
+  { label: 'Pricing', to: '/pricing' },
   { label: 'Docs',    to: '/docs'     },
 ]
 

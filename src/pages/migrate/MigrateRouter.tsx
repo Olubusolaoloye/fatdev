@@ -10,7 +10,7 @@ import { SnapshotTool } from './SnapshotTool'
 
 export function MigrateRouter() {
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--navy)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--fd-void)' }}>
       <MigrateNav />
       <Routes>
         <Route index element={<MigrateLanding />} />

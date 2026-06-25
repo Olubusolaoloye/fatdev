@@ -31,7 +31,7 @@ const HOW_IT_WORKS = [
 ]
 
 const VS_TABLE = [
-  ['Feature', 'FatDeploy Migrate', 'migrate.fun'],
+  ['Feature', 'FatDev Migrate', 'migrate.fun'],
   ['Oracle disbursal', '✓', '✗'],
   ['Post-window airdrop', '✓', '✗'],
   ['Snapshot tool', '✓', '✗'],
@@ -67,7 +67,7 @@ export function MigrateLanding() {
             </span>
             <h1 style={{ fontSize: 'clamp(26px, 5vw, 46px)', fontWeight: 800, lineHeight: 1.15, marginBottom: 16, maxWidth: 640, margin: '0 auto 16px' }}>
               Token Migration,{' '}
-              <span style={{ color: 'var(--gold)' }}>Done Right</span>
+              <span style={{ color: 'var(--fd-cyan)' }}>Done Right</span>
             </h1>
             <p style={{ fontSize: 16, color: 'var(--text-secondary)', maxWidth: 520, margin: '0 auto 32px', lineHeight: 1.7 }}>
               Deploy a MigrationVault, fund it with V2 tokens, and give holders a seamless self-serve swap experience — all without writing a single line of Solidity.
@@ -115,7 +115,7 @@ export function MigrateLanding() {
                   background: 'rgba(255,215,0,0.1)', border: '0.5px solid var(--border-strong)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontFamily: "'Space Mono',monospace", fontSize: 12, fontWeight: 700,
-                  color: 'var(--gold)', flexShrink: 0,
+                  color: 'var(--fd-cyan)', flexShrink: 0,
                 }}>
                   {s.step}
                 </div>
@@ -131,7 +131,7 @@ export function MigrateLanding() {
         {/* vs migrate.fun */}
         <div style={{ marginTop: 60, marginBottom: 60 }}>
           <h2 style={{ fontSize: 22, fontWeight: 800, textAlign: 'center', marginBottom: 24 }}>
-            Why FatDeploy Migrate?
+            Why FatDev Migrate?
           </h2>
           <div className="card" style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>

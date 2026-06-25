@@ -11,7 +11,7 @@ interface MigrationCardProps {
 const STATUS_COLOR: Record<MigrationConfig['status'], string> = {
   draft: 'var(--text-muted)',
   active: 'var(--green)',
-  paused: 'var(--gold)',
+  paused: 'var(--fd-cyan)',
   completed: 'var(--blue)',
   stopped: 'var(--red)',
 }

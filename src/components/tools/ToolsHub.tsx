@@ -99,7 +99,7 @@ export function ToolsHub() {
                 position: 'absolute', top: 14, right: 14,
                 fontSize: 9, fontWeight: 800, padding: '2px 8px', borderRadius: 20,
                 background: tool.badge === 'New' ? 'var(--green)' : 'rgba(255,215,0,0.2)',
-                color: tool.badge === 'New' ? '#040D18' : 'var(--gold)',
+                color: tool.badge === 'New' ? '#040D18' : 'var(--fd-cyan)',
                 textTransform: 'uppercase', letterSpacing: '.06em',
               }}>
                 {tool.badge}

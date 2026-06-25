@@ -193,8 +193,8 @@ export function HolderAnalytics() {
               <button key={t.key} onClick={() => setTab(t.key)}
                 style={{ padding: '8px 16px', borderRadius: '8px 8px 0 0', fontSize: 13, fontWeight: 600, cursor: 'pointer',
                   border: 'none', background: tab === t.key ? 'var(--navy-card)' : 'transparent',
-                  color: tab === t.key ? 'var(--gold)' : 'var(--text-muted)',
-                  borderBottom: tab === t.key ? '2px solid var(--gold)' : '2px solid transparent',
+                  color: tab === t.key ? 'var(--fd-cyan)' : 'var(--text-muted)',
+                  borderBottom: tab === t.key ? '2px solid var(--fd-cyan)' : '2px solid transparent',
                   marginBottom: -1 }}>
                 {t.label}
                 {t.count !== undefined && (
@@ -327,7 +327,7 @@ export function HolderAnalytics() {
           {tab === 'rewards' && (
             <div className="card" style={{ borderRadius: '0 8px 8px 8px' }}>
               <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
-                Token transfers sent <em>from</em> the contract to holders — these are <code style={{ color: 'var(--gold)' }}>processReward()</code> distributions.
+                Token transfers sent <em>from</em> the contract to holders — these are <code style={{ color: 'var(--fd-cyan)' }}>processReward()</code> distributions.
               </div>
               {rewardTransfers.length === 0
                 ? <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>No reward distributions found yet.</p>

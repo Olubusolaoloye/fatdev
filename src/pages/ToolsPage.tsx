@@ -49,7 +49,7 @@ export function ToolsPage() {
   const tool = active ? TOOLS.find(t => t.key === active)! : null
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--navy)', color: '#fff' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--fd-void)', color: '#fff' }}>
 
       {/* ── Header ── */}
       <header style={{
@@ -66,10 +66,10 @@ export function ToolsPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: 'inherit' }}>
               <div style={{
-                width: 28, height: 28, borderRadius: 6, background: 'var(--gold)',
+                width: 28, height: 28, borderRadius: 6, background: 'var(--fd-cyan)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
-                <span style={{ color: 'var(--navy)', fontSize: 14, fontWeight: 800 }}>F</span>
+                <span style={{ color: 'var(--fd-void)', fontSize: 14, fontWeight: 800 }}>F</span>
               </div>
               <span style={{ fontWeight: 800, fontSize: 16 }}>FatDev</span>
             </Link>
@@ -88,13 +88,13 @@ export function ToolsPage() {
             {!active && (
               <>
                 <span style={{ color: 'var(--border)', fontSize: 18 }}>/</span>
-                <span style={{ fontSize: 13, color: 'var(--gold)', fontWeight: 600 }}>Tools</span>
+                <span style={{ fontSize: 13, color: 'var(--fd-cyan)', fontWeight: 600 }}>Tools</span>
               </>
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Link to="/app" style={{
-              fontSize: 12, color: 'var(--gold)', textDecoration: 'none',
+              fontSize: 12, color: 'var(--fd-cyan)', textDecoration: 'none',
               padding: '5px 14px', borderRadius: 6, fontWeight: 700,
               border: '0.5px solid rgba(255,215,0,0.3)',
               background: 'rgba(255,215,0,0.06)',
@@ -127,7 +127,7 @@ export function ToolsPage() {
                     <span style={{
                       fontSize: 9, padding: '2px 8px', borderRadius: 20, fontWeight: 800,
                       background: tool.free ? 'rgba(0,230,118,0.15)' : tool.badge === 'Trust Signal' ? 'rgba(255,215,0,0.15)' : 'rgba(255,255,255,0.08)',
-                      color: tool.free ? 'var(--green)' : tool.badge === 'Trust Signal' ? 'var(--gold)' : 'var(--text-muted)',
+                      color: tool.free ? 'var(--green)' : tool.badge === 'Trust Signal' ? 'var(--fd-cyan)' : 'var(--text-muted)',
                       border: `0.5px solid ${tool.free ? 'rgba(0,230,118,0.3)' : 'rgba(255,215,0,0.2)'}`,
                       textTransform: 'uppercase', letterSpacing: '.06em',
                     }}>{tool.badge}</span>
@@ -155,12 +155,12 @@ export function ToolsPage() {
                 padding: '4px 14px', borderRadius: 20, marginBottom: 16,
                 background: 'rgba(255,215,0,0.07)', border: '0.5px solid rgba(255,215,0,0.2)',
               }}>
-                <span style={{ fontSize: 11, color: 'var(--gold)', fontFamily: "'Space Mono',monospace",
+                <span style={{ fontSize: 11, color: 'var(--fd-cyan)', fontFamily: "'Space Mono',monospace",
                   letterSpacing: '.1em', textTransform: 'uppercase' }}>Token Launch Toolkit</span>
               </div>
               <h1 style={{ fontSize: 'clamp(28px, 4vw, 48px)', fontWeight: 900, margin: '0 0 14px', lineHeight: 1.1 }}>
                 All the tools.<br />
-                <span style={{ color: 'var(--gold)' }}>Zero complexity.</span>
+                <span style={{ color: 'var(--fd-cyan)' }}>Zero complexity.</span>
               </h1>
               <p style={{ fontSize: 14, color: 'var(--text-secondary)', maxWidth: 520,
                 margin: '0 auto', lineHeight: 1.7 }}>
@@ -226,7 +226,7 @@ function ToolCard({ tool, onOpen }: { tool: typeof TOOLS[0]; onOpen: () => void 
             : tool.badge === 'Trust Signal'
               ? 'rgba(255,215,0,0.15)'
               : 'rgba(255,255,255,0.06)',
-          color: tool.free ? 'var(--green)' : tool.badge === 'Trust Signal' ? 'var(--gold)' : 'var(--text-muted)',
+          color: tool.free ? 'var(--green)' : tool.badge === 'Trust Signal' ? 'var(--fd-cyan)' : 'var(--text-muted)',
           border: `0.5px solid ${tool.free ? 'rgba(0,230,118,0.3)' : tool.badge === 'Trust Signal' ? 'rgba(255,215,0,0.25)' : 'var(--border)'}`,
           textTransform: 'uppercase', letterSpacing: '.06em',
         }}>{tool.badge}</span>

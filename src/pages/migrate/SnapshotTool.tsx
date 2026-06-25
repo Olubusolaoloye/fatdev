@@ -176,7 +176,7 @@ export function SnapshotTool() {
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: 'var(--text-muted)' }}>Total V2</span>
-                      <span style={{ fontWeight: 600, color: 'var(--gold)' }}>{totalV2.toLocaleString()}</span>
+                      <span style={{ fontWeight: 600, color: 'var(--fd-cyan)' }}>{totalV2.toLocaleString()}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: 'var(--text-muted)' }}>Batches (200/tx)</span>

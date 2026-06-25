@@ -18,7 +18,7 @@ export function ParticipationSlider({ totalV1Supply, ratio, participation, onCha
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
           <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Expected participation</span>
-          <span style={{ fontWeight: 800, fontSize: 18, color: 'var(--gold)', fontFamily: "'Space Mono',monospace" }}>
+          <span style={{ fontWeight: 800, fontSize: 18, color: 'var(--fd-cyan)', fontFamily: "'Space Mono',monospace" }}>
             {participation}%
           </span>
         </div>
@@ -28,7 +28,7 @@ export function ParticipationSlider({ totalV1Supply, ratio, participation, onCha
           max={99}
           value={participation}
           onChange={e => onChange(Number(e.target.value))}
-          style={{ width: '100%', accentColor: 'var(--gold)' }}
+          style={{ width: '100%', accentColor: 'var(--fd-cyan)' }}
         />
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
           <span>1%</span>

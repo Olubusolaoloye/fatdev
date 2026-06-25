@@ -13,7 +13,7 @@ import { Spinner } from '../ui-kit'
 const ADMIN_PASSWORD = 'fatadmin2025'
 
 const TIER_COLOR: Record<string, string> = {
-  free: 'var(--text-muted)', starter: 'var(--blue)', pro: 'var(--gold)', elite: 'var(--green)',
+  free: 'var(--text-muted)', starter: 'var(--blue)', pro: 'var(--fd-cyan)', elite: 'var(--green)',
 }
 const CHAIN_NAME: Record<number, string> = {
   56: 'BNB Chain', 1: 'Ethereum', 42161: 'Arbitrum', 97: 'BSC Testnet',
@@ -38,7 +38,7 @@ function Stat({ label, value, sub, accent }: { label: string; value: string | nu
   return (
     <div style={{ background: 'var(--navy-card)', border: '0.5px solid var(--border)', borderRadius: 12, padding: '18px 20px' }}>
       <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>{label}</div>
-      <div style={{ fontSize: 28, fontWeight: 800, color: accent ?? 'var(--gold)', fontFamily: "'Space Mono',monospace" }}>{value}</div>
+      <div style={{ fontSize: 28, fontWeight: 800, color: accent ?? 'var(--fd-cyan)', fontFamily: "'Space Mono',monospace" }}>{value}</div>
       {sub && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{sub}</div>}
     </div>
   )
@@ -55,10 +55,10 @@ function BarChart({ data }: { data: { label: string; value: number; color?: stri
           <div style={{ flex: 1, background: 'rgba(255,255,255,0.05)', borderRadius: 4, height: 22, overflow: 'hidden' }}>
             <div style={{
               height: '100%', borderRadius: 4, width: `${(d.value / max) * 100}%`,
-              background: d.color ?? 'var(--gold)', transition: 'width 0.5s ease',
+              background: d.color ?? 'var(--fd-cyan)', transition: 'width 0.5s ease',
               display: 'flex', alignItems: 'center', paddingLeft: 8,
             }}>
-              {d.value > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--navy)' }}>{d.value}</span>}
+              {d.value > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--fd-void)' }}>{d.value}</span>}
             </div>
           </div>
         </div>
@@ -76,10 +76,10 @@ function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
     else { setWrong(true); setPw('') }
   }
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--navy)' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--fd-void)' }}>
       <div style={{ background: 'var(--navy-card)', border: '0.5px solid var(--border-strong)', borderRadius: 16, padding: '2.5rem', width: 340, textAlign: 'center' }}>
-        <div style={{ width: 44, height: 44, borderRadius: 10, background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-          <span style={{ color: 'var(--navy)', fontSize: 20, fontWeight: 800 }}>F</span>
+        <div style={{ width: 44, height: 44, borderRadius: 10, background: 'var(--fd-cyan)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+          <span style={{ color: 'var(--fd-void)', fontSize: 20, fontWeight: 800 }}>F</span>
         </div>
         <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 6 }}>Admin Access</h2>
         <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>Enter the admin password to continue</p>
@@ -155,14 +155,14 @@ function DashboardContent() {
   ]
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--navy)', color: '#fff', fontFamily: 'Syne, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--fd-void)', color: '#fff', fontFamily: 'Syne, sans-serif' }}>
       {/* Header */}
-      <div style={{ borderBottom: '0.5px solid var(--border)', padding: '0 2rem', position: 'sticky', top: 0, background: 'var(--navy)', zIndex: 10 }}>
+      <div style={{ borderBottom: '0.5px solid var(--border)', padding: '0 2rem', position: 'sticky', top: 0, background: 'var(--fd-void)', zIndex: 10 }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ color: 'var(--navy)', fontSize: 14, fontWeight: 800 }}>F</span>
+              <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--fd-cyan)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ color: 'var(--fd-void)', fontSize: 14, fontWeight: 800 }}>F</span>
               </div>
               <span style={{ fontWeight: 800, fontSize: 16 }}>FatDev</span>
               <span className="pill" style={{ background: 'rgba(255,82,82,0.15)', color: 'var(--red)', border: '0.5px solid rgba(255,82,82,0.3)', fontSize: 10 }}>ADMIN</span>
@@ -174,8 +174,8 @@ function DashboardContent() {
                   style={{
                     padding: '5px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
                     background:  tab === t.id ? 'rgba(255,215,0,0.12)' : 'transparent',
-                    border:     `0.5px solid ${tab === t.id ? 'var(--gold)' : 'transparent'}`,
-                    color:       tab === t.id ? 'var(--gold)' : 'var(--text-secondary)',
+                    border:     `0.5px solid ${tab === t.id ? 'var(--fd-cyan)' : 'transparent'}`,
+                    color:       tab === t.id ? 'var(--fd-cyan)' : 'var(--text-secondary)',
                   }}>
                   {t.label}
                   {t.count !== undefined && (
@@ -237,7 +237,7 @@ function DashboardContent() {
                     <div style={{ fontWeight: 700, marginBottom: 16 }}>Users by tier</div>
                     <BarChart data={[
                       { label: 'Elite',   value: tierCounts.elite   ?? 0, color: 'var(--green)' },
-                      { label: 'Pro',     value: tierCounts.pro     ?? 0, color: 'var(--gold)'  },
+                      { label: 'Pro',     value: tierCounts.pro     ?? 0, color: 'var(--fd-cyan)'  },
                       { label: 'Starter', value: tierCounts.starter ?? 0, color: 'var(--blue)'  },
                       { label: 'Free',    value: tierCounts.free    ?? 0, color: 'rgba(255,255,255,0.2)' },
                     ]} />
@@ -388,7 +388,7 @@ function UsersTab({ users, loading, onRefresh }: { users: DbUser[]; loading: boo
           <input className="field-input" placeholder="Search wallet…" value={search}
             onChange={e => setSearch(e.target.value)} style={{ width: 220, fontSize: 12, padding: '6px 12px' }} />
           <select value={tierFilter} onChange={e => setTierFilter(e.target.value)}
-            style={{ background: 'var(--navy)', border: '0.5px solid var(--border)', color: '#fff', borderRadius: 8, padding: '6px 10px', fontSize: 12, cursor: 'pointer' }}>
+            style={{ background: 'var(--fd-void)', border: '0.5px solid var(--border)', color: '#fff', borderRadius: 8, padding: '6px 10px', fontSize: 12, cursor: 'pointer' }}>
             <option value="all">All tiers</option>
             <option value="free">Free</option>
             <option value="starter">Starter</option>
@@ -513,7 +513,7 @@ function UsersTab({ users, loading, onRefresh }: { users: DbUser[]; loading: boo
             <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: "'Space Mono',monospace", marginBottom: 16 }}>{editTier.wallet}</div>
             <div className="field-label" style={{ marginBottom: 6 }}>Tier</div>
             <select value={editTier.tier} onChange={e => setEditTier(t => t ? { ...t, tier: e.target.value } : null)}
-              style={{ width: '100%', background: 'var(--navy)', border: '0.5px solid var(--border)', color: '#fff', borderRadius: 8, padding: '8px 10px', fontSize: 13, marginBottom: 14, cursor: 'pointer' }}>
+              style={{ width: '100%', background: 'var(--fd-void)', border: '0.5px solid var(--border)', color: '#fff', borderRadius: 8, padding: '8px 10px', fontSize: 13, marginBottom: 14, cursor: 'pointer' }}>
               <option value="free">Free</option>
               <option value="starter">Starter</option>
               <option value="pro">Pro</option>
@@ -645,7 +645,7 @@ function SettingsTab() {
         <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>🔧 Maintenance Mode</div>
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
           When enabled, all users see a maintenance page instead of the app.
-          Admins can still access the app via <code style={{ color: 'var(--gold)' }}>/?bypass=fatadmin</code>.
+          Admins can still access the app via <code style={{ color: 'var(--fd-cyan)' }}>/?bypass=fatadmin</code>.
         </div>
 
         {/* Toggle */}

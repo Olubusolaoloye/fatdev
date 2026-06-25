@@ -118,13 +118,13 @@ export function MigrateCreate() {
                 width: 28, height: 28, borderRadius: '50%', margin: '0 auto 6px',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 12, fontWeight: 700,
-                background: i <= wStep ? 'var(--gold)' : 'var(--border)',
-                color: i <= wStep ? 'var(--navy)' : 'var(--text-muted)',
+                background: i <= wStep ? 'var(--fd-cyan)' : 'var(--border)',
+                color: i <= wStep ? 'var(--fd-void)' : 'var(--text-muted)',
                 transition: 'background 0.3s',
               }}>
                 {i < wStep ? '✓' : i + 1}
               </div>
-              <div style={{ fontSize: 10, color: i === wStep ? 'var(--gold)' : 'var(--text-muted)' }}>
+              <div style={{ fontSize: 10, color: i === wStep ? 'var(--fd-cyan)' : 'var(--text-muted)' }}>
                 {s}
               </div>
             </div>

@@ -5,10 +5,10 @@ export function MigrateNav() {
   const linkStyle = (isActive: boolean): React.CSSProperties => ({
     fontSize: 13,
     fontWeight: 600,
-    color: isActive ? 'var(--gold)' : 'var(--text-secondary)',
+    color: isActive ? 'var(--fd-cyan)' : 'var(--text-secondary)',
     textDecoration: 'none',
     paddingBottom: 4,
-    borderBottom: isActive ? '2px solid var(--gold)' : '2px solid transparent',
+    borderBottom: isActive ? '2px solid var(--fd-cyan)' : '2px solid transparent',
     transition: 'color 0.2s, border-color 0.2s',
   })
 
@@ -18,7 +18,7 @@ export function MigrateNav() {
       position: 'sticky',
       top: 0,
       zIndex: 50,
-      background: 'var(--navy)',
+      background: 'var(--fd-void)',
     }}>
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 1.25rem' }}>
 
@@ -33,15 +33,15 @@ export function MigrateNav() {
           {/* Brand */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             <div style={{
-              width: 26, height: 26, borderRadius: 6, background: 'var(--gold)',
+              width: 26, height: 26, borderRadius: 6, background: 'var(--fd-cyan)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <span style={{ color: 'var(--navy)', fontSize: 13, fontWeight: 800 }}>F</span>
+              <span style={{ color: 'var(--fd-void)', fontSize: 13, fontWeight: 800 }}>F</span>
             </div>
-            <span className="migrate-nav-brand" style={{ fontWeight: 800, fontSize: 15 }}>FatDeploy</span>
+            <span className="migrate-nav-brand" style={{ fontWeight: 800, fontSize: 15 }}>FatDev</span>
             <span style={{
-              fontSize: 10, fontWeight: 700, color: 'var(--navy)',
-              background: 'var(--gold)', padding: '1px 7px', borderRadius: 10,
+              fontSize: 10, fontWeight: 700, color: 'var(--fd-void)',
+              background: 'var(--fd-cyan)', padding: '1px 7px', borderRadius: 10,
               letterSpacing: '0.06em',
             }}>migrate</span>
           </div>

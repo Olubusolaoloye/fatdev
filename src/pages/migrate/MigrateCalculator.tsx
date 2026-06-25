@@ -84,13 +84,13 @@ export function MigrateCalculator() {
               <div
                 key={sc.label}
                 className="tier-card"
-                style={{ cursor: 'pointer', borderColor: isActive ? 'var(--gold)' : undefined }}
+                style={{ cursor: 'pointer', borderColor: isActive ? 'var(--fd-cyan)' : undefined }}
                 onClick={() => setParticipation(sc.pct)}
               >
                 {isActive && <div className="tier-badge">{sc.pct}%</div>}
                 <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{sc.label}</div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 }}>{sc.desc}</div>
-                <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 13, color: 'var(--gold)', fontWeight: 700 }}>
+                <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 13, color: 'var(--fd-cyan)', fontWeight: 700 }}>
                   {needed.toLocaleString()} V2
                 </div>
                 <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>tokens needed in vault</div>
@@ -108,7 +108,7 @@ export function MigrateCalculator() {
           <span style={{ fontSize: 18 }}>💡</span>
           <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
             <strong style={{ color: '#fff' }}>Recommendation:</strong> Fund your vault with{' '}
-            <strong style={{ color: 'var(--gold)' }}>
+            <strong style={{ color: 'var(--fd-cyan)' }}>
               {calcVaultNeeded(supply, ratio, Math.min(participation + 10, 99)).toLocaleString()} V2 tokens
             </strong>{' '}
             ({Math.min(participation + 10, 99)}% scenario) to account for last-minute migrations.

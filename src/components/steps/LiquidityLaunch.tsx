@@ -372,7 +372,7 @@ export function LiquidityLaunch({ contractAddress, tokenSymbol, tokenDecimals = 
           {balNum > 0 && (
             <button onClick={() => setTokenAmt(balFormatted!)}
               style={{ fontSize: 10, padding: '3px 10px', borderRadius: 20,
-                background: 'rgba(255,215,0,0.15)', color: 'var(--gold)',
+                background: 'rgba(255,215,0,0.15)', color: 'var(--fd-cyan)',
                 border: '0.5px solid rgba(255,215,0,0.3)', cursor: 'pointer', fontWeight: 700 }}>
               USE MAX
             </button>
@@ -426,7 +426,7 @@ export function LiquidityLaunch({ contractAddress, tokenSymbol, tokenDecimals = 
         {/* DEX router info (read from token contract) */}
         {tokenRouter ? (
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 14, fontFamily: "'Space Mono',monospace" }}>
-            Router (from contract): <span style={{ color: 'var(--gold)' }}>{tokenRouter}</span>
+            Router (from contract): <span style={{ color: 'var(--fd-cyan)' }}>{tokenRouter}</span>
           </div>
         ) : balLoading ? (
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 14 }}>Reading token contract…</div>
@@ -475,7 +475,7 @@ export function LiquidityLaunch({ contractAddress, tokenSymbol, tokenDecimals = 
                     state === 'ok'      ? 'var(--green)' :
                     state === 'err'     ? 'var(--red)'   :
                     state === 'pending' ? '#4A90E2'      : 'var(--border)',
-                  color: state === 'idle' ? 'var(--text-muted)' : 'var(--navy)',
+                  color: state === 'idle' ? 'var(--text-muted)' : 'var(--fd-void)',
                 }}>
                   {state === 'ok' ? '✓' : state === 'err' ? '✗' : state === 'pending' ? '…' : num}
                 </div>

@@ -120,7 +120,7 @@ function ScoreRing({ score }: { score: number }) {
   const R = 54
   const circ = 2 * Math.PI * R
   const dash = (score / 100) * circ
-  const color = score >= 80 ? 'var(--green)' : score >= 55 ? 'var(--gold)' : 'var(--red)'
+  const color = score >= 80 ? 'var(--green)' : score >= 55 ? 'var(--fd-cyan)' : 'var(--red)'
   const label = score >= 80 ? 'SAFE' : score >= 55 ? 'CAUTION' : 'DANGER'
 
   return (
@@ -163,13 +163,13 @@ function ScanAnimation() {
           <circle cx={60} cy={60} r={22} fill="none" stroke="rgba(255,215,0,0.18)" strokeWidth={1} />
           {/* Rotating sweep */}
           <g style={{ transformOrigin: '60px 60px', animation: 'spin 1.5s linear infinite' }}>
-            <line x1={60} y1={60} x2={60} y2={12} stroke="var(--gold)" strokeWidth={2}
-              strokeLinecap="round" style={{ filter: 'drop-shadow(0 0 4px var(--gold))' }} />
-            <circle cx={60} cy={12} r={3} fill="var(--gold)"
-              style={{ filter: 'drop-shadow(0 0 6px var(--gold))' }} />
+            <line x1={60} y1={60} x2={60} y2={12} stroke="var(--fd-cyan)" strokeWidth={2}
+              strokeLinecap="round" style={{ filter: 'drop-shadow(0 0 4px var(--fd-cyan))' }} />
+            <circle cx={60} cy={12} r={3} fill="var(--fd-cyan)"
+              style={{ filter: 'drop-shadow(0 0 6px var(--fd-cyan))' }} />
           </g>
-          <circle cx={60} cy={60} r={4} fill="var(--gold)"
-            style={{ filter: 'drop-shadow(0 0 8px var(--gold))' }} />
+          <circle cx={60} cy={60} r={4} fill="var(--fd-cyan)"
+            style={{ filter: 'drop-shadow(0 0 8px var(--fd-cyan))' }} />
         </svg>
       </div>
       <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>Scanning contract…</div>
@@ -202,7 +202,7 @@ function FlagRow({ flag }: { flag: Flag }) {
           width: 18, height: 18, borderRadius: '50%', display: 'flex',
           alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800,
           background: flag.ok ? 'rgba(0,230,118,0.2)' : flag.critical ? 'rgba(255,82,82,0.2)' : 'rgba(255,215,0,0.15)',
-          color: flag.ok ? 'var(--green)' : flag.critical ? 'var(--red)' : 'var(--gold)',
+          color: flag.ok ? 'var(--green)' : flag.critical ? 'var(--red)' : 'var(--fd-cyan)',
           flexShrink: 0,
         }}>
           {flag.ok ? '✓' : '✗'}
@@ -214,7 +214,7 @@ function FlagRow({ flag }: { flag: Flag }) {
         )}
       </div>
       {flag.value && (
-        <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 11, color: flag.ok ? 'var(--green)' : 'var(--gold)' }}>
+        <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 11, color: flag.ok ? 'var(--green)' : 'var(--fd-cyan)' }}>
           {flag.value}
         </span>
       )}
@@ -224,7 +224,7 @@ function FlagRow({ flag }: { flag: Flag }) {
 
 // ── Tax bar ───────────────────────────────────────────────────────────────────
 function TaxMeter({ label, pct }: { label: string; pct: number }) {
-  const color = pct <= 5 ? 'var(--green)' : pct <= 15 ? 'var(--gold)' : 'var(--red)'
+  const color = pct <= 5 ? 'var(--green)' : pct <= 15 ? 'var(--fd-cyan)' : 'var(--red)'
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -276,7 +276,7 @@ export function SecurityScanner() {
   }
 
   const score = result?.score ?? 0
-  const scoreColor = score >= 80 ? 'var(--green)' : score >= 55 ? 'var(--gold)' : 'var(--red)'
+  const scoreColor = score >= 80 ? 'var(--green)' : score >= 55 ? 'var(--fd-cyan)' : 'var(--red)'
 
   return (
     <div className="step-panel">
@@ -302,9 +302,9 @@ export function SecurityScanner() {
             <button key={c.id} onClick={() => setChainId(c.id)}
               style={{
                 padding: '5px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700,
-                border: `0.5px solid ${chainId === c.id ? 'var(--gold)' : 'var(--border)'}`,
+                border: `0.5px solid ${chainId === c.id ? 'var(--fd-cyan)' : 'var(--border)'}`,
                 background: chainId === c.id ? 'rgba(255,215,0,0.15)' : 'transparent',
-                color: chainId === c.id ? 'var(--gold)' : 'var(--text-muted)',
+                color: chainId === c.id ? 'var(--fd-cyan)' : 'var(--text-muted)',
                 cursor: 'pointer', transition: 'all 0.2s',
               }}>
               {c.short}
@@ -377,7 +377,7 @@ export function SecurityScanner() {
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
                 <span style={{ fontWeight: 800, fontSize: 22 }}>{result.name}</span>
                 <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 13,
-                  color: 'var(--gold)', padding: '1px 8px', background: 'rgba(255,215,0,0.1)',
+                  color: 'var(--fd-cyan)', padding: '1px 8px', background: 'rgba(255,215,0,0.1)',
                   borderRadius: 6 }}>{result.symbol}</span>
               </div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
@@ -389,7 +389,7 @@ export function SecurityScanner() {
                 {[
                   { label: 'Score', val: `${result.score}/100`, color: scoreColor },
                   { label: 'Owner', val: result.ownerRenounced ? 'Renounced' : 'Active',
-                    color: result.ownerRenounced ? 'var(--green)' : 'var(--gold)' },
+                    color: result.ownerRenounced ? 'var(--green)' : 'var(--fd-cyan)' },
                   { label: 'LP Lock', val: result.lpPercent > 0 ? `${result.lpPercent}%` : 'Unknown',
                     color: result.lpLocked ? 'var(--green)' : 'var(--red)' },
                 ].map(s => (
@@ -419,7 +419,7 @@ export function SecurityScanner() {
               {result.buyTax > 25 || result.sellTax > 25
                 ? <span style={{ color: 'var(--red)' }}>⚠ High tax — likely scam or rugged</span>
                 : result.buyTax > 10 || result.sellTax > 10
-                  ? <span style={{ color: 'var(--gold)' }}>⚠ Elevated tax — trade carefully</span>
+                  ? <span style={{ color: 'var(--fd-cyan)' }}>⚠ Elevated tax — trade carefully</span>
                   : <span style={{ color: 'var(--green)' }}>✓ Tax within normal range</span>
               }
             </div>

@@ -97,12 +97,12 @@ function buildWidgetCode(t: TokenInfo) {
      data-name="${t.name}"
      data-symbol="${t.symbol}"
      data-supply="${t.totalSupply}"
-     style="font-family:sans-serif;max-width:300px;border:1px solid #FFD70030;border-radius:12px;
+     style="font-family:sans-serif;max-width:300px;border:1px solid var(--fd-cyan)30;border-radius:12px;
             background:#0A1929;padding:16px;color:#fff;">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
     <div>
       <div style="font-weight:800;font-size:18px;">${t.name}</div>
-      <div style="color:#FFD700;font-size:12px;">$${t.symbol}</div>
+      <div style="color:var(--fd-cyan);font-size:12px;">$${t.symbol}</div>
     </div>
     <img src="https://fatdev.io/logo.png" alt="FatDev" width="32" height="32"
          style="border-radius:6px;" onerror="this.style.display='none'"/>
@@ -119,7 +119,7 @@ function buildWidgetCode(t: TokenInfo) {
   </div>
   <div style="margin-top:10px;font-size:10px;color:rgba(255,255,255,0.3);">
     ${t.contractAddr ? t.contractAddr.slice(0, 10) + '...' + t.contractAddr.slice(-8) : 'Contract pending'}
-    · Powered by <a href="https://fatdev.io" style="color:#FFD700;">FatDev</a>
+    · Powered by <a href="https://fatdev.io" style="color:var(--fd-cyan);">FatDev</a>
   </div>
 </div>`
 }
@@ -219,7 +219,7 @@ export function SocialTools() {
     return (
       <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12 }}>
         <div style={{ width: 36, height: 20, borderRadius: 10, flexShrink: 0,
-          background: val ? 'var(--gold)' : 'rgba(255,255,255,0.1)', position: 'relative', transition: 'background 0.2s' }}
+          background: val ? 'var(--fd-cyan)' : 'rgba(255,255,255,0.1)', position: 'relative', transition: 'background 0.2s' }}
           onClick={() => setInfo(i => ({ ...i, [field]: !val }))}>
           <div style={{ width: 16, height: 16, borderRadius: 8, background: '#fff',
             position: 'absolute', top: 2, left: val ? 18 : 2, transition: 'left 0.2s' }} />
@@ -406,9 +406,9 @@ export function SocialTools() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                   <div>
                     <div style={{ fontWeight: 800, fontSize: 18 }}>{info.name || 'Token Name'}</div>
-                    <div style={{ color: '#FFD700', fontSize: 12 }}>${info.symbol || 'TKN'}</div>
+                    <div style={{ color: 'var(--fd-cyan)', fontSize: 12 }}>${info.symbol || 'TKN'}</div>
                   </div>
-                  <div style={{ width: 32, height: 32, borderRadius: 6, background: 'var(--gold)',
+                  <div style={{ width: 32, height: 32, borderRadius: 6, background: 'var(--fd-cyan)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontWeight: 800, color: '#040D18', fontSize: 14 }}>F</div>
                 </div>
@@ -455,10 +455,10 @@ export function SocialTools() {
             <div style={{ fontWeight: 700, marginBottom: 8, fontSize: 13 }}>💡 Enhance the widget</div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.8 }}>
               The static widget above works out-of-the-box. To add <strong style={{ color: '#fff' }}>live price &amp; holder data</strong>,
-              wire up the widget's <code style={{ color: 'var(--gold)', fontSize: 11 }}>data-contract</code> to the
-              BSCScan/Etherscan API (same key used by FatDev: <code style={{ color: 'var(--gold)', fontSize: 11 }}>BHPP1DMU8YABI4Y9MV7PUGATK49IKR8D3F</code>).
-              Call <code style={{ color: 'var(--gold)', fontSize: 11 }}>tokenholderlist</code> for holder count
-              and <code style={{ color: 'var(--gold)', fontSize: 11 }}>tokentx</code> for recent activity.
+              wire up the widget's <code style={{ color: 'var(--fd-cyan)', fontSize: 11 }}>data-contract</code> to the
+              BSCScan/Etherscan API (same key used by FatDev: <code style={{ color: 'var(--fd-cyan)', fontSize: 11 }}>BHPP1DMU8YABI4Y9MV7PUGATK49IKR8D3F</code>).
+              Call <code style={{ color: 'var(--fd-cyan)', fontSize: 11 }}>tokenholderlist</code> for holder count
+              and <code style={{ color: 'var(--fd-cyan)', fontSize: 11 }}>tokentx</code> for recent activity.
             </div>
           </div>
         </div>

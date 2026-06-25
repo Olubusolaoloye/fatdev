@@ -314,7 +314,7 @@ export function PresaleTool() {
             <div style={{
               height: '100%', borderRadius: 4,
               width: `${Math.min(100, Math.round(parseFloat(raised) / parseFloat(activePresale.hardCap) * 100))}%`,
-              background: 'linear-gradient(90deg, var(--gold), var(--green))',
+              background: 'linear-gradient(90deg, var(--fd-cyan), var(--green))',
             }} />
           </div>
         )}
@@ -478,7 +478,7 @@ export function PresaleTool() {
                 background: 'rgba(255,215,0,0.06)', border: '0.5px solid var(--border-strong)',
                 fontSize: 12, color: 'var(--text-secondary)' }}>
                 📊 At hard cap ({hardCap} {currency} raised): <strong style={{ color: '#fff' }}>{(parseFloat(tokensPerEth) * parseFloat(hardCap)).toLocaleString()} {tokenSymbol}</strong> sold +{' '}
-                <strong style={{ color: 'var(--gold)' }}>
+                <strong style={{ color: 'var(--fd-cyan)' }}>
                   {(parseFloat(tokensPerEth) * parseFloat(hardCap) * liquidityPct / 100).toLocaleString()} {tokenSymbol}
                 </strong> in LP.{' '}
                 Fund the contract with at least{' '}
@@ -505,7 +505,7 @@ export function PresaleTool() {
             <div style={{ fontWeight: 700, marginBottom: 12 }}>4 · Options</div>
             <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', userSelect: 'none' }}>
               <div style={{ width: 40, height: 22, borderRadius: 11,
-                background: whitelistOnly ? 'var(--gold)' : 'rgba(255,255,255,0.1)',
+                background: whitelistOnly ? 'var(--fd-cyan)' : 'rgba(255,255,255,0.1)',
                 position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}
                 onClick={() => setWhitelistOnly(!whitelistOnly)}>
                 <div style={{ width: 18, height: 18, borderRadius: 9, background: '#fff',
