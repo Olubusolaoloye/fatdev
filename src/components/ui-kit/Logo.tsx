@@ -42,7 +42,7 @@ export default function Logo({ size = 40, variant = 'full' }: LogoProps) {
       userSelect: 'none',
     }}>
       <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, color: '#EEF2FF' }}>Fat</span>
-      <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 400, color: '#00CFFF' }}>Deploy</span>
+      <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 400, color: '#00CFFF' }}>Dev</span>
     </span>
   )
 
