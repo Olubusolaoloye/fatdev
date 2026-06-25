@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import Navbar from '../components/Navbar'
+import Logo from '../components/ui-kit/Logo'
 
 // ── Intersection observer for scroll-reveal ───────────────────────────────────
 function useReveal() {
@@ -677,15 +678,7 @@ export function LandingPage() {
       }}>
         <div style={{ maxWidth: 1140, margin: '0 auto', display: 'flex',
           flexDirection: 'column', alignItems: 'center', gap: 14 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 24, height: 24, borderRadius: 6, background: 'var(--fd-cyan)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ color: 'var(--fd-void)', fontSize: 12, fontWeight: 900,
-                fontFamily: "'Orbitron',sans-serif" }}>F</span>
-            </div>
-            <span style={{ fontWeight: 700, fontFamily: "'Orbitron',sans-serif",
-              fontSize: 13, letterSpacing: '.06em' }}>FatDev</span>
-          </div>
+          <Logo variant="full" size={28} />
           <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', justifyContent: 'center' }}>
             {[{ to: '/app', label: 'App' }, { to: '/tools', label: 'Tools' },
               { to: '/migrate', label: 'Migrate' }].map(l => (
