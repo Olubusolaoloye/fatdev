@@ -5,6 +5,8 @@ import { WagmiProvider } from 'wagmi'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit'
 import { config } from './lib/wagmi'
+import { useAppConfig } from './hooks/useAppConfig'
+import { MaintenancePage } from './components/MaintenancePage'
 import App from './App'
 import { LandingPage } from './pages/LandingPage'
 import { ToolsPage }   from './pages/ToolsPage'
@@ -22,20 +24,32 @@ const rbkTheme = darkTheme({
   overlayBlur: 'small',
 })
 
+function MaintenanceGate({ children }: { children: React.ReactNode }) {
+  const { maintenanceMode, maintenanceMessage, loading } = useAppConfig()
+  const isBypass = new URLSearchParams(window.location.search).get('bypass') === 'fatadmin'
+
+  if (!loading && maintenanceMode && !isBypass) {
+    return <MaintenancePage message={maintenanceMessage} />
+  }
+  return <>{children}</>
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
       <WagmiProvider config={config}>
         <QueryClientProvider client={queryClient}>
           <RainbowKitProvider theme={rbkTheme} modalSize="compact">
-            <Routes>
-              <Route path="/"          element={<LandingPage />} />
-              <Route path="/tools"     element={<ToolsPage />} />
-              <Route path="/pricing"   element={<PricingPage />} />
-              <Route path="/migrate/*" element={<MigrateRouter />} />
-              <Route path="/app/*"     element={<App />} />
-              <Route path="/*"         element={<App />} />
-            </Routes>
+            <MaintenanceGate>
+              <Routes>
+                <Route path="/"          element={<LandingPage />} />
+                <Route path="/tools"     element={<ToolsPage />} />
+                <Route path="/pricing"   element={<PricingPage />} />
+                <Route path="/migrate/*" element={<MigrateRouter />} />
+                <Route path="/app/*"     element={<App />} />
+                <Route path="/*"         element={<App />} />
+              </Routes>
+            </MaintenanceGate>
           </RainbowKitProvider>
         </QueryClientProvider>
       </WagmiProvider>
