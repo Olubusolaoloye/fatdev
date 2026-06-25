@@ -395,14 +395,14 @@ export function LandingPage() {
             letterSpacing: '-0.01em', margin: '0 0 12px',
             animation: 'hero-in 0.7s ease 0.25s both',
           }}>
-            DEPLOY TOKENS.
+            BECOME A DEV
           </h1>
           <h1 className="landing-hero-headline" style={{
             fontFamily: "'Orbitron',sans-serif",
             fontSize: 'clamp(36px, 6.5vw, 70px)',
             fontWeight: 900, lineHeight: 1.06,
             letterSpacing: '-0.01em', margin: '0 0 28px',
-            background: 'linear-gradient(90deg, #FFD700 0%, #FFA500 40%, #FFD700 80%, #FFE066 100%)',
+            background: 'linear-gradient(90deg, #00CFFF 0%, #00E57A 50%, #00CFFF 100%)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             backgroundClip: 'text', backgroundSize: '200% 100%',
             animation: 'hero-in 0.7s ease 0.35s both, shimmer-txt 4s linear infinite',
@@ -414,11 +414,12 @@ export function LandingPage() {
           <p className="landing-hero-sub" style={{
             fontSize: 'clamp(14px, 1.8vw, 17px)',
             color: 'var(--text-secondary)', lineHeight: 1.75,
-            maxWidth: 560, margin: '0 auto 40px',
+            maxWidth: 580, margin: '0 auto 40px',
             animation: 'hero-in 0.7s ease 0.45s both',
           }}>
-            Configure, deploy, and manage BEP-20 / ERC-20 tokens from your browser.
-            No Solidity. No Remix. Scan, launch, and grow — all in one platform.
+            Deploy tokens, scan for honeypots, simulate taxes, audit LP locks, and launch on any EVM chain —
+            all from your browser. No Solidity. No Remix. No dev team.
+            Everything you need to build, protect, and grow your project in one place.
           </p>
 
           {/* CTAs */}
