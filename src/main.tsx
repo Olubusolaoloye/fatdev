@@ -26,7 +26,8 @@ const rbkTheme = darkTheme({
 
 function MaintenanceGate({ children }: { children: React.ReactNode }) {
   const { maintenanceMode, maintenanceMessage, loading } = useAppConfig()
-  const isBypass = new URLSearchParams(window.location.search).get('bypass') === 'fatadmin'
+  const params = new URLSearchParams(window.location.search)
+  const isBypass = params.get('bypass') === 'fatadmin' || params.get('admin') === '1'
 
   if (!loading && maintenanceMode && !isBypass) {
     return <MaintenancePage message={maintenanceMessage} />
