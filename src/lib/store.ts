@@ -69,23 +69,62 @@ export type UserData = {
   deploys: DeployRecord[]
 }
 
+export type TokenType = 'standard' | 'tax' | 'deflationary' | 'reflection'
+
 export type TokenConfig = {
+  // identity
   name: string; symbol: string; decimals: number; totalSupply: string
+  tokenType: TokenType
+  description: string; website: string; logoUrl: string
+  // addresses
   fundAddress: string; receiveAddress: string; rewardToken: string
+  // buy taxes (bps)
   buyFund: number; buyLP: number; buyReward: number; buyBurn: number
+  // sell taxes (bps)
   sellFund: number; sellLP: number; sellReward: number; sellBurn: number
+  // limits
   maxBuyAmount: string; maxWalletAmount: string
+  // feature flags
   enableChangeTax: boolean; enableKillBlock: boolean; enableSwapLimit: boolean
   enableWalletLimit: boolean; enableOffTrade: boolean
   enableKillBatchBots: boolean; enableTransferFee: boolean; antiSYNC: boolean
   currencyIsEth: boolean; kb: number; killBatchBlockNumber: number; airdropNumbs: number
 }
 
+export const TOKEN_TYPE_PRESETS: Record<TokenType, Partial<TokenConfig>> = {
+  standard: {
+    tokenType: 'standard',
+    buyFund: 0, buyLP: 0, buyReward: 0, buyBurn: 0,
+    sellFund: 0, sellLP: 0, sellReward: 0, sellBurn: 0,
+    enableTransferFee: false,
+  },
+  tax: {
+    tokenType: 'tax',
+    buyFund: 300, buyLP: 100, buyReward: 0, buyBurn: 100,
+    sellFund: 300, sellLP: 100, sellReward: 0, sellBurn: 100,
+    enableTransferFee: false,
+  },
+  deflationary: {
+    tokenType: 'deflationary',
+    buyFund: 0, buyLP: 100, buyReward: 0, buyBurn: 400,
+    sellFund: 0, sellLP: 100, sellReward: 0, sellBurn: 400,
+    enableTransferFee: true,
+  },
+  reflection: {
+    tokenType: 'reflection',
+    buyFund: 0, buyLP: 100, buyReward: 400, buyBurn: 0,
+    sellFund: 0, sellLP: 100, sellReward: 400, sellBurn: 0,
+    enableTransferFee: true,
+  },
+}
+
 export const DEFAULT_CFG: TokenConfig = {
   name: '', symbol: '', decimals: 18, totalSupply: '1000000000',
+  tokenType: 'tax',
+  description: '', website: '', logoUrl: '',
   fundAddress: '', receiveAddress: '', rewardToken: '',
-  buyFund: 200, buyLP: 100, buyReward: 100, buyBurn: 0,
-  sellFund: 200, sellLP: 100, sellReward: 100, sellBurn: 0,
+  buyFund: 300, buyLP: 100, buyReward: 0, buyBurn: 100,
+  sellFund: 300, sellLP: 100, sellReward: 0, sellBurn: 100,
   maxBuyAmount: '10000000', maxWalletAmount: '20000000',
   enableChangeTax: true, enableKillBlock: true, enableSwapLimit: true,
   enableWalletLimit: true, enableOffTrade: true,
