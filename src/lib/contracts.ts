@@ -1,6 +1,8 @@
 import { parseEther, parseUnits, formatUnits, createPublicClient, http, fallback } from 'viem'
 import { mainnet } from 'viem/chains'
 import type { WalletClient, PublicClient } from 'viem'
+import { ROUTERS } from './wagmi'
+import { BYTECODES } from './bytecodes'
 
 // ── Payment constants ─────────────────────────────────────────────────────────
 export const TREASURY     = '0xA7d617117887b3cAf2C93B07ceD3081Ee9F8F63a' as `0x${string}` // REPLACE with your wallet
@@ -138,47 +140,45 @@ export async function payWithNative(
   return hash
 }
 
-// ── TokenFactory deployment ───────────────────────────────────────────────────
-// Set these once you deploy TokenFactory on each chain.
-// See: src/contracts/TokenFactory.sol
-export const FACTORY_ADDRESSES: Record<number, `0x${string}`> = {
-  56:    '0x0000000000000000000000000000000000000000', // BSC mainnet — set after deploy
-  1:     '0x0000000000000000000000000000000000000000', // Ethereum — set after deploy
-  42161: '0x0000000000000000000000000000000000000000', // Arbitrum — set after deploy
-  97:    '0x0000000000000000000000000000000000000000', // BSC testnet — set after deploy
-}
+// ── Direct deploy: bytecode + initialize() ───────────────────────────────────
+// No pre-deployed factory needed. Each user deploys their own full contract.
+// Flow: (1) deploy bytecode → get address  (2) call initialize() with params
+// Two wallet confirmations; the UI shows progress for each step.
 
 const DEAD = '0x000000000000000000000000000000000000dEaD' as `0x${string}`
 
-const FACTORY_ABI = [
+const STANDARD_INIT_ABI = [
   {
-    name: 'createStandardToken',
-    type: 'function', stateMutability: 'payable',
+    name: 'initialize', type: 'function', stateMutability: 'nonpayable',
     inputs: [
-      { name: 'name', type: 'string' },
-      { name: 'symbol', type: 'string' },
-      { name: 'decimals', type: 'uint8' },
-      { name: 'totalSupply', type: 'uint256' },
+      { name: 'name_',        type: 'string'  },
+      { name: 'symbol_',      type: 'string'  },
+      { name: 'decimals_',    type: 'uint8'   },
+      { name: 'totalSupply_', type: 'uint256' },
+      { name: 'owner_',       type: 'address' },
     ],
-    outputs: [{ type: 'address' }],
+    outputs: [],
   },
+] as const
+
+const TAX_INIT_ABI = [
   {
-    name: 'createTaxToken',
-    type: 'function', stateMutability: 'payable',
+    name: 'initialize', type: 'function', stateMutability: 'nonpayable',
     inputs: [
-      { name: 'name', type: 'string' },
-      { name: 'symbol', type: 'string' },
-      { name: 'decimals', type: 'uint8' },
-      { name: 'totalSupply', type: 'uint256' },
-      { name: 'taxBehavior', type: 'tuple', components: [
-        { name: 'taxOnTransfer', type: 'bool' },
-        { name: 'taxOnBuy',      type: 'bool' },
-        { name: 'taxOnSell',     type: 'bool' },
+      { name: 'name_',        type: 'string'  },
+      { name: 'symbol_',      type: 'string'  },
+      { name: 'decimals_',    type: 'uint8'   },
+      { name: 'totalSupply_', type: 'uint256' },
+      { name: 'owner_',       type: 'address' },
+      { name: 'taxBehavior_', type: 'tuple', components: [
+        { name: 'taxOnTransfer', type: 'bool'    },
+        { name: 'taxOnBuy',      type: 'bool'    },
+        { name: 'taxOnSell',     type: 'bool'    },
         { name: 'transferTax',   type: 'uint256' },
         { name: 'buyTax',        type: 'uint256' },
         { name: 'sellTax',       type: 'uint256' },
       ]},
-      { name: 'taxDistribution', type: 'tuple', components: [
+      { name: 'taxDistribution_', type: 'tuple', components: [
         { name: 'marketingPercent', type: 'uint256' },
         { name: 'liquidityPercent', type: 'uint256' },
         { name: 'teamPercent',      type: 'uint256' },
@@ -188,72 +188,9 @@ const FACTORY_ABI = [
         { name: 'teamWallet',       type: 'address' },
         { name: 'buybackWallet',    type: 'address' },
       ]},
+      { name: 'dexRouter_', type: 'address' },
     ],
-    outputs: [{ type: 'address' }],
-  },
-  {
-    name: 'createDeflationaryToken',
-    type: 'function', stateMutability: 'payable',
-    inputs: [
-      { name: 'name', type: 'string' },
-      { name: 'symbol', type: 'string' },
-      { name: 'decimals', type: 'uint8' },
-      { name: 'totalSupply', type: 'uint256' },
-      { name: 'taxBehavior', type: 'tuple', components: [
-        { name: 'taxOnTransfer', type: 'bool' },
-        { name: 'taxOnBuy',      type: 'bool' },
-        { name: 'taxOnSell',     type: 'bool' },
-        { name: 'transferTax',   type: 'uint256' },
-        { name: 'buyTax',        type: 'uint256' },
-        { name: 'sellTax',       type: 'uint256' },
-      ]},
-      { name: 'taxDistribution', type: 'tuple', components: [
-        { name: 'marketingPercent', type: 'uint256' },
-        { name: 'liquidityPercent', type: 'uint256' },
-        { name: 'teamPercent',      type: 'uint256' },
-        { name: 'buybackPercent',   type: 'uint256' },
-        { name: 'burnPercent',      type: 'uint256' },
-        { name: 'marketingWallet',  type: 'address' },
-        { name: 'teamWallet',       type: 'address' },
-        { name: 'buybackWallet',    type: 'address' },
-      ]},
-    ],
-    outputs: [{ type: 'address' }],
-  },
-  {
-    name: 'createReflectionToken',
-    type: 'function', stateMutability: 'payable',
-    inputs: [
-      { name: 'name', type: 'string' },
-      { name: 'symbol', type: 'string' },
-      { name: 'decimals', type: 'uint8' },
-      { name: 'totalSupply', type: 'uint256' },
-      { name: 'taxBehavior', type: 'tuple', components: [
-        { name: 'taxOnTransfer', type: 'bool' },
-        { name: 'taxOnBuy',      type: 'bool' },
-        { name: 'taxOnSell',     type: 'bool' },
-        { name: 'transferTax',   type: 'uint256' },
-        { name: 'buyTax',        type: 'uint256' },
-        { name: 'sellTax',       type: 'uint256' },
-      ]},
-      { name: 'taxDistribution', type: 'tuple', components: [
-        { name: 'marketingPercent', type: 'uint256' },
-        { name: 'liquidityPercent', type: 'uint256' },
-        { name: 'teamPercent',      type: 'uint256' },
-        { name: 'buybackPercent',   type: 'uint256' },
-        { name: 'burnPercent',      type: 'uint256' },
-        { name: 'marketingWallet',  type: 'address' },
-        { name: 'teamWallet',       type: 'address' },
-        { name: 'buybackWallet',    type: 'address' },
-      ]},
-    ],
-    outputs: [{ type: 'address' }],
-  },
-  {
-    name: 'getDeploymentFee',
-    type: 'function', stateMutability: 'view',
-    inputs: [],
-    outputs: [{ type: 'uint256' }],
+    outputs: [],
   },
 ] as const
 
@@ -276,88 +213,83 @@ export async function deployToken(
   publicClient: PublicClient,
   onStatus: (s: string) => void
 ): Promise<{ contractAddress: string; txHash: string }> {
-  const factory = FACTORY_ADDRESSES[args.chainId]
-  if (!factory || factory === '0x0000000000000000000000000000000000000000') {
-    throw new Error(
-      `TokenFactory not yet deployed on chain ${args.chainId}. ` +
-      `Deploy src/contracts/TokenFactory.sol and set the address in FACTORY_ADDRESSES.`
-    )
-  }
-
   const [account] = await walletClient.getAddresses()
   const dec0 = 10n ** BigInt(args.decimals)
   const totalSupplyWei = BigInt(args.totalSupply) * dec0
 
-  onStatus('Fetching deployment fee from factory…')
-  const fee = await publicClient.readContract({
-    address: factory,
-    abi: FACTORY_ABI,
-    functionName: 'getDeploymentFee',
-  }) as bigint
+  // Select bytecode for this token type
+  const bytecodeMap = {
+    standard:     BYTECODES.FatStandard,
+    tax:          BYTECODES.FatTax,
+    deflationary: BYTECODES.FatDeflationary,
+    reflection:   BYTECODES.FatReflection,
+  } as const
+  const bytecode = bytecodeMap[args.tokenType]
 
-  const taxBehavior = {
-    taxOnTransfer: args.taxOnTransfer,
-    taxOnBuy: args.taxOnBuy,
-    taxOnSell: args.taxOnSell,
-    transferTax: BigInt(args.transferTax),
-    buyTax: BigInt(args.buyTax),
-    sellTax: BigInt(args.sellTax),
-  }
+  // ── Step 1: deploy bytecode ────────────────────────────────────────────────
+  const typeLabel = args.tokenType.charAt(0).toUpperCase() + args.tokenType.slice(1)
+  onStatus(`Step 1 of 2 — Deploying Fat${typeLabel} contract… confirm in wallet`)
 
-  // Distribution percentages are in basis points (0–10000, summing to 10000)
-  const taxDistribution = {
-    marketingPercent: BigInt(args.mktPct * 100),
-    liquidityPercent: BigInt(args.lpPct * 100),
-    teamPercent:      BigInt(args.teamPct * 100),
-    buybackPercent:   BigInt(args.buybackPct * 100),
-    burnPercent:      BigInt(args.burnPct * 100),
-    marketingWallet:  (args.fundAddress && args.fundAddress.length > 10 ? args.fundAddress : DEAD),
-    teamWallet:       (args.teamWallet && args.teamWallet.length > 10 ? args.teamWallet : DEAD) as `0x${string}`,
-    buybackWallet:    (args.buybackWallet && args.buybackWallet.length > 10 ? args.buybackWallet : DEAD) as `0x${string}`,
-  }
+  const deployHash = await walletClient.sendTransaction({
+    data: bytecode,
+    account,
+    chain: walletClient.chain!,
+  })
 
-  let hash: `0x${string}`
-  const baseArgs = [args.name, args.symbol, args.decimals, totalSupplyWei] as const
+  onStatus('Step 1 of 2 — Waiting for deployment confirmation…')
+  const deployReceipt = await publicClient.waitForTransactionReceipt({ hash: deployHash })
 
-  onStatus('Confirm transaction in wallet…')
+  const contractAddress = deployReceipt.contractAddress
+  if (!contractAddress) throw new Error('Deploy failed — no contract address in receipt')
+
+  // ── Step 2: initialize ────────────────────────────────────────────────────
+  onStatus(`Step 2 of 2 — Initializing token… confirm in wallet`)
+
+  const mktWallet  = (args.fundAddress    && args.fundAddress.length    > 10 ? args.fundAddress    : DEAD) as `0x${string}`
+  const teamWallet = (args.teamWallet     && args.teamWallet.length     > 10 ? args.teamWallet     : DEAD) as `0x${string}`
+  const bbWallet   = (args.buybackWallet  && args.buybackWallet.length  > 10 ? args.buybackWallet  : DEAD) as `0x${string}`
+  const dexRouter  = (ROUTERS[args.chainId] ?? DEAD) as `0x${string}`
+
+  let initHash: `0x${string}`
 
   if (args.tokenType === 'standard') {
-    hash = await walletClient.writeContract({
-      address: factory, abi: FACTORY_ABI,
-      functionName: 'createStandardToken',
-      args: baseArgs,
-      value: fee, account, chain: walletClient.chain!,
-    })
-  } else if (args.tokenType === 'tax') {
-    hash = await walletClient.writeContract({
-      address: factory, abi: FACTORY_ABI,
-      functionName: 'createTaxToken',
-      args: [...baseArgs, taxBehavior, taxDistribution],
-      value: fee, account, chain: walletClient.chain!,
-    })
-  } else if (args.tokenType === 'deflationary') {
-    hash = await walletClient.writeContract({
-      address: factory, abi: FACTORY_ABI,
-      functionName: 'createDeflationaryToken',
-      args: [...baseArgs, taxBehavior, taxDistribution],
-      value: fee, account, chain: walletClient.chain!,
+    initHash = await walletClient.writeContract({
+      address: contractAddress, abi: STANDARD_INIT_ABI,
+      functionName: 'initialize',
+      args: [args.name, args.symbol, args.decimals, totalSupplyWei, account],
+      account, chain: walletClient.chain!,
     })
   } else {
-    hash = await walletClient.writeContract({
-      address: factory, abi: FACTORY_ABI,
-      functionName: 'createReflectionToken',
-      args: [...baseArgs, taxBehavior, taxDistribution],
-      value: fee, account, chain: walletClient.chain!,
+    const taxBehavior = {
+      taxOnTransfer: args.taxOnTransfer,
+      taxOnBuy:      args.taxOnBuy,
+      taxOnSell:     args.taxOnSell,
+      transferTax:   BigInt(args.transferTax),
+      buyTax:        BigInt(args.buyTax),
+      sellTax:       BigInt(args.sellTax),
+    }
+    const taxDistribution = {
+      marketingPercent: BigInt(args.mktPct * 100),
+      liquidityPercent: BigInt(args.lpPct  * 100),
+      teamPercent:      BigInt(args.teamPct * 100),
+      buybackPercent:   BigInt(args.buybackPct * 100),
+      burnPercent:      BigInt(args.burnPct * 100),
+      marketingWallet:  mktWallet,
+      teamWallet,
+      buybackWallet:    bbWallet,
+    }
+    initHash = await walletClient.writeContract({
+      address: contractAddress, abi: TAX_INIT_ABI,
+      functionName: 'initialize',
+      args: [args.name, args.symbol, args.decimals, totalSupplyWei, account, taxBehavior, taxDistribution, dexRouter],
+      account, chain: walletClient.chain!,
     })
   }
 
-  onStatus('Waiting for confirmation…')
-  const receipt = await publicClient.waitForTransactionReceipt({ hash })
+  onStatus('Step 2 of 2 — Waiting for initialization confirmation…')
+  await publicClient.waitForTransactionReceipt({ hash: initHash })
 
-  // Token address is in the TokenCreated event — take the last log's address as best proxy
-  const tokenAddr = receipt.logs?.[receipt.logs.length - 1]?.address ?? '0x???'
-
-  return { contractAddress: tokenAddr, txHash: hash }
+  return { contractAddress, txHash: deployHash }
 }
 
 // ── LEGACY: keep FAT_BYTECODE export so old imports don't break immediately ───
@@ -367,10 +299,10 @@ export const FAT_BYTECODE = "0x60806040526003600755600a805460ff19908116600190811
 
 // ── Constructor param summary (for Step5Review) ───────────────────────────────
 export function generateParams(cfg: any, chainId: number): string {
-  const factory = FACTORY_ADDRESSES[chainId] ?? '(not deployed)'
   const pct = (n: number) => `${n}% (${n * 100} bps)`
   const bps = (n: number) => `${n} bps (${(n / 100).toFixed(2)}%)`
   const burnLabel = cfg.tokenType === 'reflection' ? 'reflection' : 'burn'
+  const router = ROUTERS[chainId] ?? '(unsupported chain)'
   return `// Token: ${(cfg.tokenType ?? 'tax').toUpperCase()}
 name        = "${cfg.name || 'My Token'}"
 symbol      = "${cfg.symbol || 'MTK'}"
@@ -395,6 +327,6 @@ team       = ${pct(cfg.teamPct ?? 0)}
 buyback    = ${pct(cfg.buybackPct ?? 0)}
 ${burnLabel}      = ${pct(cfg.burnPct ?? 0)}
 
-// Factory
-TokenFactory = "${factory}" (chain ${chainId})`
+// Network
+dexRouter = "${router}" (chain ${chainId})`
 }
