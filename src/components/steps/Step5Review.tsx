@@ -4,19 +4,14 @@ import { useStore } from '../../lib/store'
 import { Pill, CodeBlock, SumTile, Btn } from '../ui-kit'
 import { generateParams } from '../../lib/contracts'
 
-const taxTotal = (cfg: any, side: 'buy' | 'sell') =>
-  side === 'buy' ? cfg.buyFund + cfg.buyLP + cfg.buyReward + cfg.buyBurn
-                 : cfg.sellFund + cfg.sellLP + cfg.sellReward + cfg.sellBurn
-
 export function Step5Review() {
   const { cfg } = useStore()
   const chainId = useChainId()
   const [copied, setCopied] = useState(false)
 
-  const buyTotal  = taxTotal(cfg, 'buy')
-  const sellTotal = taxTotal(cfg, 'sell')
-  const params    = generateParams(cfg, chainId)
+  const params = generateParams(cfg, chainId)
   const fmt = (n: number) => `${(n / 100).toFixed(2)}%`
+  const distTotal = cfg.mktPct + cfg.lpPct + cfg.teamPct + cfg.buybackPct + cfg.burnPct
 
   function copyParams() {
     navigator.clipboard.writeText(params)
@@ -39,10 +34,11 @@ export function Step5Review() {
         borderRadius: 'var(--fd-radius-lg)',
         padding: '4px 20px',
       }}>
-        <SumTile val={cfg.name || '—'}   label="Name" />
-        <SumTile val={cfg.symbol || '—'} label="Symbol" />
-        <SumTile val={fmt(buyTotal)}      label="Buy tax" />
-        <SumTile val={fmt(sellTotal)}     label="Sell tax" />
+        <SumTile val={cfg.name || '—'}          label="Name" />
+        <SumTile val={cfg.symbol || '—'}         label="Symbol" />
+        <SumTile val={cfg.tokenType.toUpperCase()} label="Type" />
+        {cfg.taxOnBuy  && <SumTile val={fmt(cfg.buyTax)}      label="Buy tax" />}
+        {cfg.taxOnSell && <SumTile val={fmt(cfg.sellTax)}     label="Sell tax" />}
       </div>
 
       {/* Constructor params */}
@@ -56,7 +52,7 @@ export function Step5Review() {
           fontSize: 11, fontFamily: 'var(--fd-font-mono)', color: 'var(--fd-ghost)',
           letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12,
         }}>
-          Constructor params
+          Deployment parameters
         </div>
         <CodeBlock text={params} />
         <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
@@ -71,13 +67,14 @@ export function Step5Review() {
 
       {/* Validation pills */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <Pill ok={buyTotal < 2500}            label={`Buy ${fmt(buyTotal)}`} />
-        <Pill ok={sellTotal < 2500}           label={`Sell ${fmt(sellTotal)}`} />
-        <Pill ok={cfg.name.length > 0}        label="Name" />
-        <Pill ok={cfg.symbol.length > 0}      label="Symbol" />
-        <Pill ok={cfg.fundAddress.length > 10}    label="Fund addr" />
-        <Pill ok={cfg.receiveAddress.length > 10} label="Receive addr" />
-        <Pill ok={true} gold                  label="Reward token (auto: WBNB/WETH if blank)" />
+        <Pill ok={cfg.name.length > 0}                           label="Name" />
+        <Pill ok={cfg.symbol.length > 0}                         label="Symbol" />
+        <Pill ok={cfg.fundAddress.length > 10}                   label="Marketing wallet" />
+        <Pill ok={cfg.receiveAddress.length > 10}                label="Receive address" />
+        {cfg.taxOnBuy  && <Pill ok={cfg.buyTax  < 2500} label={`Buy ${fmt(cfg.buyTax)}`} />}
+        {cfg.taxOnSell && <Pill ok={cfg.sellTax < 2500} label={`Sell ${fmt(cfg.sellTax)}`} />}
+        {cfg.taxOnTransfer && <Pill ok={cfg.transferTax < 2500} label={`Transfer ${fmt(cfg.transferTax)}`} />}
+        {cfg.tokenType !== 'standard' && <Pill ok={distTotal === 100} label={`Distribution ${distTotal}%`} />}
       </div>
     </div>
   )

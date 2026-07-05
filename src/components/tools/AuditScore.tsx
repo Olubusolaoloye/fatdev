@@ -133,15 +133,15 @@ export function AuditScore() {
 
   const buyTotal  = useManual
     ? Math.round(manual.buyTax  * 100)
-    : cfg.buyFund  + cfg.buyLP  + cfg.buyReward  + cfg.buyBurn
+    : cfg.buyTax
   const sellTotal = useManual
     ? Math.round(manual.sellTax * 100)
-    : cfg.sellFund + cfg.sellLP + cfg.sellReward + cfg.sellBurn
+    : cfg.sellTax
 
-  const taxLocked         = useManual ? manual.taxLocked         : !cfg.enableChangeTax
-  const antiSync          = useManual ? manual.antiSync          : cfg.antiSYNC
-  const killBlock         = useManual ? manual.killBlock         : cfg.enableKillBlock
-  const walletLimit       = useManual ? manual.walletLimit       : cfg.enableWalletLimit
+  const taxLocked         = useManual ? manual.taxLocked  : false  // factory tokens can't change tax post-deploy
+  const antiSync          = useManual ? manual.antiSync   : false  // not a feature in factory contracts
+  const killBlock         = useManual ? manual.killBlock  : false  // not a feature in factory contracts
+  const walletLimit       = useManual ? manual.walletLimit : false
   const decimalsVal       = useManual ? manual.decimals          : cfg.decimals
   const supplyVal         = useManual ? manual.totalSupply       : Number(cfg.totalSupply)
   const fundDiffReceive   = useManual ? manual.fundDiffFromReceive

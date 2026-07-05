@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { useAccount, useWalletClient, usePublicClient, useChainId } from 'wagmi'
 import { useStore } from '../../lib/store'
-import { deployFatToken, generateParams } from '../../lib/contracts'
-import { verifyContract } from '../../lib/verify'
+import { deployToken, generateParams } from '../../lib/contracts'
 import { CHAIN_EXPLORERS } from '../../lib/wagmi'
 import { StatusBox, Spinner, SumTile, Btn } from '../ui-kit'
 import Logo from '../ui-kit/Logo'
@@ -16,7 +15,7 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
   const chainId = useChainId()
   const { data: walletClient } = useWalletClient()
   const publicClient = usePublicClient()
-  const { cfg, getUserData, addDeploy, patchDeploy, setStep } = useStore()
+  const { cfg, getUserData, addDeploy, setStep } = useStore()
 
   const [deploying, setDeploying]     = useState(false)
   const [status,   setStatus]         = useState('')
@@ -36,8 +35,19 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
     if (!walletClient || !publicClient || !address) return
     setDeploying(true); setError(''); setStatus(''); setVerifyState('idle'); setVerifyMsg('')
     try {
-      const res = await deployFatToken(
-        { ...cfg, fundAddress: cfg.fundAddress as any, receiveAddress: cfg.receiveAddress as any, rewardToken: cfg.rewardToken as any, chainId },
+      const res = await deployToken(
+        {
+          name: cfg.name, symbol: cfg.symbol, decimals: cfg.decimals, totalSupply: cfg.totalSupply,
+          tokenType: cfg.tokenType,
+          fundAddress: cfg.fundAddress as `0x${string}`,
+          receiveAddress: cfg.receiveAddress as `0x${string}`,
+          teamWallet: (cfg.teamWallet || '0x0000000000000000000000000000000000000000') as `0x${string}`,
+          buybackWallet: (cfg.buybackWallet || '0x0000000000000000000000000000000000000000') as `0x${string}`,
+          taxOnTransfer: cfg.taxOnTransfer, taxOnBuy: cfg.taxOnBuy, taxOnSell: cfg.taxOnSell,
+          buyTax: cfg.buyTax, sellTax: cfg.sellTax, transferTax: cfg.transferTax,
+          mktPct: cfg.mktPct, lpPct: cfg.lpPct, teamPct: cfg.teamPct, buybackPct: cfg.buybackPct, burnPct: cfg.burnPct,
+          chainId,
+        },
         walletClient as any, publicClient as any, setStatus
       )
       setResult(res)
@@ -51,15 +61,6 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
           configSnapshot: generateParams(cfg, chainId),
           verified: false,
         })
-      }
-      setVerifyState('pending')
-      const vRes = await verifyContract(res.contractAddress, res.constructorArgs, chainId, msg => setVerifyMsg(msg))
-      setVerifyState(vRes.success ? 'ok' : 'fail')
-      setVerifyMsg(vRes.message)
-      if (vRes.success && address) {
-        const u = getUserData(address)
-        const rec = u.deploys.find(d => d.contractAddress === res.contractAddress)
-        if (rec) patchDeploy(address, rec.id, { verified: true })
       }
     } catch (e: any) {
       setError(e.message || 'Deploy failed')
@@ -211,9 +212,10 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
           One-click deploy + auto-verify
         </div>
         <div style={{ fontSize: 13, color: 'var(--fd-ghost)', marginBottom: 20, lineHeight: 1.6 }}>
-          Deploys FatTokenV6 to{' '}
-          <strong style={{ color: 'var(--fd-white)' }}>{chainName}</strong>{' '}
-          and automatically submits the source code for verification on the block explorer.
+          Deploys your{' '}
+          <strong style={{ color: 'var(--fd-white)', textTransform: 'capitalize' }}>Fat{cfg.tokenType}</strong>{' '}
+          token to <strong style={{ color: 'var(--fd-white)' }}>{chainName}</strong>{' '}
+          via the FatFactory contract.
         </div>
 
         {/* Summary tiles */}
@@ -235,7 +237,7 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
           onClick={doDeploy}
           disabled={deploying || !canDeploy}
           style={{ width: '100%', justifyContent: 'center', height: 52, fontSize: 16 }}>
-          {!canDeploy ? 'No deploys remaining — upgrade plan' : deploying ? 'Deploying…' : '↑ Deploy & Verify FatTokenV6'}
+          {!canDeploy ? 'No deploys remaining — upgrade plan' : deploying ? 'Deploying…' : `↑ Deploy Fat${cfg.tokenType.charAt(0).toUpperCase() + cfg.tokenType.slice(1)} Token`}
         </Btn>
 
         {deploying && <Spinner />}
@@ -257,15 +259,14 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
           Or deploy manually via Remix
         </div>
         {([
-          ['01', 'Open Remix',       'remix.ethereum.org → paste FatTokenV6.sol'],
-          ['02', 'Compiler',         'Solidity 0.8.4 · Optimization · 200 runs'],
+          ['01', 'Open Remix',       'remix.ethereum.org → paste FatFactory.sol + token contracts'],
+          ['02', 'Compiler',         'Solidity 0.8.20 · Optimization · 200 runs · viaIR'],
           ['03', 'Connect wallet',   `MetaMask → switch to ${chainName}`],
-          ['04', 'Paste params',     'Use Review step export above'],
-          ['05', 'Deploy',           '~2.5M gas on BSC · confirm in wallet'],
-          ['06', 'Verify',           'BSCScan → Verify & Publish'],
-          ['07', 'startLP()',        'After adding initial liquidity'],
-          ['08', 'launch()',         'Opens public trading — no going back'],
-          ['09', 'Disable limits',   'disableSwapLimit() · disableWalletLimit() when stable'],
+          ['04', 'Deploy impls',     'Deploy FatStandard, FatTax, FatDeflationary, FatReflection'],
+          ['05', 'Deploy factory',   'Deploy FatFactory with impl addresses + Chainlink feed'],
+          ['06', 'Create token',     `Call create${cfg.tokenType.charAt(0).toUpperCase() + cfg.tokenType.slice(1)}Token() with params from Review step`],
+          ['07', 'Add liquidity',    'Add token + native to DEX pair'],
+          ['08', 'launch()',         'Opens public trading — irreversible'],
         ] as const).map(([n, t, d]) => (
           <div key={n} style={{
             display: 'flex', gap: 12, padding: '8px 0',

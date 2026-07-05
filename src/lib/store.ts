@@ -77,44 +77,57 @@ export type TokenConfig = {
   tokenType: TokenType
   description: string; website: string; logoUrl: string
   // addresses
-  fundAddress: string; receiveAddress: string; rewardToken: string
-  // buy taxes (bps)
-  buyFund: number; buyLP: number; buyReward: number; buyBurn: number
-  // sell taxes (bps)
-  sellFund: number; sellLP: number; sellReward: number; sellBurn: number
+  fundAddress: string      // marketing wallet — receives ETH from tax auto-swap
+  receiveAddress: string   // gets 100% of supply at deploy
+  teamWallet: string       // team ETH receiver (optional)
+  buybackWallet: string    // buyback ETH receiver (optional)
+  rewardToken: string      // reflection type: reward token address
+  // tax behavior — which transfer types are taxed
+  taxOnTransfer: boolean
+  taxOnBuy: boolean
+  taxOnSell: boolean
+  // tax rates (bps, 0–2500 each)
+  buyTax: number
+  sellTax: number
+  transferTax: number
+  // tax distribution — must sum to 100
+  mktPct: number       // % to marketing wallet (ETH)
+  lpPct: number        // % to auto-liquidity
+  teamPct: number      // % to team wallet (ETH)
+  buybackPct: number   // % to buyback wallet (ETH)
+  burnPct: number      // % burned as tokens (deflationary) / reflected (reflection)
+  // auto-swap settings
+  autoSwap: boolean
+  swapThreshold: string
   // limits
-  maxBuyAmount: string; maxWalletAmount: string
-  // feature flags
-  enableChangeTax: boolean; enableKillBlock: boolean; enableSwapLimit: boolean
-  enableWalletLimit: boolean; enableOffTrade: boolean
-  enableKillBatchBots: boolean; enableTransferFee: boolean; antiSYNC: boolean
-  currencyIsEth: boolean; kb: number; killBatchBlockNumber: number; airdropNumbs: number
+  maxBuyAmount: string
+  maxWalletAmount: string
 }
 
 export const TOKEN_TYPE_PRESETS: Record<TokenType, Partial<TokenConfig>> = {
   standard: {
     tokenType: 'standard',
-    buyFund: 0, buyLP: 0, buyReward: 0, buyBurn: 0,
-    sellFund: 0, sellLP: 0, sellReward: 0, sellBurn: 0,
-    enableTransferFee: false,
+    taxOnTransfer: false, taxOnBuy: false, taxOnSell: false,
+    buyTax: 0, sellTax: 0, transferTax: 0,
+    mktPct: 0, lpPct: 0, teamPct: 0, buybackPct: 0, burnPct: 0,
   },
   tax: {
     tokenType: 'tax',
-    buyFund: 300, buyLP: 100, buyReward: 0, buyBurn: 100,
-    sellFund: 300, sellLP: 100, sellReward: 0, sellBurn: 100,
-    enableTransferFee: false,
+    taxOnTransfer: false, taxOnBuy: true, taxOnSell: true,
+    buyTax: 500, sellTax: 500, transferTax: 0,
+    mktPct: 60, lpPct: 20, teamPct: 10, buybackPct: 0, burnPct: 10,
   },
   deflationary: {
     tokenType: 'deflationary',
-    buyFund: 0, buyLP: 100, buyReward: 0, buyBurn: 400,
-    sellFund: 0, sellLP: 100, sellReward: 0, sellBurn: 400,
-    enableTransferFee: true,
+    taxOnTransfer: true, taxOnBuy: true, taxOnSell: true,
+    buyTax: 300, sellTax: 500, transferTax: 100,
+    mktPct: 20, lpPct: 20, teamPct: 0, buybackPct: 0, burnPct: 60,
   },
   reflection: {
     tokenType: 'reflection',
-    buyFund: 0, buyLP: 100, buyReward: 400, buyBurn: 0,
-    sellFund: 0, sellLP: 100, sellReward: 400, sellBurn: 0,
-    enableTransferFee: true,
+    taxOnTransfer: true, taxOnBuy: true, taxOnSell: true,
+    buyTax: 300, sellTax: 500, transferTax: 100,
+    mktPct: 20, lpPct: 20, teamPct: 0, buybackPct: 0, burnPct: 60,
   },
 }
 
@@ -122,14 +135,13 @@ export const DEFAULT_CFG: TokenConfig = {
   name: '', symbol: '', decimals: 18, totalSupply: '1000000000',
   tokenType: 'tax',
   description: '', website: '', logoUrl: '',
-  fundAddress: '', receiveAddress: '', rewardToken: '',
-  buyFund: 300, buyLP: 100, buyReward: 0, buyBurn: 100,
-  sellFund: 300, sellLP: 100, sellReward: 0, sellBurn: 100,
+  fundAddress: '', receiveAddress: '',
+  teamWallet: '', buybackWallet: '', rewardToken: '',
+  taxOnTransfer: false, taxOnBuy: true, taxOnSell: true,
+  buyTax: 500, sellTax: 500, transferTax: 0,
+  mktPct: 60, lpPct: 20, teamPct: 10, buybackPct: 0, burnPct: 10,
+  autoSwap: true, swapThreshold: '500000',
   maxBuyAmount: '10000000', maxWalletAmount: '20000000',
-  enableChangeTax: true, enableKillBlock: true, enableSwapLimit: true,
-  enableWalletLimit: true, enableOffTrade: true,
-  enableKillBatchBots: true, enableTransferFee: false, antiSYNC: true,
-  currencyIsEth: true, kb: 3, killBatchBlockNumber: 3, airdropNumbs: 1,
 }
 
 const TIER_LIMITS: Record<string, number> = { free: 0, starter: 1, pro: 3, elite: 999 }

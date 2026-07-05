@@ -39,10 +39,9 @@ const STEP_SUBTITLES = [
   'View and manage your deployed tokens',
 ]
 
-const taxTotal = (cfg: any, side: 'buy' | 'sell') =>
-  side === 'buy'
-    ? cfg.buyFund + cfg.buyLP + cfg.buyReward + cfg.buyBurn
-    : cfg.sellFund + cfg.sellLP + cfg.sellReward + cfg.sellBurn
+// canNext helpers — new factory model uses single bps per direction
+const taxOk = (cfg: any) =>
+  cfg.buyTax < 2500 && cfg.sellTax < 2500 && cfg.transferTax < 2500
 
 // ── Horizontal step progress indicator ───────────────────────────────────────
 function StepProgress({ step, onBack }: { step: number; onBack: (i: number) => void }) {
@@ -172,13 +171,12 @@ export default function App() {
 
   const user = address ? getUserData(address) : null
 
-  const buyOk  = taxTotal(cfg, 'buy')  < 2500
-  const sellOk = taxTotal(cfg, 'sell') < 2500
+  const distTotal = cfg.mktPct + cfg.lpPct + cfg.teamPct + cfg.buybackPct + cfg.burnPct
 
   const canNext =
     step === 1 ? (user?.tier !== 'free' && (user?.deploysLimit ?? 0) > 0)
     : step === 2 ? (cfg.name.length > 0 && cfg.symbol.length > 0 && cfg.fundAddress.length > 10 && cfg.receiveAddress.length > 10)
-    : step === 3 ? (buyOk && sellOk)
+    : step === 3 ? (taxOk(cfg) && (cfg.tokenType === 'standard' || distTotal === 100))
     : true
 
   // Steps with no bottom nav (terminal or self-advancing)

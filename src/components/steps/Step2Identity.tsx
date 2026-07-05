@@ -150,6 +150,18 @@ export function Step2Identity() {
           <input style={monoInputStyle} placeholder="0x..."
             value={cfg.receiveAddress} onChange={e => setCfg({ receiveAddress: e.target.value })} />
         </FieldGroup>
+        {cfg.tokenType !== 'standard' && (
+          <FieldGroup label="Team wallet — receives team % of tax (optional)">
+            <input style={monoInputStyle} placeholder="0x... (leave blank to skip)"
+              value={cfg.teamWallet} onChange={e => setCfg({ teamWallet: e.target.value })} />
+          </FieldGroup>
+        )}
+        {cfg.tokenType !== 'standard' && (
+          <FieldGroup label="Buyback wallet — receives buyback % of tax (optional)">
+            <input style={monoInputStyle} placeholder="0x... (leave blank to skip)"
+              value={cfg.buybackWallet} onChange={e => setCfg({ buybackWallet: e.target.value })} />
+          </FieldGroup>
+        )}
         {cfg.tokenType === 'reflection' && (
           <FieldGroup label="Reward token — token LP holders earn (leave blank for WBNB/WETH)">
             <input style={monoInputStyle} placeholder="0x... (optional — defaults to WBNB/WETH)"

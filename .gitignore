@@ -27,3 +27,8 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+contracts-build/.env
+
+# Hardhat build artifacts (large, reproducible)
+contracts-build/artifacts/
+contracts-build/cache/
