@@ -161,6 +161,7 @@ const STANDARD_INIT_ABI = [
   },
 ] as const
 
+// FatTax & FatDeflationary: marketingPercent is field 0
 const TAX_INIT_ABI = [
   {
     name: 'initialize', type: 'function', stateMutability: 'nonpayable',
@@ -187,6 +188,40 @@ const TAX_INIT_ABI = [
         { name: 'marketingWallet',  type: 'address' },
         { name: 'teamWallet',       type: 'address' },
         { name: 'buybackWallet',    type: 'address' },
+      ]},
+      { name: 'dexRouter_', type: 'address' },
+    ],
+    outputs: [],
+  },
+] as const
+
+// FatReflection: reflectionPercent is field 0 (different struct layout)
+const REFLECTION_INIT_ABI = [
+  {
+    name: 'initialize', type: 'function', stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'name_',        type: 'string'  },
+      { name: 'symbol_',      type: 'string'  },
+      { name: 'decimals_',    type: 'uint8'   },
+      { name: 'totalSupply_', type: 'uint256' },
+      { name: 'owner_',       type: 'address' },
+      { name: 'taxBehavior_', type: 'tuple', components: [
+        { name: 'taxOnTransfer', type: 'bool'    },
+        { name: 'taxOnBuy',      type: 'bool'    },
+        { name: 'taxOnSell',     type: 'bool'    },
+        { name: 'transferTax',   type: 'uint256' },
+        { name: 'buyTax',        type: 'uint256' },
+        { name: 'sellTax',       type: 'uint256' },
+      ]},
+      { name: 'taxDistribution_', type: 'tuple', components: [
+        { name: 'reflectionPercent', type: 'uint256' }, // ← field 0 in FatReflection
+        { name: 'marketingPercent',  type: 'uint256' },
+        { name: 'liquidityPercent',  type: 'uint256' },
+        { name: 'teamPercent',       type: 'uint256' },
+        { name: 'buybackPercent',    type: 'uint256' },
+        { name: 'marketingWallet',   type: 'address' },
+        { name: 'teamWallet',        type: 'address' },
+        { name: 'buybackWallet',     type: 'address' },
       ]},
       { name: 'dexRouter_', type: 'address' },
     ],
@@ -268,20 +303,39 @@ export async function deployToken(
       buyTax:        BigInt(args.buyTax),
       sellTax:       BigInt(args.sellTax),
     }
-    const taxDistribution = {
-      marketingPercent: BigInt(args.mktPct * 100),
-      liquidityPercent: BigInt(args.lpPct  * 100),
-      teamPercent:      BigInt(args.teamPct * 100),
-      buybackPercent:   BigInt(args.buybackPct * 100),
-      burnPercent:      BigInt(args.burnPct * 100),
-      marketingWallet:  mktWallet,
-      teamWallet,
-      buybackWallet:    bbWallet,
+    let taxDistribution: Record<string, bigint | `0x${string}`>
+    let initAbi: typeof TAX_INIT_ABI | typeof REFLECTION_INIT_ABI
+    if (args.tokenType === 'reflection') {
+      // FatReflection: reflectionPercent is field 0 in struct
+      taxDistribution = {
+        reflectionPercent: BigInt(args.burnPct * 100),   // burnPct slot holds reflection %
+        marketingPercent:  BigInt(args.mktPct * 100),
+        liquidityPercent:  BigInt(args.lpPct  * 100),
+        teamPercent:       BigInt(args.teamPct * 100),
+        buybackPercent:    BigInt(args.buybackPct * 100),
+        marketingWallet:   mktWallet,
+        teamWallet,
+        buybackWallet:     bbWallet,
+      }
+      initAbi = REFLECTION_INIT_ABI
+    } else {
+      // FatTax & FatDeflationary: marketingPercent is field 0 in struct
+      taxDistribution = {
+        marketingPercent: BigInt(args.mktPct * 100),
+        liquidityPercent: BigInt(args.lpPct  * 100),
+        teamPercent:      BigInt(args.teamPct * 100),
+        buybackPercent:   BigInt(args.buybackPct * 100),
+        burnPercent:      BigInt(args.burnPct * 100),
+        marketingWallet:  mktWallet,
+        teamWallet,
+        buybackWallet:    bbWallet,
+      }
+      initAbi = TAX_INIT_ABI
     }
     initHash = await walletClient.writeContract({
-      address: contractAddress, abi: TAX_INIT_ABI,
+      address: contractAddress, abi: initAbi,
       functionName: 'initialize',
-      args: [args.name, args.symbol, args.decimals, totalSupplyWei, account, taxBehavior, taxDistribution, dexRouter],
+      args: [args.name, args.symbol, args.decimals, totalSupplyWei, account, taxBehavior, taxDistribution as any, dexRouter],
       account, chain: walletClient.chain!,
     })
   }
