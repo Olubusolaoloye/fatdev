@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAccount, useWalletClient, usePublicClient, useChainId } from 'wagmi'
 import { useStore } from '../../lib/store'
 import { deployToken, generateParams } from '../../lib/contracts'
+import { verifyContract } from '../../lib/verify'
 import { CHAIN_EXPLORERS } from '../../lib/wagmi'
 import { StatusBox, Spinner, SumTile, Btn } from '../ui-kit'
 import Logo from '../ui-kit/Logo'
@@ -51,6 +52,11 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
         walletClient as any, publicClient as any, setStatus
       )
       setResult(res)
+      // Kick off verification in the background — don't await so UI shows immediately
+      setVerifyState('pending')
+      verifyContract(res.contractAddress, cfg.tokenType, chainId, setVerifyMsg)
+        .then(v => { setVerifyState(v.success ? 'ok' : 'fail'); setVerifyMsg(v.message) })
+        .catch(e => { setVerifyState('fail'); setVerifyMsg(e.message) })
       if (address) {
         addDeploy(address, {
           id: Date.now().toString(),
