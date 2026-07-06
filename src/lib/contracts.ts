@@ -280,9 +280,10 @@ export async function deployToken(
   // ── Step 2: initialize ────────────────────────────────────────────────────
   onStatus(`Step 2 of 2 — Initializing token… confirm in wallet`)
 
-  const mktWallet  = (args.fundAddress    && args.fundAddress.length    > 10 ? args.fundAddress    : DEAD) as `0x${string}`
-  const teamWallet = (args.teamWallet     && args.teamWallet.length     > 10 ? args.teamWallet     : DEAD) as `0x${string}`
-  const bbWallet   = (args.buybackWallet  && args.buybackWallet.length  > 10 ? args.buybackWallet  : DEAD) as `0x${string}`
+  const isRealAddr = (a: string) => !!a && a.length >= 42 && a.toLowerCase() !== '0x0000000000000000000000000000000000000000'
+  const mktWallet  = (isRealAddr(args.fundAddress)   ? args.fundAddress   : DEAD) as `0x${string}`
+  const teamWallet = (isRealAddr(args.teamWallet)    ? args.teamWallet    : DEAD) as `0x${string}`
+  const bbWallet   = (isRealAddr(args.buybackWallet) ? args.buybackWallet : DEAD) as `0x${string}`
   const dexRouter  = (ROUTERS[args.chainId] ?? DEAD) as `0x${string}`
 
   let initHash: `0x${string}`
