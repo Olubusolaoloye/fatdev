@@ -1,59 +1,30 @@
-/**
- * LiquidityLaunch — post-deploy launch sequence
- *
- * Walks the user through the correct order:
- *   1. Approve DEX router to spend tokens  (prevents TransferHelper: TRANSFER_FROM_FAILED)
- *   2. Add Liquidity  (ETH + token amount, configurable slippage)
- *   3. startLP()      (enable LP additions on the contract)
- *   4. launch()       (open public trading — irreversible)
- */
 import { useState, useEffect } from 'react'
 import { useWalletClient, usePublicClient, useChainId, useAccount } from 'wagmi'
 import { parseEther, parseUnits, formatUnits, maxUint256 } from 'viem'
-import { CHAIN_EXPLORERS } from '../../lib/wagmi'
-import { StatusBox, Spinner } from '../ui-kit'
+import { ROUTERS, WETH, DEX_FACTORIES, DEX_NAMES, CHAIN_EXPLORERS } from '../../lib/wagmi'
+import { Spinner } from '../ui-kit'
 
-// ── Minimal ABIs ──────────────────────────────────────────────────────────────
+// ── ABIs ──────────────────────────────────────────────────────────────────────
 const ERC20_ABI = [
   { name: 'approve',   type: 'function', stateMutability: 'nonpayable',
     inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }],
     outputs: [{ type: 'bool' }] },
   { name: 'balanceOf', type: 'function', stateMutability: 'view',
     inputs: [{ name: 'account', type: 'address' }], outputs: [{ type: 'uint256' }] },
-  { name: 'decimals',  type: 'function', stateMutability: 'view',
-    inputs: [], outputs: [{ type: 'uint8' }] },
   { name: 'allowance', type: 'function', stateMutability: 'view',
     inputs: [{ name: 'owner', type: 'address' }, { name: 'spender', type: 'address' }],
     outputs: [{ type: 'uint256' }] },
 ] as const
 
-// Reads the router + currency the token was actually deployed with
-const FAT_CONFIG_ABI = [
-  { name: '_swapRouter',      type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
-  { name: 'currency',         type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
-  { name: 'currencyIsEth',    type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
-  { name: 'antiSYNC',         type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
-  { name: 'startTradeBlock',  type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-  { name: 'startLPBlock',     type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-] as const
-
-const FAT_ABI = [
-  { name: 'startLP',            type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [] },
-  { name: 'launch',             type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [] },
-  { name: 'setAntiSYNCEnable',  type: 'function', stateMutability: 'nonpayable',
-    inputs: [{ name: 's', type: 'bool' }], outputs: [] },
-] as const
-
 const ROUTER_ABI = [
-  {
-    name: 'addLiquidityETH', type: 'function', stateMutability: 'payable',
+  { name: 'addLiquidityETH', type: 'function', stateMutability: 'payable',
     inputs: [
-      { name: 'token',              type: 'address' },
-      { name: 'amountTokenDesired', type: 'uint256' },
-      { name: 'amountTokenMin',     type: 'uint256' },
-      { name: 'amountETHMin',       type: 'uint256' },
+      { name: 'token',              type: 'address'  },
+      { name: 'amountTokenDesired', type: 'uint256'  },
+      { name: 'amountTokenMin',     type: 'uint256'  },
+      { name: 'amountETHMin',       type: 'uint256'  },
       { name: 'to',                 type: 'address'  },
-      { name: 'deadline',           type: 'uint256' },
+      { name: 'deadline',           type: 'uint256'  },
     ],
     outputs: [
       { name: 'amountToken', type: 'uint256' },
@@ -63,477 +34,573 @@ const ROUTER_ABI = [
   },
 ] as const
 
-// ── Step status types ─────────────────────────────────────────────────────────
-type StepState = 'idle' | 'pending' | 'ok' | 'err'
+const FACTORY_ABI = [
+  { name: 'getPair', type: 'function', stateMutability: 'view',
+    inputs: [{ name: 'tokenA', type: 'address' }, { name: 'tokenB', type: 'address' }],
+    outputs: [{ name: 'pair', type: 'address' }] },
+] as const
 
-interface LaunchState {
-  approve:  StepState
-  addLiq:   StepState
-  startLP:  StepState
-  launch:   StepState
+const FAT_TAX_ABI = [
+  { name: 'setDexPair', type: 'function', stateMutability: 'nonpayable',
+    inputs: [{ name: 'pair', type: 'address' }, { name: 'status', type: 'bool' }],
+    outputs: [] },
+  { name: 'isDexPair', type: 'function', stateMutability: 'view',
+    inputs: [{ name: '', type: 'address' }], outputs: [{ type: 'bool' }] },
+  { name: 'dexRouter', type: 'function', stateMutability: 'view',
+    inputs: [], outputs: [{ type: 'address' }] },
+] as const
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+type StepKey   = 'approve' | 'addLiq' | 'registerPair'
+type StepState = 'idle' | 'pending' | 'ok' | 'err' | 'skip'
+
+interface StepStatus { state: StepState; msg: string; txUrl?: string }
+
+const IDLE: StepStatus = { state: 'idle', msg: '' }
+
+function stepBg(s: StepState) {
+  return s === 'ok'      ? 'rgba(0,230,118,0.08)'   :
+         s === 'err'     ? 'rgba(255,82,82,0.08)'   :
+         s === 'pending' ? 'rgba(0,207,255,0.08)'   :
+         s === 'skip'    ? 'rgba(255,255,255,0.03)' :
+         'rgba(255,255,255,0.03)'
 }
-
-const INIT: LaunchState = { approve: 'idle', addLiq: 'idle', startLP: 'idle', launch: 'idle' }
+function stepBorder(s: StepState) {
+  return s === 'ok'      ? 'rgba(0,230,118,0.3)'  :
+         s === 'err'     ? 'rgba(255,82,82,0.3)'  :
+         s === 'pending' ? 'rgba(0,207,255,0.3)'  :
+         'var(--border)'
+}
+function stepColor(s: StepState) {
+  return s === 'ok'  ? 'var(--green)' :
+         s === 'err' ? 'var(--red)'   :
+         s === 'pending' ? 'var(--fd-cyan)' : '#fff'
+}
+function badgeBg(s: StepState) {
+  return s === 'ok'      ? 'var(--green)'     :
+         s === 'err'     ? 'var(--red)'       :
+         s === 'pending' ? 'var(--fd-cyan)'   :
+         s === 'skip'    ? 'var(--text-muted)' :
+         'rgba(255,255,255,0.12)'
+}
+function badgeLabel(s: StepState, n: string) {
+  return s === 'ok' ? '✓' : s === 'err' ? '✗' : s === 'pending' ? '…' : s === 'skip' ? '—' : n
+}
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 interface Props {
-  contractAddress: string   // deployed FatTokenV5 address
+  contractAddress: string
   tokenSymbol:     string
-  tokenDecimals?:  number   // default 18 if not known
+  tokenDecimals?:  number
+  tokenType?:      'standard' | 'tax' | 'deflationary' | 'reflection'
 }
 
-export function LiquidityLaunch({ contractAddress, tokenSymbol, tokenDecimals = 18 }: Props) {
-  const { address } = useAccount()
-  const chainId = useChainId()
-  const { data: walletClient } = useWalletClient()
-  const publicClient = usePublicClient()
+export function LiquidityLaunch({
+  contractAddress,
+  tokenSymbol,
+  tokenDecimals = 18,
+  tokenType = 'tax',
+}: Props) {
+  const { address, isConnected } = useAccount()
+  const chainId                  = useChainId()
+  const { data: walletClient }   = useWalletClient()
+  const publicClient             = usePublicClient()
 
-  // Form inputs
-  const [tokenAmt,  setTokenAmt]  = useState('')
-  const [ethAmt,    setEthAmt]    = useState('')
-  const [slippage,  setSlippage]  = useState('5')   // default 5% — tolerant for new pools
+  // Chain-level config — always available, no contract reads needed
+  const router    = ROUTERS[chainId]
+  const weth      = WETH[chainId]
+  const factory   = DEX_FACTORIES[chainId]
+  const dexName   = DEX_NAMES[chainId] ?? 'DEX'
+  const explorer  = CHAIN_EXPLORERS[chainId] ?? ''
+  const native    = chainId === 56 || chainId === 97 ? 'BNB' : 'ETH'
+  const isTaxed   = tokenType !== 'standard'
 
-  // On-chain balance & decimals
-  const [tokenBal,  setTokenBal]  = useState<bigint | null>(null)
-  const [decimals,  setDecimals]  = useState<number>(tokenDecimals)
+  // Form state
+  const [tokenAmt, setTokenAmt] = useState('')
+  const [nativeAmt, setNativeAmt] = useState('')
+
+  // Balances
+  const [tokenBal,   setTokenBal]   = useState<bigint | null>(null)
+  const [nativeBal,  setNativeBal]  = useState<bigint | null>(null)
   const [balLoading, setBalLoading] = useState(false)
+  const [decimals] = useState(tokenDecimals)
 
-  // Token's own router + currency (read from contract, not hardcoded)
-  const [tokenRouter, setTokenRouter]                 = useState<string | null>(null)
-  const [tokenCurrencyIsEth, setTokenCurrencyIsEth]   = useState<boolean | null>(null)
-  const [tokenCurrency, setTokenCurrency]             = useState<string | null>(null)
-  const [antiSyncEnabled, setAntiSyncEnabled]         = useState<boolean>(false)
-  const [alreadyLaunched, setAlreadyLaunched]         = useState<boolean>(false)
-  const [alreadyStartedLP, setAlreadyStartedLP]       = useState<boolean>(false)
+  // LP pair already registered?
+  const [pairAlreadySet, setPairAlreadySet] = useState(false)
 
-  // Execution state
-  const [steps, setSteps]         = useState<LaunchState>(INIT)
-  const [msgs,  setMsgs]          = useState<Partial<Record<keyof LaunchState, string>>>({})
-  const [running, setRunning]     = useState(false)
-  const [txLinks, setTxLinks]     = useState<Partial<Record<keyof LaunchState, string>>>({})
+  // Step state
+  const [approve,      setApprove]      = useState<StepStatus>(IDLE)
+  const [addLiq,       setAddLiq]       = useState<StepStatus>(IDLE)
+  const [registerPair, setRegisterPair] = useState<StepStatus>(IDLE)
+  const [running,      setRunning]      = useState(false)
 
-  const explorer     = CHAIN_EXPLORERS[chainId]
-  const nativeSymbol = chainId === 56 || chainId === 97 ? 'BNB' : 'ETH'
-
-  // ── Read decimals, balance, AND the token's own router from chain ──────────
+  // ── Load balances + check pair registration on mount ──────────────────────
   useEffect(() => {
     if (!publicClient || !address || !contractAddress.startsWith('0x')) return
     const token = contractAddress as `0x${string}`
     setBalLoading(true)
-    Promise.all([
-      publicClient.readContract({ address: token, abi: ERC20_ABI, functionName: 'decimals' }),
-      publicClient.readContract({ address: token, abi: ERC20_ABI, functionName: 'balanceOf', args: [address as `0x${string}`] }),
-      publicClient.readContract({ address: token, abi: FAT_CONFIG_ABI, functionName: '_swapRouter' }),
-      publicClient.readContract({ address: token, abi: FAT_CONFIG_ABI, functionName: 'currencyIsEth' }),
-      publicClient.readContract({ address: token, abi: FAT_CONFIG_ABI, functionName: 'currency' }),
-      publicClient.readContract({ address: token, abi: FAT_CONFIG_ABI, functionName: 'antiSYNC' }),
-      publicClient.readContract({ address: token, abi: FAT_CONFIG_ABI, functionName: 'startTradeBlock' }),
-      publicClient.readContract({ address: token, abi: FAT_CONFIG_ABI, functionName: 'startLPBlock' }),
-    ])
-      .then(([dec, bal, router, isEth, currency, antiSync, tradeBlock, lpBlock]) => {
-        setDecimals(Number(dec as bigint | number))
+
+    const reads: Promise<unknown>[] = [
+      publicClient.readContract({ address: token, abi: ERC20_ABI, functionName: 'balanceOf', args: [address] }),
+      publicClient.getBalance({ address }),
+    ]
+
+    // Check if LP pair is already set (only for taxed tokens)
+    if (isTaxed && factory && weth) {
+      reads.push(
+        publicClient.readContract({ address: factory, abi: FACTORY_ABI, functionName: 'getPair', args: [token, weth] })
+          .then(async (pair) => {
+            const p = pair as `0x${string}`
+            const ZERO = '0x0000000000000000000000000000000000000000'
+            if (p && p.toLowerCase() !== ZERO) {
+              const isSet = await publicClient.readContract({
+                address: token, abi: FAT_TAX_ABI, functionName: 'isDexPair', args: [p],
+              }).catch(() => false)
+              setPairAlreadySet(isSet as boolean)
+            }
+            return pair
+          })
+      )
+    }
+
+    Promise.all(reads)
+      .then(([bal, native]) => {
         setTokenBal(bal as bigint)
-        setTokenRouter((router as string).toLowerCase())
-        setTokenCurrencyIsEth(isEth as boolean)
-        setTokenCurrency(currency as string)
-        setAntiSyncEnabled(antiSync as boolean)
-        setAlreadyLaunched((tradeBlock as bigint) > 0n)
-        setAlreadyStartedLP((lpBlock as bigint) > 0n)
+        setNativeBal(native as bigint)
       })
       .catch(() => {})
       .finally(() => setBalLoading(false))
-  }, [publicClient, address, contractAddress])
+  }, [publicClient, address, contractAddress, chainId])
 
-  const balFormatted = tokenBal !== null ? formatUnits(tokenBal, decimals) : null
-  const balNum       = balFormatted ? parseFloat(balFormatted) : 0
-  const inputNum     = parseFloat(tokenAmt) || 0
-  const balInsufficient = tokenBal !== null && tokenAmt !== '' && inputNum > balNum
+  const balFormatted  = tokenBal !== null ? formatUnits(tokenBal, decimals) : null
+  const balNum        = balFormatted ? parseFloat(balFormatted) : 0
+  const nativeBalEth  = nativeBal !== null ? parseFloat(formatUnits(nativeBal, 18)) : null
+  const tokenInsuff   = tokenBal !== null && tokenAmt !== '' && parseFloat(tokenAmt) > balNum
+  const nativeInsuff  = nativeBal !== null && nativeAmt !== '' && parseFloat(nativeAmt) > (nativeBalEth ?? 0)
+  const allDone       = approve.state === 'ok' && addLiq.state === 'ok' &&
+                        (!isTaxed || registerPair.state === 'ok' || registerPair.state === 'skip')
+  const hasErr        = [approve, addLiq, registerPair].some(s => s.state === 'err')
 
-  function setStep(key: keyof LaunchState, state: StepState, msg?: string) {
-    setSteps(s => ({ ...s, [key]: state }))
-    if (msg !== undefined) setMsgs(m => ({ ...m, [key]: msg }))
+  function upd(set: (s: StepStatus) => void, state: StepState, msg: string, txHash?: `0x${string}`) {
+    set({ state, msg, txUrl: txHash ? `${explorer}/tx/${txHash}` : undefined })
   }
-  function setTxLink(key: keyof LaunchState, hash: string) {
-    setTxLinks(t => ({ ...t, [key]: `${explorer}/tx/${hash}` }))
-  }
 
+  // ── Main run ───────────────────────────────────────────────────────────────
   async function run() {
     if (!walletClient || !publicClient || !address) return
-    if (!tokenAmt || !ethAmt) return
-
-    // Guard: check balance before doing anything
-    if (balInsufficient) {
-      setStep('approve', 'err',
-        `Your wallet only holds ${Number(balFormatted).toLocaleString()} ${tokenSymbol}. ` +
-        `Reduce the token amount or transfer tokens to this wallet first.`)
-      return
-    }
-
-    // Guard: non-ETH currency needs addLiquidity, not addLiquidityETH
-    if (tokenCurrencyIsEth === false) {
-      setStep('approve', 'err',
-        `This token is paired with ${tokenCurrency ? tokenCurrency.slice(0,8)+'…' : 'a non-native token'}, not ${nativeSymbol}. ` +
-        `Use your DEX's "Add Liquidity" UI directly with both token addresses.`)
-      return
-    }
-
-    if (!tokenRouter) {
-      setStep('approve', 'err', 'Still reading token contract data — wait a moment and retry.')
-      return
-    }
+    if (!tokenAmt || !nativeAmt) return
+    if (!router || !weth) return
 
     setRunning(true)
-    setSteps(INIT)
-    setMsgs({})
-    setTxLinks({})
+    setApprove(IDLE); setAddLiq(IDLE); setRegisterPair(IDLE)
 
-    const tokenAddress  = contractAddress as `0x${string}`
-    // Use the router the token was ACTUALLY deployed with, not a hardcoded constant
-    const routerAddress = tokenRouter as `0x${string}`
-    void slippage // minimums are 0n for first add — no existing price to protect
+    const token  = contractAddress as `0x${string}`
+    const acct   = address as `0x${string}`
 
     try {
-      const [acct] = await walletClient.getAddresses()
+      // ── 1. Approve ────────────────────────────────────────────────────────
+      upd(setApprove, 'pending', 'Checking current allowance…')
 
-      // ── STEP 0 (inside approve): Disable antiSYNC if on ───────────────────
-      // antiSYNC blocks the PancakeSwap pair from calling balanceOf(pair)
-      // during mint() when the pool is empty — first LP add always reverts.
-      setStep('approve', 'pending', antiSyncEnabled ? 'Disabling antiSYNC (required for first liquidity add)…' : 'Checking existing allowance…')
+      const tokenAmtWei = parseUnits(tokenAmt, decimals)
 
-      if (antiSyncEnabled) {
-        const disableHash = await walletClient.writeContract({
-          address: tokenAddress as `0x${string}`, abi: FAT_ABI,
-          functionName: 'setAntiSYNCEnable',
-          args: [false],
-          account: acct, chain: walletClient.chain!,
-        })
-        await publicClient.waitForTransactionReceipt({ hash: disableHash })
-        setAntiSyncEnabled(false)
-        setStep('approve', 'pending', 'antiSYNC disabled. Checking allowance…')
-      }
-
-      // ── STEP 1: Approve ────────────────────────────────────────────────────
-      // Re-read live balance at run time (user may have received tokens after mount)
+      // Live balance guard
       const liveBal = await publicClient.readContract({
-        address: tokenAddress as `0x${string}`, abi: ERC20_ABI,
-        functionName: 'balanceOf', args: [acct],
+        address: token, abi: ERC20_ABI, functionName: 'balanceOf', args: [acct],
       }) as bigint
-
-      const tokenAmtBig = parseUnits(tokenAmt, decimals)
-
-      if (liveBal < tokenAmtBig) {
-        throw new Error(
-          `Wallet balance too low: you have ${formatUnits(liveBal, decimals)} ${tokenSymbol} ` +
-          `but entered ${tokenAmt}. Use the MAX button or reduce the amount.`
-        )
+      if (liveBal < tokenAmtWei) {
+        throw Object.assign(new Error(
+          `Wallet only holds ${formatUnits(liveBal, decimals)} ${tokenSymbol} — reduce the amount or transfer tokens here first.`
+        ), { step: 'approve' })
       }
 
-      const currentAllowance = await publicClient.readContract({
-        address: tokenAddress as `0x${string}`, abi: ERC20_ABI,
-        functionName: 'allowance',
-        args: [acct, routerAddress],
+      const allowance = await publicClient.readContract({
+        address: token, abi: ERC20_ABI, functionName: 'allowance', args: [acct, router],
       }) as bigint
 
-      if (currentAllowance < tokenAmtBig) {
-        setStep('approve', 'pending', 'Approving router to spend your tokens (unlimited approval)…')
-        const appHash = await walletClient.writeContract({
-          address: tokenAddress as `0x${string}`, abi: ERC20_ABI,
-          functionName: 'approve',
-          args: [routerAddress, maxUint256],
-          account: acct, chain: walletClient.chain!,
+      if (allowance < tokenAmtWei) {
+        upd(setApprove, 'pending', `Approving ${dexName} router… confirm in wallet`)
+        const appGas = await publicClient.estimateContractGas({
+          address: token, abi: ERC20_ABI, functionName: 'approve',
+          args: [router, maxUint256], account: acct,
         })
-        setStep('approve', 'pending', 'Waiting for approval tx to confirm…')
+        const appHash = await walletClient.writeContract({
+          address: token, abi: ERC20_ABI, functionName: 'approve',
+          args: [router, maxUint256],
+          account: acct, chain: walletClient.chain!,
+          gas: appGas * 12n / 10n,
+        })
+        upd(setApprove, 'pending', 'Waiting for approval confirmation…', appHash)
         await publicClient.waitForTransactionReceipt({ hash: appHash })
-        setTxLink('approve', appHash)
-        // Brief pause — some chains need 1–2 blocks before allowance is queryable
-        await new Promise(r => setTimeout(r, 2000))
-        setStep('approve', 'ok', 'Router approved ✓')
+        await new Promise(r => setTimeout(r, 1500)) // let node propagate
+        upd(setApprove, 'ok', `${dexName} router approved ✓`, appHash)
       } else {
-        setStep('approve', 'ok', 'Router already approved ✓')
+        upd(setApprove, 'ok', 'Router already approved ✓')
       }
 
-      // ── STEP 2: Add Liquidity ──────────────────────────────────────────────
-      setStep('addLiq', 'pending', `Adding ${tokenAmt} ${tokenSymbol} + ${ethAmt} ${nativeSymbol} to liquidity pool…`)
+      // ── 2. Add Liquidity ─────────────────────────────────────────────────
+      const nativeAmtWei = parseEther(nativeAmt)
+      const deadline     = BigInt(Math.floor(Date.now() / 1000) + 1200) // 20 min
 
-      const ethAmtBig      = parseEther(ethAmt)
-      // Use 0 minimums for the very first liquidity add — no existing price to protect
-      const tokenAmtMin    = 0n
-      const ethAmtMin      = 0n
-      const deadline       = BigInt(Math.floor(Date.now() / 1000) + 1200) // 20 min
+      upd(setAddLiq, 'pending',
+        `Adding ${tokenAmt} ${tokenSymbol} + ${nativeAmt} ${native} to ${dexName} pool… confirm in wallet`)
+
+      const liqGas = await publicClient.estimateContractGas({
+        address: router, abi: ROUTER_ABI, functionName: 'addLiquidityETH',
+        args: [token, tokenAmtWei, 0n, 0n, acct, deadline],
+        value: nativeAmtWei, account: acct,
+      }).catch(() => 500_000n)
 
       const liqHash = await walletClient.writeContract({
-        address: routerAddress, abi: ROUTER_ABI,
-        functionName: 'addLiquidityETH',
-        args: [tokenAddress as `0x${string}`, tokenAmtBig, tokenAmtMin, ethAmtMin, acct, deadline],
-        value: ethAmtBig,
+        address: router, abi: ROUTER_ABI, functionName: 'addLiquidityETH',
+        args: [token, tokenAmtWei, 0n, 0n, acct, deadline],
+        value: nativeAmtWei,
         account: acct, chain: walletClient.chain!,
+        gas: (liqGas * 13n / 10n),
       })
-      setStep('addLiq', 'pending', 'Waiting for liquidity confirmation…')
+      upd(setAddLiq, 'pending', 'Waiting for liquidity confirmation…', liqHash)
       await publicClient.waitForTransactionReceipt({ hash: liqHash })
-      setTxLink('addLiq', liqHash)
-      setStep('addLiq', 'ok', 'Liquidity added ✓')
+      upd(setAddLiq, 'ok', `Liquidity added to ${dexName} ✓`, liqHash)
 
-      // ── STEP 3: startLP (skip if already done) ────────────────────────────
-      if (alreadyStartedLP) {
-        setStep('startLP', 'ok', 'startLP() already called ✓')
-      } else {
-        setStep('startLP', 'pending', 'Calling startLP() to enable LP additions…')
-        const startLPHash = await walletClient.writeContract({
-          address: tokenAddress as `0x${string}`, abi: FAT_ABI,
-          functionName: 'startLP',
-          account: acct, chain: walletClient.chain!,
-        })
-        await publicClient.waitForTransactionReceipt({ hash: startLPHash })
-        setTxLink('startLP', startLPHash)
-        setAlreadyStartedLP(true)
-        setStep('startLP', 'ok', 'startLP() confirmed ✓')
-      }
+      // ── 3. Register LP Pair (tax/deflationary/reflection only) ────────────
+      if (isTaxed) {
+        if (pairAlreadySet) {
+          upd(setRegisterPair, 'skip', 'LP pair already registered ✓')
+        } else if (!factory) {
+          upd(setRegisterPair, 'skip', 'Factory not configured for this chain — register pair manually')
+        } else {
+          upd(setRegisterPair, 'pending', 'Fetching LP pair address from factory…')
 
-      // ── STEP 4: launch (skip if already done) ─────────────────────────────
-      if (alreadyLaunched) {
-        setStep('launch', 'ok', `${tokenSymbol} trading was already open ✓`)
-      } else {
-        setStep('launch', 'pending', 'Calling launch() — this opens public trading…')
-        const launchHash = await walletClient.writeContract({
-          address: tokenAddress as `0x${string}`, abi: FAT_ABI,
-          functionName: 'launch',
-          account: acct, chain: walletClient.chain!,
-        })
-        await publicClient.waitForTransactionReceipt({ hash: launchHash })
-        setTxLink('launch', launchHash)
-        setAlreadyLaunched(true)
-        setStep('launch', 'ok', `🚀 ${tokenSymbol} is now live for public trading!`)
+          await new Promise(r => setTimeout(r, 2000)) // wait for pair creation
+          const pair = await publicClient.readContract({
+            address: factory, abi: FACTORY_ABI, functionName: 'getPair', args: [token, weth],
+          }) as `0x${string}`
+
+          const ZERO = '0x0000000000000000000000000000000000000000'
+          if (!pair || pair.toLowerCase() === ZERO) {
+            upd(setRegisterPair, 'err', 'Could not find LP pair address — register manually via setDexPair()')
+          } else {
+            upd(setRegisterPair, 'pending', `Registering pair ${pair.slice(0,10)}… in wallet`)
+
+            const pairGas = await publicClient.estimateContractGas({
+              address: token, abi: FAT_TAX_ABI, functionName: 'setDexPair',
+              args: [pair, true], account: acct,
+            }).catch(() => 100_000n)
+
+            const pairHash = await walletClient.writeContract({
+              address: token, abi: FAT_TAX_ABI, functionName: 'setDexPair',
+              args: [pair, true],
+              account: acct, chain: walletClient.chain!,
+              gas: pairGas * 12n / 10n,
+            })
+            upd(setRegisterPair, 'pending', 'Confirming pair registration…', pairHash)
+            await publicClient.waitForTransactionReceipt({ hash: pairHash })
+            setPairAlreadySet(true)
+            upd(setRegisterPair, 'ok', `LP pair registered — buy/sell taxes active ✓`, pairHash)
+          }
+        }
       }
 
     } catch (e: any) {
-      // Mark whichever step is still pending as failed
-      const pending = (['approve', 'addLiq', 'startLP', 'launch'] as const)
-        .find(k => steps[k] === 'pending' || (steps.approve === 'ok' && k === 'addLiq' && steps.addLiq === 'idle'))
-      const failKey = pending ?? 'addLiq'
-      const raw = e.message ?? String(e)
-      // Friendly error translation
+      const raw: string = e?.message ?? String(e)
       const friendly =
-        raw.includes('Wallet balance too low')      ? raw :
-        raw.includes('TRANSFER_FROM_FAILED')        ? `Token transfer failed — your wallet may not hold enough ${tokenSymbol}. Check your balance and use the MAX button.` :
-        raw.includes('!sync')                       ? 'antiSYNC is blocking the pool — click Retry and it will be disabled automatically.' :
-        raw.includes('INSUFFICIENT_A')              ? 'Add liquidity failed (INSUFFICIENT_A) — try again, amounts are already 0-slippage.' :
-        raw.includes('INSUFFICIENT_OUTPUT')         ? 'Add liquidity failed (INSUFFICIENT_OUTPUT) — try again.' :
-        raw.includes('insufficient allowance')      ? 'Approval did not register in time — click Retry to re-run.' :
-        raw.includes('startedAddLP')                ? 'startLP() already called — click Retry, it will be skipped.' :
-        raw.includes('already open')                ? 'launch() already called — click Retry, it will be skipped.' :
-        raw.includes('EXPIRED')                     ? 'Transaction expired — please try again' :
-        raw.includes('insufficient funds')          ? `Not enough ${nativeSymbol} in wallet for liquidity + gas fees` :
-        raw.includes('user rejected')               ? 'Transaction rejected in wallet' :
-        raw.includes('execution reverted')          ? `Contract reverted: ${raw.slice(0, 120)}` :
+        raw.includes('Wallet only holds')          ? raw :
+        raw.includes('TRANSFER_FROM_FAILED')       ? `Token transfer failed. Check your ${tokenSymbol} balance and use MAX.` :
+        raw.includes('INSUFFICIENT_A_AMOUNT')      ? 'Liquidity failed (INSUFFICIENT_A) — pool may already exist. Try adding via the DEX UI.' :
+        raw.includes('insufficient funds')         ? `Not enough ${native} for liquidity + gas` :
+        raw.includes('user rejected')              ? 'Transaction rejected in wallet' :
+        raw.includes('execution reverted')         ? `Contract reverted: ${raw.slice(0, 160)}` :
+        raw.includes('EXPIRED')                    ? 'Transaction deadline expired — please retry' :
         raw
-      setStep(failKey, 'err', friendly)
+
+      // Mark the currently-pending step as failed
+      if (approve.state  === 'pending') upd(setApprove,      'err', friendly)
+      else if (addLiq.state === 'pending') upd(setAddLiq,    'err', friendly)
+      else if (registerPair.state === 'pending') upd(setRegisterPair, 'err', friendly)
+      else upd(setApprove, 'err', friendly)
     }
+
     setRunning(false)
   }
 
-  const allDone = steps.launch === 'ok'
-  const hasError = (['approve', 'addLiq', 'startLP', 'launch'] as const).some(k => steps[k] === 'err')
+  // ── Render ─────────────────────────────────────────────────────────────────
+  const canRun = isConnected && !!walletClient && !!router && !!tokenAmt && !!nativeAmt &&
+                 !tokenInsuff && !nativeInsuff && !running
+
+  const steps: { key: StepKey; n: string; label: string; status: StepStatus; show: boolean }[] = [
+    { key: 'approve',      n: '1', label: `Approve ${dexName} Router`, status: approve,      show: true   },
+    { key: 'addLiq',       n: '2', label: 'Add Liquidity',              status: addLiq,       show: true   },
+    { key: 'registerPair', n: '3', label: 'Register LP Pair',           status: registerPair, show: isTaxed },
+  ]
 
   return (
-    <div style={{ marginTop: 20 }}>
-      <div className="card">
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-          <span style={{ fontSize: 20 }}>💧</span>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>Add Liquidity &amp; Launch</div>
-          <span className="pill pill-gold" style={{ fontSize: 10 }}>Post-deploy</span>
-        </div>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 18, lineHeight: 1.6 }}>
-          Runs the 4-step launch sequence in order: <strong style={{ color: '#fff' }}>Approve → Add Liquidity → startLP → launch()</strong>.
-          Skips the approve if the router already has sufficient allowance.
-        </div>
-
-        {/* Balance display */}
+    <div style={{
+      background: 'var(--fd-surface)',
+      border: '1px solid var(--fd-border)',
+      borderRadius: 'var(--fd-radius-lg)',
+      padding: '24px',
+      marginTop: 20,
+    }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
         <div style={{
-          marginBottom: 14, padding: '10px 14px', borderRadius: 8,
-          background: 'rgba(255,215,0,0.05)', border: '0.5px solid rgba(255,215,0,0.15)',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
-          flexWrap: 'wrap',
+          width: 32, height: 32, borderRadius: 8,
+          background: 'rgba(0,207,255,0.12)',
+          border: '1px solid rgba(0,207,255,0.25)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
+        }}>💧</div>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>Add Liquidity &amp; Launch</div>
+          <div style={{ fontSize: 11, color: 'var(--fd-ghost)', marginTop: 1 }}>
+            {dexName} · {isTaxed ? `${steps.filter(s => s.show).length} steps` : '2 steps'}
+          </div>
+        </div>
+        {allDone && (
+          <span style={{
+            marginLeft: 'auto', fontSize: 11, fontWeight: 700,
+            background: 'rgba(0,230,118,0.15)', color: 'var(--green)',
+            border: '1px solid rgba(0,230,118,0.3)',
+            padding: '3px 10px', borderRadius: 20,
+          }}>LIVE</span>
+        )}
+      </div>
+
+      {/* Not connected */}
+      {!isConnected && (
+        <div style={{
+          padding: '12px 16px', borderRadius: 10, marginBottom: 16,
+          background: 'rgba(255,215,0,0.06)', border: '1px solid rgba(255,215,0,0.2)',
+          fontSize: 13, color: 'var(--text-secondary)',
         }}>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-            {balLoading
-              ? 'Reading wallet balance…'
-              : tokenBal === null
-                ? 'Connect wallet to see balance'
-                : balNum === 0
-                  ? <span style={{ color: 'var(--red)' }}>
-                      ⚠ No {tokenSymbol} in this wallet. Tokens were sent to the receiveAddress — switch wallet or transfer tokens here first.
-                    </span>
-                  : <span>Wallet balance: <strong style={{ color: 'var(--green)', fontFamily: "'Space Mono',monospace" }}>
-                      {Number(balFormatted).toLocaleString()} {tokenSymbol}
-                    </strong></span>
-            }
-          </div>
-          {balNum > 0 && (
-            <button onClick={() => setTokenAmt(balFormatted!)}
-              style={{ fontSize: 10, padding: '3px 10px', borderRadius: 20,
-                background: 'rgba(255,215,0,0.15)', color: 'var(--fd-cyan)',
-                border: '0.5px solid rgba(255,215,0,0.3)', cursor: 'pointer', fontWeight: 700 }}>
-              USE MAX
-            </button>
-          )}
+          Connect your wallet to add liquidity.
         </div>
+      )}
 
-        {/* antiSYNC auto-fix notice */}
-        {antiSyncEnabled && (
-          <div style={{ marginBottom: 14, padding: '8px 12px', borderRadius: 8,
-            background: 'rgba(255,152,0,0.07)', border: '0.5px solid rgba(255,152,0,0.3)',
-            fontSize: 12, color: '#ffab40', lineHeight: 1.6 }}>
-            ⚡ <strong>antiSYNC is ON</strong> — this blocks the first liquidity add.
-            It will be <strong>automatically disabled</strong> as step 1 of the sequence.
-          </div>
-        )}
+      {/* Chain not supported */}
+      {isConnected && !router && (
+        <div style={{
+          padding: '12px 16px', borderRadius: 10, marginBottom: 16,
+          background: 'rgba(255,82,82,0.07)', border: '1px solid rgba(255,82,82,0.2)',
+          fontSize: 13, color: 'var(--red)',
+        }}>
+          This chain is not supported for automatic liquidity. Use the DEX UI directly.
+        </div>
+      )}
 
-        {/* Already-launched notice */}
-        {alreadyLaunched && (
-          <div style={{ marginBottom: 14, padding: '8px 12px', borderRadius: 8,
-            background: 'rgba(0,230,118,0.07)', border: '0.5px solid rgba(0,230,118,0.25)',
-            fontSize: 12, color: 'var(--green)', lineHeight: 1.6 }}>
-            ✓ Trading is already open. You can still add more liquidity — startLP/launch steps will be skipped.
-          </div>
-        )}
-
-        {/* Input row */}
-        <div className="grid-2" style={{ gap: 10, marginBottom: 14 }}>
-          <div>
-            <div className="field-label">Token amount for LP ({tokenSymbol})</div>
-            <input className="field-input" type="number" min="0" placeholder="e.g. 500000000"
-              value={tokenAmt} onChange={e => setTokenAmt(e.target.value)}
-              style={{ borderColor: balInsufficient ? 'var(--red)' : undefined }} />
-            {balInsufficient && (
-              <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>
-                Exceeds balance — use MAX or reduce amount
+      {isConnected && router && (
+        <>
+          {/* Balances */}
+          <div style={{
+            display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap',
+          }}>
+            {/* Token balance */}
+            <div style={{
+              flex: 1, minWidth: 160,
+              padding: '10px 14px', borderRadius: 10,
+              background: 'var(--fd-deep)', border: '1px solid var(--fd-border)',
+            }}>
+              <div style={{ fontSize: 10, color: 'var(--fd-ghost)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+                {tokenSymbol} balance
               </div>
-            )}
-          </div>
-          <div>
-            <div className="field-label">{nativeSymbol} amount for LP</div>
-            <input className="field-input" type="number" min="0" step="0.01" placeholder="e.g. 1.5"
-              value={ethAmt} onChange={e => setEthAmt(e.target.value)} />
-          </div>
-          <div>
-            <div className="field-label">Slippage % <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(5–10% recommended for new pools)</span></div>
-            <input className="field-input" type="number" min="1" max="50" step="0.5"
-              value={slippage} onChange={e => setSlippage(e.target.value)} />
-          </div>
-        </div>
-
-        {/* DEX router info (read from token contract) */}
-        {tokenRouter ? (
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 14, fontFamily: "'Space Mono',monospace" }}>
-            Router (from contract): <span style={{ color: 'var(--fd-cyan)' }}>{tokenRouter}</span>
-          </div>
-        ) : balLoading ? (
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 14 }}>Reading token contract…</div>
-        ) : null}
-        {tokenCurrencyIsEth === false && (
-          <div style={{ marginBottom: 14, padding: '8px 12px', borderRadius: 8,
-            background: 'rgba(255,82,82,0.07)', border: '0.5px solid rgba(255,82,82,0.25)',
-            fontSize: 12, color: 'var(--red)', lineHeight: 1.6 }}>
-            ⚠ This token is paired with a non-native token (not {nativeSymbol}).
-            Use your DEX's Add Liquidity interface directly with both token contract addresses.
-          </div>
-        )}
-
-        {/* Step tracker */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
-          {([ ['approve', '1', 'Approve router'],
-               ['addLiq',  '2', 'Add Liquidity'],
-               ['startLP', '3', 'startLP()'],
-               ['launch',  '4', 'launch()'],
-          ] as const).map(([key, num, label]) => {
-            const state = steps[key]
-            const msg   = msgs[key]
-            const link  = txLinks[key]
-            return (
-              <div key={key} style={{
-                display: 'flex', alignItems: 'flex-start', gap: 10,
-                padding: '9px 12px', borderRadius: 8,
-                background:
-                  state === 'ok'      ? 'rgba(0,230,118,0.07)'  :
-                  state === 'err'     ? 'rgba(255,82,82,0.07)'  :
-                  state === 'pending' ? 'rgba(74,144,226,0.07)' :
-                  'rgba(255,255,255,0.03)',
-                border: `0.5px solid ${
-                  state === 'ok'      ? 'rgba(0,230,118,0.25)'  :
-                  state === 'err'     ? 'rgba(255,82,82,0.25)'  :
-                  state === 'pending' ? 'rgba(74,144,226,0.25)' :
-                  'var(--border)'
-                }`,
-              }}>
-                {/* Badge */}
-                <div style={{
-                  width: 22, height: 22, borderRadius: 6, flexShrink: 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 12, fontWeight: 800,
-                  background:
-                    state === 'ok'      ? 'var(--green)' :
-                    state === 'err'     ? 'var(--red)'   :
-                    state === 'pending' ? '#4A90E2'      : 'var(--border)',
-                  color: state === 'idle' ? 'var(--text-muted)' : 'var(--fd-void)',
-                }}>
-                  {state === 'ok' ? '✓' : state === 'err' ? '✗' : state === 'pending' ? '…' : num}
+              {balLoading ? (
+                <div style={{ fontSize: 13, color: 'var(--fd-ghost)' }}>Loading…</div>
+              ) : tokenBal === null ? (
+                <div style={{ fontSize: 13, color: 'var(--fd-ghost)' }}>—</div>
+              ) : balNum === 0 ? (
+                <div style={{ fontSize: 13, color: 'var(--red)' }}>
+                  0 — tokens sent to receiveAddress. Transfer some here first.
                 </div>
-                <div style={{ flex: 1 }}>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--green)', fontFamily: 'var(--fd-font-mono)' }}>
+                    {Number(balFormatted).toLocaleString()}
+                  </span>
+                  <button
+                    onClick={() => setTokenAmt(balFormatted!)}
+                    style={{
+                      fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+                      background: 'rgba(0,207,255,0.12)', color: 'var(--fd-cyan)',
+                      border: '1px solid rgba(0,207,255,0.25)', cursor: 'pointer',
+                    }}>MAX</button>
+                </div>
+              )}
+            </div>
+
+            {/* Native balance */}
+            <div style={{
+              flex: 1, minWidth: 160,
+              padding: '10px 14px', borderRadius: 10,
+              background: 'var(--fd-deep)', border: '1px solid var(--fd-border)',
+            }}>
+              <div style={{ fontSize: 10, color: 'var(--fd-ghost)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+                {native} balance
+              </div>
+              {balLoading ? (
+                <div style={{ fontSize: 13, color: 'var(--fd-ghost)' }}>Loading…</div>
+              ) : nativeBal === null ? (
+                <div style={{ fontSize: 13, color: 'var(--fd-ghost)' }}>—</div>
+              ) : (
+                <div style={{ fontSize: 14, fontWeight: 700, color: nativeBalEth! < 0.01 ? 'var(--red)' : 'var(--fd-white)', fontFamily: 'var(--fd-font-mono)' }}>
+                  {nativeBalEth!.toFixed(4)}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Inputs */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--fd-ghost)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                {tokenSymbol} amount
+              </div>
+              <input
+                className="field-input"
+                type="number" min="0" placeholder="e.g. 500000000"
+                value={tokenAmt}
+                onChange={e => setTokenAmt(e.target.value)}
+                style={{ borderColor: tokenInsuff ? 'var(--red)' : undefined }}
+              />
+              {tokenInsuff && (
+                <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>Exceeds balance</div>
+              )}
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--fd-ghost)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                {native} amount
+              </div>
+              <input
+                className="field-input"
+                type="number" min="0" step="0.01" placeholder="e.g. 1.5"
+                value={nativeAmt}
+                onChange={e => setNativeAmt(e.target.value)}
+                style={{ borderColor: nativeInsuff ? 'var(--red)' : undefined }}
+              />
+              {nativeInsuff && (
+                <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>Exceeds balance</div>
+              )}
+            </div>
+          </div>
+
+          {/* Router info */}
+          <div style={{
+            padding: '8px 12px', borderRadius: 8, marginBottom: 16,
+            background: 'var(--fd-deep)', border: '1px solid var(--fd-border)',
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            <span style={{ fontSize: 12, color: 'var(--fd-ghost)' }}>DEX:</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--fd-cyan)' }}>{dexName}</span>
+            <span style={{ fontSize: 11, color: 'var(--fd-hint)', fontFamily: 'var(--fd-font-mono)', marginLeft: 'auto' }}>
+              {router.slice(0, 10)}…
+            </span>
+          </div>
+
+          {/* Step tracker */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
+            {steps.filter(s => s.show).map(({ key, n, label, status }) => (
+              <div key={key} style={{
+                display: 'flex', alignItems: 'flex-start', gap: 12,
+                padding: '11px 14px', borderRadius: 10,
+                background: stepBg(status.state),
+                border: `1px solid ${stepBorder(status.state)}`,
+                transition: 'all 0.2s ease',
+              }}>
+                {/* Number badge */}
+                <div style={{
+                  width: 24, height: 24, borderRadius: 7, flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 11, fontWeight: 800,
+                  background: badgeBg(status.state),
+                  color: status.state === 'idle' ? 'var(--fd-ghost)' : 'var(--fd-void)',
+                  transition: 'background 0.2s',
+                }}>
+                  {badgeLabel(status.state, n)}
+                </div>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
                     fontSize: 13, fontWeight: 600,
-                    color: state === 'ok' ? 'var(--green)' : state === 'err' ? 'var(--red)' : '#fff',
+                    color: stepColor(status.state),
+                    display: 'flex', alignItems: 'center', gap: 6,
                   }}>
                     {label}
+                    {status.state === 'pending' && (
+                      <span style={{
+                        display: 'inline-block', width: 10, height: 10,
+                        borderRadius: '50%', border: '2px solid var(--fd-cyan)',
+                        borderTopColor: 'transparent',
+                        animation: 'spin 0.8s linear infinite',
+                      }} />
+                    )}
                   </div>
-                  {msg && (
-                    <div style={{ fontSize: 11, color: state === 'err' ? 'var(--red)' : 'var(--text-muted)', marginTop: 2, lineHeight: 1.5 }}>
-                      {msg}
+                  {status.msg && (
+                    <div style={{
+                      fontSize: 11, marginTop: 3, lineHeight: 1.5,
+                      color: status.state === 'err' ? 'var(--red)' : 'var(--fd-ghost)',
+                    }}>
+                      {status.msg}
                     </div>
                   )}
-                  {link && (
-                    <a href={link} target="_blank" rel="noopener"
-                      style={{ fontSize: 11, color: 'var(--blue)', fontFamily: "'Space Mono',monospace", marginTop: 2, display: 'block' }}>
-                      View tx →
+                  {status.txUrl && (
+                    <a href={status.txUrl} target="_blank" rel="noopener"
+                      style={{
+                        display: 'inline-block', marginTop: 4,
+                        fontSize: 11, color: 'var(--fd-cyan)',
+                        fontFamily: 'var(--fd-font-mono)', textDecoration: 'none',
+                      }}>
+                      View transaction ↗
                     </a>
                   )}
                 </div>
               </div>
-            )
-          })}
-        </div>
+            ))}
+          </div>
 
-        {running && <Spinner />}
+          {/* CTA button */}
+          {allDone ? (
+            <div style={{
+              padding: '14px 20px', borderRadius: 12,
+              background: 'rgba(0,230,118,0.1)', border: '1px solid rgba(0,230,118,0.3)',
+              textAlign: 'center',
+            }}>
+              <div style={{ fontSize: 20, marginBottom: 4 }}>🚀</div>
+              <div style={{ fontWeight: 700, color: 'var(--green)', fontSize: 15 }}>
+                {tokenSymbol} is live on {dexName}!
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--fd-ghost)', marginTop: 4 }}>
+                Liquidity added{isTaxed ? ' · buy/sell taxes active' : ''} · trading open
+              </div>
+            </div>
+          ) : (
+            <button
+              className="btn-primary"
+              style={{ width: '100%', height: 50, fontSize: 15, justifyContent: 'center' }}
+              onClick={run}
+              disabled={!canRun}
+            >
+              {running ? (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
+                  <Spinner />
+                  Running sequence…
+                </span>
+              ) : hasErr ? (
+                '↺  Retry from failed step'
+              ) : (
+                `Launch ${tokenSymbol} on ${dexName} →`
+              )}
+            </button>
+          )}
 
-        {allDone ? (
-          <StatusBox msg={`🚀 ${tokenSymbol} is live! All 4 steps complete.`} type="ok" />
-        ) : (
-          <button
-            className="btn-primary" style={{ width: '100%', padding: 13 }}
-            onClick={run}
-            disabled={running || !tokenAmt || !ethAmt || !walletClient || !tokenRouter || balInsufficient || tokenCurrencyIsEth === false}>
-            {running
-              ? 'Running launch sequence…'
-              : hasError
-              ? '↺ Retry from failed step'
-              : `Run launch sequence for ${tokenSymbol}`}
-          </button>
-        )}
+          {/* Irreversible warning */}
+          <div style={{
+            marginTop: 10, fontSize: 11, color: 'var(--fd-hint)',
+            textAlign: 'center', lineHeight: 1.5,
+          }}>
+            Adding liquidity is irreversible once LP tokens are minted.
+            {isTaxed && ' Buy/sell taxes activate after step 3.'}
+          </div>
+        </>
+      )}
 
-        {!tokenRouter && !balLoading && contractAddress.startsWith('0x') && (
-          <StatusBox msg="Could not read router from token contract. Make sure you're on the right chain." type="err" />
-        )}
-
-        {/* Warning about launch() being irreversible */}
-        <div style={{
-          marginTop: 12, padding: '8px 12px', borderRadius: 8,
-          background: 'rgba(255,82,82,0.05)', border: '0.5px solid rgba(255,82,82,0.2)',
-          fontSize: 11, color: 'rgba(255,82,82,0.8)', lineHeight: 1.6,
-        }}>
-          ⚠ <strong>launch()</strong> opens public trading permanently — it cannot be undone.
-          Make sure liquidity is added before proceeding.
-        </div>
-      </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }

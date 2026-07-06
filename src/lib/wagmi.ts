@@ -56,8 +56,22 @@ export const WETH: Record<number, `0x${string}`> = {
 }
 
 export const ROUTERS: Record<number, `0x${string}`> = {
-  56:    '0x10ED43C718714eb63d5aA57B78B54704E256024E',
-  1:     '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D',
-  42161: '0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506',
-  97:    '0xD99D1c33F9fC3444f8101754aBC46c52416550D1',
+  56:    '0x10ED43C718714eb63d5aA57B78B54704E256024E', // PancakeSwap V2
+  1:     '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D', // Uniswap V2
+  42161: '0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506', // SushiSwap Arbitrum
+  97:    '0xD99D1c33F9fC3444f8101754aBC46c52416550D1', // PancakeSwap Testnet
+}
+
+export const DEX_FACTORIES: Record<number, `0x${string}`> = {
+  56:    '0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73', // PancakeSwap V2 factory
+  1:     '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f', // Uniswap V2 factory
+  42161: '0xc35DADB65012eC5796536bD9864eD8773aBc74C4', // SushiSwap factory
+  97:    '0x6725F303b657a9451d8BA641348b6761A6CC7a17', // PancakeSwap Testnet factory
+}
+
+export const DEX_NAMES: Record<number, string> = {
+  56:    'PancakeSwap',
+  1:     'Uniswap V2',
+  42161: 'SushiSwap',
+  97:    'PancakeSwap Testnet',
 }

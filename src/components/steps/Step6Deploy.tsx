@@ -196,6 +196,7 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
           contractAddress={result.contractAddress}
           tokenSymbol={cfg.symbol}
           tokenDecimals={cfg.decimals}
+          tokenType={cfg.tokenType}
         />
       </div>
     )
