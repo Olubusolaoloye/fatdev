@@ -286,6 +286,24 @@ export async function deployToken(
   const bbWallet   = (isRealAddr(args.buybackWallet) ? args.buybackWallet : DEAD) as `0x${string}`
   const dexRouter  = (ROUTERS[args.chainId] ?? DEAD) as `0x${string}`
 
+  // Pre-flight validation (mirrors on-chain checks so errors surface before wallet popup)
+  if (args.tokenType !== 'standard') {
+    const total = args.mktPct + args.lpPct + args.teamPct + args.buybackPct + args.burnPct
+    if (total !== 100)
+      throw new Error(`Tax distribution must sum to 100% (currently ${total}%). Go back to Step 3 and adjust the sliders.`)
+    if (args.buyTax > 2500)   throw new Error(`Buy tax exceeds 25% max (${args.buyTax} bps). Go back to Step 3.`)
+    if (args.sellTax > 2500)  throw new Error(`Sell tax exceeds 25% max (${args.sellTax} bps). Go back to Step 3.`)
+    if (args.transferTax > 2500) throw new Error(`Transfer tax exceeds 25% max (${args.transferTax} bps). Go back to Step 3.`)
+    if (args.mktPct > 0 && !isRealAddr(args.fundAddress))
+      throw new Error('Marketing wallet address is required when marketing % > 0. Go back to Step 2.')
+    if (args.teamPct > 0 && !isRealAddr(args.teamWallet))
+      throw new Error('Team wallet address is required when team % > 0. Set it in Step 2 or set team % to 0.')
+    if (args.buybackPct > 0 && !isRealAddr(args.buybackWallet))
+      throw new Error('Buyback wallet address is required when buyback % > 0. Set it in Step 2 or set buyback % to 0.')
+    if (!args.name.trim()) throw new Error('Token name is required. Go back to Step 2.')
+    if (!args.symbol.trim()) throw new Error('Token symbol is required. Go back to Step 2.')
+  }
+
   let initHash: `0x${string}`
 
   if (args.tokenType === 'standard') {
