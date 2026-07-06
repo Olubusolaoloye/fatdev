@@ -242,6 +242,19 @@ export type DeployArgs = {
   chainId: number
 }
 
+function extractRevert(e: unknown): string {
+  const msg = (e as any)?.message || String(e)
+  const reason = msg.match(/reverted with reason string '(.+?)'/)?.[1]
+  if (reason) return reason
+  const custom = msg.match(/reverted with the following reason:\s*(.+?)(?:\n|$)/i)?.[1]
+  if (custom) return custom.trim()
+  const details = msg.match(/Details:\s*(.+?)(?:\n|$)/)?.[1]
+  if (details) return details.trim()
+  const revert = msg.match(/execution reverted:?\s*(.+?)(?:\n|$)/i)?.[1]
+  if (revert) return revert.trim()
+  return msg.slice(0, 300)
+}
+
 export async function deployToken(
   args: DeployArgs,
   walletClient: WalletClient,
@@ -252,7 +265,77 @@ export async function deployToken(
   const dec0 = 10n ** BigInt(args.decimals)
   const totalSupplyWei = BigInt(args.totalSupply) * dec0
 
-  // Select bytecode for this token type
+  // ── Pre-flight validation (before any wallet interaction) ─────────────────
+  const isRealAddr = (a: string) => !!a && a.length >= 42 && a.toLowerCase() !== '0x0000000000000000000000000000000000000000'
+  const mktWallet  = (isRealAddr(args.fundAddress)   ? args.fundAddress   : DEAD) as `0x${string}`
+  const teamWallet = (isRealAddr(args.teamWallet)    ? args.teamWallet    : DEAD) as `0x${string}`
+  const bbWallet   = (isRealAddr(args.buybackWallet) ? args.buybackWallet : DEAD) as `0x${string}`
+  const dexRouter  = (ROUTERS[args.chainId] ?? DEAD) as `0x${string}`
+
+  if (!args.name.trim())   throw new Error('Token name is required. Go back to Step 2.')
+  if (!args.symbol.trim()) throw new Error('Token symbol is required. Go back to Step 2.')
+
+  if (args.tokenType !== 'standard') {
+    const total = args.mktPct + args.lpPct + args.teamPct + args.buybackPct + args.burnPct
+    if (total !== 100)
+      throw new Error(`Tax distribution must sum to 100% (currently ${total}%). Go back to Step 3 and adjust the sliders.`)
+    if (args.buyTax > 2500)      throw new Error(`Buy tax exceeds 25% max (${args.buyTax} bps). Go back to Step 3.`)
+    if (args.sellTax > 2500)     throw new Error(`Sell tax exceeds 25% max (${args.sellTax} bps). Go back to Step 3.`)
+    if (args.transferTax > 2500) throw new Error(`Transfer tax exceeds 25% max (${args.transferTax} bps). Go back to Step 3.`)
+    if (args.mktPct > 0 && !isRealAddr(args.fundAddress))
+      throw new Error('Marketing wallet address is required when marketing % > 0. Go back to Step 2.')
+    if (args.teamPct > 0 && !isRealAddr(args.teamWallet))
+      throw new Error('Team wallet address is required when team % > 0. Set it in Step 2 or set team % to 0.')
+    if (args.buybackPct > 0 && !isRealAddr(args.buybackWallet))
+      throw new Error('Buyback wallet address is required when buyback % > 0. Set it in Step 2 or set buyback % to 0.')
+  }
+
+  // ── Build ABI + init args now (needed for estimateContractGas later) ─────
+  const taxBehavior = {
+    taxOnTransfer: args.taxOnTransfer,
+    taxOnBuy:      args.taxOnBuy,
+    taxOnSell:     args.taxOnSell,
+    transferTax:   BigInt(args.transferTax),
+    buyTax:        BigInt(args.buyTax),
+    sellTax:       BigInt(args.sellTax),
+  }
+
+  let initAbi: typeof STANDARD_INIT_ABI | typeof TAX_INIT_ABI | typeof REFLECTION_INIT_ABI
+  let initArgs: readonly unknown[]
+
+  if (args.tokenType === 'standard') {
+    initAbi  = STANDARD_INIT_ABI
+    initArgs = [args.name, args.symbol, args.decimals, totalSupplyWei, account] as const
+  } else if (args.tokenType === 'reflection') {
+    const taxDistribution = {
+      reflectionPercent: BigInt(args.burnPct   * 100),
+      marketingPercent:  BigInt(args.mktPct    * 100),
+      liquidityPercent:  BigInt(args.lpPct     * 100),
+      teamPercent:       BigInt(args.teamPct   * 100),
+      buybackPercent:    BigInt(args.buybackPct * 100),
+      marketingWallet:   mktWallet,
+      teamWallet,
+      buybackWallet:     bbWallet,
+    }
+    initAbi  = REFLECTION_INIT_ABI
+    initArgs = [args.name, args.symbol, args.decimals, totalSupplyWei, account, taxBehavior, taxDistribution, dexRouter] as const
+  } else {
+    // tax + deflationary: same struct layout (burnPercent / deflationPercent both sit at slot 4)
+    const taxDistribution = {
+      marketingPercent: BigInt(args.mktPct     * 100),
+      liquidityPercent: BigInt(args.lpPct      * 100),
+      teamPercent:      BigInt(args.teamPct    * 100),
+      buybackPercent:   BigInt(args.buybackPct * 100),
+      burnPercent:      BigInt(args.burnPct    * 100),
+      marketingWallet:  mktWallet,
+      teamWallet,
+      buybackWallet:    bbWallet,
+    }
+    initAbi  = TAX_INIT_ABI
+    initArgs = [args.name, args.symbol, args.decimals, totalSupplyWei, account, taxBehavior, taxDistribution, dexRouter] as const
+  }
+
+  // ── Select bytecode ────────────────────────────────────────────────────────
   const bytecodeMap = {
     standard:     BYTECODES.FatStandard,
     tax:          BYTECODES.FatTax,
@@ -260,14 +343,22 @@ export async function deployToken(
     reflection:   BYTECODES.FatReflection,
   } as const
   const bytecode = bytecodeMap[args.tokenType]
-
-  // ── Step 1: deploy bytecode ────────────────────────────────────────────────
   const typeLabel = args.tokenType.charAt(0).toUpperCase() + args.tokenType.slice(1)
-  onStatus(`Step 1 of 2 — Deploying Fat${typeLabel} contract… confirm in wallet`)
 
+  // ── Step 1: estimate + deploy bytecode ────────────────────────────────────
+  onStatus(`Step 1 of 2 — Simulating deployment…`)
+  let deployGas: bigint
+  try {
+    deployGas = await publicClient.estimateGas({ data: bytecode, account })
+  } catch (e) {
+    throw new Error(`Deployment simulation failed: ${extractRevert(e)}`)
+  }
+
+  onStatus(`Step 1 of 2 — Deploying Fat${typeLabel} contract… confirm in wallet`)
   const deployHash = await walletClient.sendTransaction({
     data: bytecode,
     account,
+    gas: deployGas * 13n / 10n, // 30% buffer to avoid edge-case OOG
     chain: walletClient.chain!,
   })
 
@@ -277,87 +368,31 @@ export async function deployToken(
   const contractAddress = deployReceipt.contractAddress
   if (!contractAddress) throw new Error('Deploy failed — no contract address in receipt')
 
-  // ── Step 2: initialize ────────────────────────────────────────────────────
+  // ── Step 2: estimate + initialize ─────────────────────────────────────────
+  onStatus(`Step 2 of 2 — Simulating initialization…`)
+  let initGas: bigint
+  try {
+    initGas = await publicClient.estimateContractGas({
+      address: contractAddress,
+      abi:     initAbi as any,
+      functionName: 'initialize',
+      args:    initArgs as any,
+      account,
+    })
+  } catch (e) {
+    throw new Error(`Initialization simulation failed: ${extractRevert(e)}`)
+  }
+
   onStatus(`Step 2 of 2 — Initializing token… confirm in wallet`)
-
-  const isRealAddr = (a: string) => !!a && a.length >= 42 && a.toLowerCase() !== '0x0000000000000000000000000000000000000000'
-  const mktWallet  = (isRealAddr(args.fundAddress)   ? args.fundAddress   : DEAD) as `0x${string}`
-  const teamWallet = (isRealAddr(args.teamWallet)    ? args.teamWallet    : DEAD) as `0x${string}`
-  const bbWallet   = (isRealAddr(args.buybackWallet) ? args.buybackWallet : DEAD) as `0x${string}`
-  const dexRouter  = (ROUTERS[args.chainId] ?? DEAD) as `0x${string}`
-
-  // Pre-flight validation (mirrors on-chain checks so errors surface before wallet popup)
-  if (args.tokenType !== 'standard') {
-    const total = args.mktPct + args.lpPct + args.teamPct + args.buybackPct + args.burnPct
-    if (total !== 100)
-      throw new Error(`Tax distribution must sum to 100% (currently ${total}%). Go back to Step 3 and adjust the sliders.`)
-    if (args.buyTax > 2500)   throw new Error(`Buy tax exceeds 25% max (${args.buyTax} bps). Go back to Step 3.`)
-    if (args.sellTax > 2500)  throw new Error(`Sell tax exceeds 25% max (${args.sellTax} bps). Go back to Step 3.`)
-    if (args.transferTax > 2500) throw new Error(`Transfer tax exceeds 25% max (${args.transferTax} bps). Go back to Step 3.`)
-    if (args.mktPct > 0 && !isRealAddr(args.fundAddress))
-      throw new Error('Marketing wallet address is required when marketing % > 0. Go back to Step 2.')
-    if (args.teamPct > 0 && !isRealAddr(args.teamWallet))
-      throw new Error('Team wallet address is required when team % > 0. Set it in Step 2 or set team % to 0.')
-    if (args.buybackPct > 0 && !isRealAddr(args.buybackWallet))
-      throw new Error('Buyback wallet address is required when buyback % > 0. Set it in Step 2 or set buyback % to 0.')
-    if (!args.name.trim()) throw new Error('Token name is required. Go back to Step 2.')
-    if (!args.symbol.trim()) throw new Error('Token symbol is required. Go back to Step 2.')
-  }
-
-  let initHash: `0x${string}`
-
-  if (args.tokenType === 'standard') {
-    initHash = await walletClient.writeContract({
-      address: contractAddress, abi: STANDARD_INIT_ABI,
-      functionName: 'initialize',
-      args: [args.name, args.symbol, args.decimals, totalSupplyWei, account],
-      account, chain: walletClient.chain!,
-    })
-  } else {
-    const taxBehavior = {
-      taxOnTransfer: args.taxOnTransfer,
-      taxOnBuy:      args.taxOnBuy,
-      taxOnSell:     args.taxOnSell,
-      transferTax:   BigInt(args.transferTax),
-      buyTax:        BigInt(args.buyTax),
-      sellTax:       BigInt(args.sellTax),
-    }
-    let taxDistribution: Record<string, bigint | `0x${string}`>
-    let initAbi: typeof TAX_INIT_ABI | typeof REFLECTION_INIT_ABI
-    if (args.tokenType === 'reflection') {
-      // FatReflection: reflectionPercent is field 0 in struct
-      taxDistribution = {
-        reflectionPercent: BigInt(args.burnPct * 100),   // burnPct slot holds reflection %
-        marketingPercent:  BigInt(args.mktPct * 100),
-        liquidityPercent:  BigInt(args.lpPct  * 100),
-        teamPercent:       BigInt(args.teamPct * 100),
-        buybackPercent:    BigInt(args.buybackPct * 100),
-        marketingWallet:   mktWallet,
-        teamWallet,
-        buybackWallet:     bbWallet,
-      }
-      initAbi = REFLECTION_INIT_ABI
-    } else {
-      // FatTax & FatDeflationary: marketingPercent is field 0 in struct
-      taxDistribution = {
-        marketingPercent: BigInt(args.mktPct * 100),
-        liquidityPercent: BigInt(args.lpPct  * 100),
-        teamPercent:      BigInt(args.teamPct * 100),
-        buybackPercent:   BigInt(args.buybackPct * 100),
-        burnPercent:      BigInt(args.burnPct * 100),
-        marketingWallet:  mktWallet,
-        teamWallet,
-        buybackWallet:    bbWallet,
-      }
-      initAbi = TAX_INIT_ABI
-    }
-    initHash = await walletClient.writeContract({
-      address: contractAddress, abi: initAbi,
-      functionName: 'initialize',
-      args: [args.name, args.symbol, args.decimals, totalSupplyWei, account, taxBehavior, taxDistribution as any, dexRouter],
-      account, chain: walletClient.chain!,
-    })
-  }
+  const initHash = await walletClient.writeContract({
+    address: contractAddress,
+    abi:     initAbi as any,
+    functionName: 'initialize',
+    args:    initArgs as any,
+    account,
+    gas:   initGas * 13n / 10n,
+    chain: walletClient.chain!,
+  })
 
   onStatus('Step 2 of 2 — Waiting for initialization confirmation…')
   await publicClient.waitForTransactionReceipt({ hash: initHash })
