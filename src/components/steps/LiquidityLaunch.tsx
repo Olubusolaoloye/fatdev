@@ -51,7 +51,7 @@ const FAT_TAX_ABI = [
 ] as const
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type StepKey   = 'approve' | 'addLiq' | 'registerPair'
+type StepKey   = 'approve' | 'addLiq'
 type StepState = 'idle' | 'pending' | 'ok' | 'err' | 'skip'
 
 interface StepStatus { state: StepState; msg: string; txUrl?: string }
@@ -129,10 +129,14 @@ export function LiquidityLaunch({
   const [pairAlreadySet, setPairAlreadySet] = useState(false)
 
   // Step state
-  const [approve,      setApprove]      = useState<StepStatus>(IDLE)
-  const [addLiq,       setAddLiq]       = useState<StepStatus>(IDLE)
-  const [registerPair, setRegisterPair] = useState<StepStatus>(IDLE)
-  const [running,      setRunning]      = useState(false)
+  const [approve,  setApprove]  = useState<StepStatus>(IDLE)
+  const [addLiq,   setAddLiq]   = useState<StepStatus>(IDLE)
+  const [running,  setRunning]  = useState(false)
+
+  // setDexPair — separate optional action after liquidity is added
+  const [pairStatus, setPairStatus] = useState<StepStatus>(IDLE)
+  const [pairRunning, setPairRunning] = useState(false)
+  const [lpPairAddr, setLpPairAddr] = useState<`0x${string}` | null>(null)
 
   // ── Load balances + check pair registration on mount ──────────────────────
   useEffect(() => {
@@ -177,9 +181,8 @@ export function LiquidityLaunch({
   const nativeBalEth  = nativeBal !== null ? parseFloat(formatUnits(nativeBal, 18)) : null
   const tokenInsuff   = tokenBal !== null && tokenAmt !== '' && parseFloat(tokenAmt) > balNum
   const nativeInsuff  = nativeBal !== null && nativeAmt !== '' && parseFloat(nativeAmt) > (nativeBalEth ?? 0)
-  const allDone       = approve.state === 'ok' && addLiq.state === 'ok' &&
-                        (!isTaxed || registerPair.state === 'ok' || registerPair.state === 'skip')
-  const hasErr        = [approve, addLiq, registerPair].some(s => s.state === 'err')
+  const allDone       = approve.state === 'ok' && addLiq.state === 'ok'
+  const hasErr        = approve.state === 'err' || addLiq.state === 'err'
 
   function upd(set: (s: StepStatus) => void, state: StepState, msg: string, txHash?: `0x${string}`) {
     set({ state, msg, txUrl: txHash ? `${explorer}/tx/${txHash}` : undefined })
@@ -192,7 +195,7 @@ export function LiquidityLaunch({
     if (!router || !weth) return
 
     setRunning(true)
-    setApprove(IDLE); setAddLiq(IDLE); setRegisterPair(IDLE)
+    setApprove(IDLE); setAddLiq(IDLE)
 
     const token  = contractAddress as `0x${string}`
     const acct   = address as `0x${string}`
@@ -261,43 +264,14 @@ export function LiquidityLaunch({
       await publicClient.waitForTransactionReceipt({ hash: liqHash })
       upd(setAddLiq, 'ok', `Liquidity added to ${dexName} ✓`, liqHash)
 
-      // ── 3. Register LP Pair (tax/deflationary/reflection only) ────────────
-      if (isTaxed) {
-        if (pairAlreadySet) {
-          upd(setRegisterPair, 'skip', 'LP pair already registered ✓')
-        } else if (!factory) {
-          upd(setRegisterPair, 'skip', 'Factory not configured for this chain — register pair manually')
-        } else {
-          upd(setRegisterPair, 'pending', 'Fetching LP pair address from factory…')
-
-          await new Promise(r => setTimeout(r, 2000)) // wait for pair creation
-          const pair = await publicClient.readContract({
-            address: factory, abi: FACTORY_ABI, functionName: 'getPair', args: [token, weth],
-          }) as `0x${string}`
-
-          const ZERO = '0x0000000000000000000000000000000000000000'
-          if (!pair || pair.toLowerCase() === ZERO) {
-            upd(setRegisterPair, 'err', 'Could not find LP pair address — register manually via setDexPair()')
-          } else {
-            upd(setRegisterPair, 'pending', `Registering pair ${pair.slice(0,10)}… in wallet`)
-
-            const pairGas = await publicClient.estimateContractGas({
-              address: token, abi: FAT_TAX_ABI, functionName: 'setDexPair',
-              args: [pair, true], account: acct,
-            }).catch(() => 100_000n)
-
-            const pairHash = await walletClient.writeContract({
-              address: token, abi: FAT_TAX_ABI, functionName: 'setDexPair',
-              args: [pair, true],
-              account: acct, chain: walletClient.chain!,
-              gas: pairGas * 12n / 10n,
-            })
-            upd(setRegisterPair, 'pending', 'Confirming pair registration…', pairHash)
-            await publicClient.waitForTransactionReceipt({ hash: pairHash })
-            setPairAlreadySet(true)
-            upd(setRegisterPair, 'ok', `LP pair registered — buy/sell taxes active ✓`, pairHash)
-          }
-        }
+      // After liquidity is added, look up and store the LP pair address
+      if (isTaxed && factory && weth) {
+        await new Promise(r => setTimeout(r, 2000)) // let the node index the pair
+        const pair = await publicClient.readContract({
+          address: factory, abi: FACTORY_ABI, functionName: 'getPair', args: [token, weth],
+        }).catch(() => null) as `0x${string}` | null
+        const ZERO = '0x0000000000000000000000000000000000000000'
+        if (pair && pair.toLowerCase() !== ZERO) setLpPairAddr(pair)
       }
 
     } catch (e: any) {
@@ -313,9 +287,8 @@ export function LiquidityLaunch({
         raw
 
       // Mark the currently-pending step as failed
-      if (approve.state  === 'pending') upd(setApprove,      'err', friendly)
-      else if (addLiq.state === 'pending') upd(setAddLiq,    'err', friendly)
-      else if (registerPair.state === 'pending') upd(setRegisterPair, 'err', friendly)
+      if (approve.state === 'pending') upd(setApprove, 'err', friendly)
+      else if (addLiq.state === 'pending') upd(setAddLiq, 'err', friendly)
       else upd(setApprove, 'err', friendly)
     }
 
@@ -327,9 +300,8 @@ export function LiquidityLaunch({
                  !tokenInsuff && !nativeInsuff && !running
 
   const steps: { key: StepKey; n: string; label: string; status: StepStatus; show: boolean }[] = [
-    { key: 'approve',      n: '1', label: `Approve ${dexName} Router`, status: approve,      show: true   },
-    { key: 'addLiq',       n: '2', label: 'Add Liquidity',              status: addLiq,       show: true   },
-    { key: 'registerPair', n: '3', label: 'Register LP Pair',           status: registerPair, show: isTaxed },
+    { key: 'approve', n: '1', label: `Approve ${dexName} Router`, status: approve, show: true },
+    { key: 'addLiq',  n: '2', label: 'Add Liquidity',              status: addLiq,  show: true },
   ]
 
   return (
@@ -595,8 +567,119 @@ export function LiquidityLaunch({
             textAlign: 'center', lineHeight: 1.5,
           }}>
             Adding liquidity is irreversible once LP tokens are minted.
-            {isTaxed && ' Buy/sell taxes activate after step 3.'}
           </div>
+
+          {/* ── Optional: Activate Tax Collection ───────────────────────────── */}
+          {isTaxed && allDone && !pairAlreadySet && (
+            <div style={{
+              marginTop: 16,
+              padding: '16px 18px',
+              borderRadius: 12,
+              background: 'rgba(255,215,0,0.05)',
+              border: '1px solid rgba(255,215,0,0.2)',
+            }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--gold)', marginBottom: 6 }}>
+                ⚡ Activate Tax Collection (optional)
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--fd-ghost)', marginBottom: 12, lineHeight: 1.6 }}>
+                Register the LP pair in your token contract so buy/sell taxes are collected.
+                You can skip this now and call <code style={{ color: 'var(--fd-cyan)' }}>setDexPair(pair, true)</code> manually later.
+              </div>
+
+              {pairStatus.state === 'ok' ? (
+                <div style={{
+                  padding: '10px 14px', borderRadius: 8,
+                  background: 'rgba(0,230,118,0.1)', border: '1px solid rgba(0,230,118,0.3)',
+                  fontSize: 13, fontWeight: 600, color: 'var(--green)',
+                }}>
+                  ✓ {pairStatus.msg}
+                </div>
+              ) : pairStatus.state === 'err' ? (
+                <div style={{ fontSize: 12, color: 'var(--red)', marginBottom: 8 }}>{pairStatus.msg}</div>
+              ) : pairStatus.state === 'pending' ? (
+                <div style={{ fontSize: 12, color: 'var(--fd-cyan)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Spinner /> {pairStatus.msg}
+                </div>
+              ) : (
+                <button
+                  className="btn-primary"
+                  style={{ width: '100%', height: 44, fontSize: 13, justifyContent: 'center',
+                    background: 'rgba(255,215,0,0.12)', color: 'var(--gold)',
+                    border: '1px solid rgba(255,215,0,0.35)' }}
+                  disabled={pairRunning || !walletClient}
+                  onClick={async () => {
+                    if (!walletClient || !publicClient || !address) return
+                    if (!factory || !weth) {
+                      setPairStatus({ state: 'err', msg: 'Factory not configured for this chain.' })
+                      return
+                    }
+                    setPairRunning(true)
+                    setPairStatus({ state: 'pending', msg: 'Looking up LP pair address…' })
+                    try {
+                      const token = contractAddress as `0x${string}`
+                      const acct  = address as `0x${string}`
+
+                      let pair = lpPairAddr
+                      if (!pair) {
+                        await new Promise(r => setTimeout(r, 1000))
+                        pair = await publicClient.readContract({
+                          address: factory, abi: FACTORY_ABI, functionName: 'getPair', args: [token, weth],
+                        }) as `0x${string}`
+                      }
+
+                      const ZERO = '0x0000000000000000000000000000000000000000'
+                      if (!pair || pair.toLowerCase() === ZERO) {
+                        setPairStatus({ state: 'err', msg: 'LP pair not found. Add liquidity first, then retry.' })
+                        setPairRunning(false)
+                        return
+                      }
+
+                      setLpPairAddr(pair)
+                      setPairStatus({ state: 'pending', msg: `Confirm setDexPair(${pair.slice(0,10)}…) in wallet` })
+
+                      const pairGas = await publicClient.estimateContractGas({
+                        address: token, abi: FAT_TAX_ABI, functionName: 'setDexPair',
+                        args: [pair, true], account: acct,
+                      }).catch(() => 100_000n)
+
+                      const pairHash = await walletClient.writeContract({
+                        address: token, abi: FAT_TAX_ABI, functionName: 'setDexPair',
+                        args: [pair, true],
+                        account: acct, chain: walletClient.chain!,
+                        gas: pairGas * 12n / 10n,
+                      })
+                      setPairStatus({ state: 'pending', msg: 'Confirming…', txUrl: `${explorer}/tx/${pairHash}` })
+                      await publicClient.waitForTransactionReceipt({ hash: pairHash })
+                      setPairAlreadySet(true)
+                      setPairStatus({ state: 'ok', msg: 'Buy/sell taxes are now active ✓', txUrl: `${explorer}/tx/${pairHash}` })
+                    } catch (e: any) {
+                      const msg = e?.message?.includes('user rejected') ? 'Rejected in wallet' : (e?.message ?? String(e)).slice(0, 200)
+                      setPairStatus({ state: 'err', msg })
+                    }
+                    setPairRunning(false)
+                  }}
+                >
+                  Activate Tax Collection →
+                </button>
+              )}
+              {pairStatus.txUrl && (
+                <a href={pairStatus.txUrl} target="_blank" rel="noopener"
+                  style={{ display: 'block', marginTop: 8, fontSize: 11, color: 'var(--fd-cyan)', fontFamily: 'var(--fd-font-mono)', textDecoration: 'none' }}>
+                  View transaction ↗
+                </a>
+              )}
+            </div>
+          )}
+
+          {isTaxed && pairAlreadySet && allDone && (
+            <div style={{
+              marginTop: 12, padding: '10px 14px', borderRadius: 8,
+              background: 'rgba(0,230,118,0.08)', border: '1px solid rgba(0,230,118,0.25)',
+              fontSize: 12, color: 'var(--green)',
+            }}>
+              ✓ Buy/sell taxes are active — LP pair registered
+            </div>
+          )}
         </>
       )}
 
