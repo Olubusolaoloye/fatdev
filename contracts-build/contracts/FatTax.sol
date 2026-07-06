@@ -147,7 +147,7 @@ contract FatTax is ERC20, Ownable, ReentrancyGuard {
     // ============================================
 
     constructor() ERC20("Implementation", "IMPL") Ownable(msg.sender) {
-        _initialized = true;
+        // (removed: was clone guard)
     }
 
     // ============================================

@@ -44,7 +44,7 @@ contract FatStandard is ERC20, Ownable {
     // ============================================
 
     constructor() ERC20("Implementation", "IMPL") Ownable(msg.sender) {
-        _initialized = true; // Prevent implementation from being initialized
+        // no-op: direct deploy, initialize() sets _initialized
     }
 
     // ============================================

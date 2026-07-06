@@ -141,7 +141,7 @@ contract FatReflection is Context, Ownable, ReentrancyGuard {
     // ============================================
 
     constructor() Ownable(msg.sender) {
-        _initialized = true;
+        // (removed: was clone guard)
     }
 
     // ============================================
