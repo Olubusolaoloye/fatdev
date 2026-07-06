@@ -1,5 +1,6 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, Link } from 'react-router-dom'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
+import Logo from '../ui-kit/Logo'
 
 export function MigrateNav() {
   const linkStyle = (isActive: boolean): React.CSSProperties => ({
@@ -31,20 +32,14 @@ export function MigrateNav() {
           gap: 8,
         }}>
           {/* Brand */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-            <div style={{
-              width: 26, height: 26, borderRadius: 6, background: 'var(--fd-cyan)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <span style={{ color: 'var(--fd-void)', fontSize: 13, fontWeight: 800 }}>F</span>
-            </div>
-            <span className="migrate-nav-brand" style={{ fontWeight: 800, fontSize: 15 }}>FatDev</span>
+          <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <Logo size={28} variant="full" />
             <span style={{
               fontSize: 10, fontWeight: 700, color: 'var(--fd-void)',
               background: 'var(--fd-cyan)', padding: '1px 7px', borderRadius: 10,
               letterSpacing: '0.06em',
             }}>migrate</span>
-          </div>
+          </Link>
 
           {/* Right: deployer link + connect */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
