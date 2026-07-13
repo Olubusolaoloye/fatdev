@@ -5,12 +5,14 @@ import type { TokenType } from '../../lib/store'
 import { TOKEN_TYPE_PRESETS } from '../../lib/store'
 import { FieldGroup, Badge } from '../ui-kit'
 import { bsc, mainnet, arbitrum, bscTestnet } from 'wagmi/chains'
+import { robinhoodChain } from '../../chains/robinhoodChain'
 
 const CHAINS = [
-  { id: bsc.id,        name: 'BNB Chain'    },
-  { id: mainnet.id,    name: 'Ethereum'     },
-  { id: arbitrum.id,   name: 'Arbitrum One' },
-  { id: bscTestnet.id, name: 'BSC Testnet'  },
+  { id: bsc.id,              name: 'BNB Chain'        },
+  { id: mainnet.id,          name: 'Ethereum'         },
+  { id: arbitrum.id,         name: 'Arbitrum One'     },
+  { id: bscTestnet.id,       name: 'BSC Testnet'      },
+  { id: robinhoodChain.id,   name: 'Robinhood Chain'  },
 ]
 
 const TOKEN_TYPES: { type: TokenType; label: string; icon: string; desc: string }[] = [

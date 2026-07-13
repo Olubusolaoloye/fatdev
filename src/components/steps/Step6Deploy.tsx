@@ -1,4 +1,5 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAccount, useWalletClient, usePublicClient, useChainId } from 'wagmi'
 import { useStore } from '../../lib/store'
 import { deployToken, generateParams } from '../../lib/contracts'
@@ -30,7 +31,7 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
   const canDeploy   = deploysLeft > 0 && !!walletClient
 
   const chainInfo = CHAIN_EXPLORERS[chainId]
-  const chainName = { 56: 'BNB Chain', 1: 'Ethereum', 42161: 'Arbitrum One', 97: 'BSC Testnet' }[chainId] ?? `Chain ${chainId}`
+  const chainName = { 56: 'BNB Chain', 1: 'Ethereum', 42161: 'Arbitrum One', 97: 'BSC Testnet', 4663: 'Robinhood Chain' }[chainId] ?? `Chain ${chainId}`
 
   async function doDeploy() {
     if (!walletClient || !publicClient || !address) return
@@ -52,7 +53,7 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
         walletClient as any, publicClient as any, setStatus
       )
       setResult(res)
-      // Kick off verification in the background — don't await so UI shows immediately
+      // Kick off verification in the background â€” don't await so UI shows immediately
       setVerifyState('pending')
       verifyContract(res.contractAddress, cfg.tokenType, chainId, setVerifyMsg)
         .then(v => { setVerifyState(v.success ? 'ok' : 'fail'); setVerifyMsg(v.message) })
@@ -74,7 +75,7 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
     setDeploying(false)
   }
 
-  // ── Success state ────────────────────────────────────────────────────────────
+  // â”€â”€ Success state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (result) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -112,7 +113,7 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
                 fontFamily: 'var(--fd-font-mono)', fontSize: 12,
                 color: 'var(--fd-cyan)', textDecoration: 'none', wordBreak: 'break-all',
               }}>
-              {result.contractAddress} ↗
+              {result.contractAddress} â†—
             </a>
           </div>
 
@@ -127,7 +128,7 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
                 fontFamily: 'var(--fd-font-mono)', fontSize: 11,
                 color: 'var(--fd-cyan)', textDecoration: 'none', wordBreak: 'break-all',
               }}>
-              {result.txHash} ↗
+              {result.txHash} â†—
             </a>
           </div>
 
@@ -148,7 +149,7 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
               {verifyState === 'pending' && (
                 <>
                   <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fd-cyan)', marginBottom: 4 }}>
-                    Verifying source code…
+                    Verifying source codeâ€¦
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--fd-ghost)' }}>{verifyMsg}</div>
                 </>
@@ -156,18 +157,18 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
               {verifyState === 'ok' && (
                 <>
                   <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fd-green)', marginBottom: 4 }}>
-                    ✓ Contract verified
+                    âœ“ Contract verified
                   </div>
                   <a href={`${chainInfo}/address/${result.contractAddress}#code`} target="_blank" rel="noopener"
                     style={{ fontSize: 12, color: 'var(--fd-cyan)', textDecoration: 'none' }}>
-                    View verified source on explorer →
+                    View verified source on explorer â†’
                   </a>
                 </>
               )}
               {verifyState === 'fail' && (
                 <>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#FF6B6B', marginBottom: 4 }}>
-                    ✗ Verification failed
+                    âœ— Verification failed
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--fd-ghost)', marginBottom: 6 }}>{verifyMsg}</div>
                   <div style={{ fontSize: 11, color: 'var(--fd-hint)' }}>
@@ -176,7 +177,7 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
                       style={{ color: 'var(--fd-cyan)', textDecoration: 'none' }}>
                       {chainInfo}/verifyContract
                     </a>
-                    <br />Compiler: 0.8.4 · Optimization: Yes · Runs: 200
+                    <br />Compiler: 0.8.4 Â· Optimization: Yes Â· Runs: 200
                   </div>
                 </>
               )}
@@ -187,7 +188,7 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
             <Btn variant="ghost" onClick={() => { setResult(null); setStatus(''); setError(''); setVerifyState('idle'); setVerifyMsg('') }}>
               Deploy another
             </Btn>
-            <Btn variant="primary" onClick={() => setStep(7)}>View dashboard →</Btn>
+            <Btn variant="primary" onClick={() => setStep(7)}>View dashboard â†’</Btn>
           </div>
         </div>
 
@@ -202,9 +203,28 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
     )
   }
 
-  // ── Pre-deploy state ─────────────────────────────────────────────────────────
+  // â”€â”€ Pre-deploy state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Robinhood Chain gas hint */}
+      {chainId === 4663 && (
+        <div style={{
+          padding: '14px 18px', borderRadius: 'var(--fd-radius-lg)',
+          background: 'rgba(0,207,255,0.06)', border: '1px solid rgba(0,207,255,0.2)',
+          fontSize: 13, color: 'var(--fd-ghost)', lineHeight: 1.6,
+          display: 'flex', alignItems: 'flex-start', gap: 12,
+        }}>
+          <span style={{ fontSize: 20, flexShrink: 0 }}>⛽</span>
+          <div>
+            <span style={{ color: 'var(--fd-cyan)', fontWeight: 600 }}>Robinhood Chain uses ETH for gas.</span>{' '}
+            Make sure your wallet has ETH on this chain before deploying.{' '}
+            <Link to="/bridge" style={{ color: 'var(--fd-cyan)', textDecoration: 'none', fontWeight: 600 }}>
+              Bridge ETH here →
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Deploy card */}
       <div style={{
         background: 'var(--fd-surface)',
@@ -233,10 +253,10 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
           padding: '4px 16px',
           marginBottom: 20,
         }}>
-          <SumTile val={cfg.name || '—'} label="Name" />
-          <SumTile val={cfg.symbol || '—'} label="Symbol" />
+          <SumTile val={cfg.name || 'â€”'} label="Name" />
+          <SumTile val={cfg.symbol || 'â€”'} label="Symbol" />
           <SumTile val={chainName} label="Chain" />
-          <SumTile val={deploysLeft === Infinity ? '∞' : String(deploysLeft)} label="Deploys left" />
+          <SumTile val={deploysLeft === Infinity ? 'âˆž' : String(deploysLeft)} label="Deploys left" />
         </div>
 
         <Btn
@@ -244,7 +264,7 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
           onClick={doDeploy}
           disabled={deploying || !canDeploy}
           style={{ width: '100%', justifyContent: 'center', height: 52, fontSize: 16 }}>
-          {!canDeploy ? 'No deploys remaining — upgrade plan' : deploying ? 'Deploying…' : `↑ Deploy Fat${cfg.tokenType.charAt(0).toUpperCase() + cfg.tokenType.slice(1)} Token`}
+          {!canDeploy ? 'No deploys remaining â€” upgrade plan' : deploying ? 'Deployingâ€¦' : `â†‘ Deploy Fat${cfg.tokenType.charAt(0).toUpperCase() + cfg.tokenType.slice(1)} Token`}
         </Btn>
 
         {deploying && <Spinner />}
@@ -266,14 +286,14 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
           Or deploy manually via Remix
         </div>
         {([
-          ['01', 'Open Remix',       'remix.ethereum.org → paste FatFactory.sol + token contracts'],
-          ['02', 'Compiler',         'Solidity 0.8.20 · Optimization · 200 runs · viaIR'],
-          ['03', 'Connect wallet',   `MetaMask → switch to ${chainName}`],
+          ['01', 'Open Remix',       'remix.ethereum.org â†’ paste FatFactory.sol + token contracts'],
+          ['02', 'Compiler',         'Solidity 0.8.20 Â· Optimization Â· 200 runs Â· viaIR'],
+          ['03', 'Connect wallet',   `MetaMask â†’ switch to ${chainName}`],
           ['04', 'Deploy impls',     'Deploy FatStandard, FatTax, FatDeflationary, FatReflection'],
           ['05', 'Deploy factory',   'Deploy FatFactory with impl addresses + Chainlink feed'],
           ['06', 'Create token',     `Call create${cfg.tokenType.charAt(0).toUpperCase() + cfg.tokenType.slice(1)}Token() with params from Review step`],
           ['07', 'Add liquidity',    'Add token + native to DEX pair'],
-          ['08', 'launch()',         'Opens public trading — irreversible'],
+          ['08', 'launch()',         'Opens public trading â€” irreversible'],
         ] as const).map(([n, t, d]) => (
           <div key={n} style={{
             display: 'flex', gap: 12, padding: '8px 0',
@@ -293,3 +313,4 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
     </div>
   )
 }
+

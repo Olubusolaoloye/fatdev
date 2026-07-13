@@ -20,6 +20,11 @@ export async function verifyContract(
   chainId: number,
   onStatus: (s: string) => void
 ): Promise<{ success: boolean; message: string }> {
+  // Robinhood Chain uses Blockscout — no Etherscan API key required
+  if (chainId === 4663) {
+    return verifyBlockscout(contractAddress, tokenType, onStatus)
+  }
+
   const contractName = CONTRACT_NAME[tokenType]
   if (!contractName) return { success: false, message: `Unknown token type: ${tokenType}` }
 
@@ -81,6 +86,67 @@ export async function verifyContract(
   }
 
   return { success: false, message: 'Verification timed out. Check the block explorer manually.' }
+}
+
+// ── Blockscout verifier (Robinhood Chain, chain 4663) ─────────────────────────
+// No API key required. Uses Blockscout's Etherscan-compatible API endpoint.
+async function verifyBlockscout(
+  contractAddress: string,
+  tokenType: string,
+  onStatus: (s: string) => void
+): Promise<{ success: boolean; message: string }> {
+  const contractName = CONTRACT_NAME[tokenType]
+  if (!contractName) return { success: false, message: `Unknown token type: ${tokenType}` }
+
+  onStatus('Submitting to Blockscout for verification…')
+
+  const BLOCKSCOUT_API = 'https://robinhoodchain.blockscout.com/api'
+
+  const body = new URLSearchParams({
+    module:              'contract',
+    action:              'verifysourcecode',
+    contractaddress:     contractAddress,
+    sourceCode:          JSON.stringify(STANDARD_INPUT),
+    codeformat:          'solidity-standard-json-input',
+    contractname:        contractName,
+    compilerversion:     COMPILER_VERSION,
+    constructorArguements: '',
+    licenseType:         '3',
+  })
+
+  let guid: string
+  try {
+    const res  = await fetch(BLOCKSCOUT_API, { method: 'POST', body })
+    const json = await res.json()
+
+    if (json.status !== '1') {
+      if (json.result?.toLowerCase().includes('already verified') ||
+          json.message?.toLowerCase().includes('already verified')) {
+        return { success: true, message: 'Already verified on Blockscout.' }
+      }
+      return { success: false, message: `Blockscout submission failed: ${json.result ?? json.message}` }
+    }
+    guid = json.result as string
+  } catch (e: any) {
+    return { success: false, message: `Network error submitting to Blockscout: ${e.message}` }
+  }
+
+  onStatus('Waiting for Blockscout verification result…')
+  for (let attempt = 0; attempt < 20; attempt++) {
+    await sleep(5000)
+    try {
+      const poll = await fetch(`${BLOCKSCOUT_API}?module=contract&action=checkverifystatus&guid=${guid}`)
+      const pj   = await poll.json()
+      const result = pj.result ?? ''
+      if (result === 'Pass - Verified') return { success: true, message: 'Verified on Blockscout ✓' }
+      if (result.startsWith('Fail')) return { success: false, message: `Blockscout: ${result}` }
+      if (result.toLowerCase().includes('already verified')) return { success: true, message: 'Already verified on Blockscout.' }
+      onStatus(`Blockscout pending… (${result || 'checking'})`)
+    } catch {
+      // transient
+    }
+  }
+  return { success: false, message: 'Blockscout verification timed out. Check robinhoodchain.blockscout.com manually.' }
 }
 
 function sleep(ms: number) {

@@ -12,6 +12,7 @@ import { LandingPage } from './pages/LandingPage'
 import { ToolsPage }   from './pages/ToolsPage'
 import { MigrateRouter } from './pages/migrate/MigrateRouter'
 import { PricingPage }  from './pages/PricingPage'
+import { BridgePage }   from './pages/BridgePage'
 import '@rainbow-me/rainbowkit/styles.css'
 
 const queryClient = new QueryClient()
@@ -47,7 +48,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                 <Route path="/tools"     element={<ToolsPage />} />
                 <Route path="/pricing"   element={<PricingPage />} />
                 <Route path="/migrate/*" element={<MigrateRouter />} />
-                <Route path="/app/*"     element={<App />} />
+                <Route path="/bridge"   element={<BridgePage />} />
+                <Route path="/app/*"    element={<App />} />
                 <Route path="/*"         element={<App />} />
               </Routes>
             </MaintenanceGate>
