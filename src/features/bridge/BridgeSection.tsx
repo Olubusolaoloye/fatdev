@@ -1,31 +1,28 @@
 import { useMemo } from 'react'
 import { LiFiWidget } from '@lifi/widget'
 import type { WidgetConfig } from '@lifi/widget'
-import { useAccount } from 'wagmi'
 import { Link } from 'react-router-dom'
-import { WagmiLiFiAdapter } from './WagmiLiFiAdapter'
+
+const BASE_CONFIG = {
+  integrator: 'fatdev',
+  fee: Number(import.meta.env.VITE_LIFI_FEE ?? 0),
+  appearance: 'dark',
+  theme: {
+    palette: {
+      primary:   { main: '#00CFFF' },
+      secondary: { main: '#00E57A' },
+      background: {
+        default: '#080C18',
+        paper:   '#0D1526',
+      },
+    },
+    typography: { fontFamily: "'Space Grotesk', sans-serif" },
+    shape: { borderRadius: 12, borderRadiusSecondary: 8 },
+  },
+} as const
 
 export function BridgeSection() {
-  const { isConnected } = useAccount()
-
-  // General-purpose bridge — any chain to any chain, wallet inherited from wagmi
-  const config: WidgetConfig = useMemo(() => ({
-    integrator: 'fatdev',
-    fee: Number(import.meta.env.VITE_LIFI_FEE ?? 0),
-    appearance: 'dark',
-    theme: {
-      palette: {
-        primary:   { main: '#00CFFF' },
-        secondary: { main: '#00E57A' },
-        background: {
-          default: '#080C18',
-          paper:   '#0D1526',
-        },
-      },
-      typography: { fontFamily: "'Space Grotesk', sans-serif" },
-      shape: { borderRadius: 12, borderRadiusSecondary: 8 },
-    },
-  }), [])
+  const config: WidgetConfig = useMemo(() => ({ ...BASE_CONFIG }), [])
 
   return (
     <div style={{ maxWidth: 560, margin: '0 auto', padding: '0 16px 56px' }}>
@@ -52,24 +49,12 @@ export function BridgeSection() {
           Cross-Chain Bridge
         </h1>
         <p style={{ fontSize: 14, color: 'var(--fd-ghost)', margin: 0, lineHeight: 1.6 }}>
-          Bridge any token between any supported chain. Pick your source, destination, and amount.
+          Bridge any token between any supported chain. Connect a wallet inside the widget below.
         </p>
-
-        {!isConnected && (
-          <div style={{
-            marginTop: 16, padding: '10px 16px', borderRadius: 10,
-            background: 'rgba(255,215,0,0.07)', border: '1px solid rgba(255,215,0,0.2)',
-            fontSize: 13, color: 'rgba(255,215,0,0.9)',
-          }}>
-            Connect your wallet above to start bridging.
-          </div>
-        )}
       </div>
 
-      {/* ── LI.FI Widget — wrapped with wagmi adapter so wallet is inherited ── */}
-      <WagmiLiFiAdapter>
-        <LiFiWidget config={config} integrator="fatdev" />
-      </WagmiLiFiAdapter>
+      {/* ── LI.FI Widget — self-managed wallet ─────────────────────────────── */}
+      <LiFiWidget config={config} integrator="fatdev" />
 
       {/* ── Bridge to Robinhood Chain ───────────────────────────────────────── */}
       <RobinhoodBridgeCard />
@@ -91,20 +76,9 @@ export function BridgeSection() {
 // ── Robinhood Chain bridge card ───────────────────────────────────────────────
 function RobinhoodBridgeCard() {
   const config: WidgetConfig = useMemo(() => ({
-    integrator: 'fatdev',
+    ...BASE_CONFIG,
     toChain: 4663,
     toToken: '0x0000000000000000000000000000000000000000',
-    fee: Number(import.meta.env.VITE_LIFI_FEE ?? 0),
-    appearance: 'dark',
-    theme: {
-      palette: {
-        primary:   { main: '#00CFFF' },
-        secondary: { main: '#00E57A' },
-        background: { default: '#080C18', paper: '#0D1526' },
-      },
-      typography: { fontFamily: "'Space Grotesk', sans-serif" },
-      shape: { borderRadius: 12, borderRadiusSecondary: 8 },
-    },
   }), [])
 
   return (
@@ -139,7 +113,6 @@ function RobinhoodBridgeCard() {
           </div>
         </div>
 
-        {/* Available badge */}
         <span style={{
           fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
           padding: '4px 10px', borderRadius: 20,
@@ -159,9 +132,7 @@ function RobinhoodBridgeCard() {
           ETH is needed on-chain to pay deployment gas.
         </p>
 
-        <WagmiLiFiAdapter>
-          <LiFiWidget config={config} integrator="fatdev" />
-        </WagmiLiFiAdapter>
+        <LiFiWidget config={config} integrator="fatdev" />
 
         <div style={{ marginTop: 14 }}>
           <Link
