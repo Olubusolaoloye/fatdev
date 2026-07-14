@@ -1,28 +1,35 @@
 import { useMemo } from 'react'
 import { LiFiWidget } from '@lifi/widget'
 import type { WidgetConfig } from '@lifi/widget'
-import { Link } from 'react-router-dom'
+import { useConnectModal } from '@rainbow-me/rainbowkit'
+import { WagmiLiFiAdapter } from './WagmiLiFiAdapter'
 
-const BASE_CONFIG = {
-  integrator: 'fatdev',
-  fee: Number(import.meta.env.VITE_LIFI_FEE ?? 0),
-  appearance: 'dark',
-  theme: {
-    palette: {
-      primary:   { main: '#00CFFF' },
-      secondary: { main: '#00E57A' },
-      background: {
-        default: '#080C18',
-        paper:   '#0D1526',
-      },
+
+const BASE_THEME = {
+  palette: {
+    primary:   { main: '#00CFFF' },
+    secondary: { main: '#00E57A' },
+    background: {
+      default: '#080C18',
+      paper:   '#0D1526',
     },
-    typography: { fontFamily: "'Space Grotesk', sans-serif" },
-    shape: { borderRadius: 12, borderRadiusSecondary: 8 },
   },
+  typography: { fontFamily: "'Space Grotesk', sans-serif" },
+  shape: { borderRadius: 12, borderRadiusSecondary: 8 },
 } as const
 
 export function BridgeSection() {
-  const config: WidgetConfig = useMemo(() => ({ ...BASE_CONFIG }), [])
+  const { openConnectModal } = useConnectModal()
+
+  const config: WidgetConfig = useMemo(() => ({
+    integrator: 'fatdev',
+    fee: Number(import.meta.env.VITE_LIFI_FEE ?? 0),
+    appearance: 'dark',
+    theme: BASE_THEME,
+    walletConfig: {
+      onConnect() { openConnectModal?.() },
+    },
+  }), [openConnectModal])
 
   return (
     <div style={{ maxWidth: 560, margin: '0 auto', padding: '0 16px 56px' }}>
@@ -49,15 +56,14 @@ export function BridgeSection() {
           Cross-Chain Bridge
         </h1>
         <p style={{ fontSize: 14, color: 'var(--fd-ghost)', margin: 0, lineHeight: 1.6 }}>
-          Bridge any token between any supported chain. Connect a wallet inside the widget below.
+          Bridge any token between any supported chain. Connect your wallet using the button in the widget.
         </p>
       </div>
 
-      {/* ── LI.FI Widget — self-managed wallet ─────────────────────────────── */}
-      <LiFiWidget config={config} integrator="fatdev" />
-
-      {/* ── Bridge to Robinhood Chain ───────────────────────────────────────── */}
-      <RobinhoodBridgeCard />
+      {/* ── LI.FI Widget — wallet via RainbowKit ───────────────────────────── */}
+      <WagmiLiFiAdapter>
+        <LiFiWidget config={config} integrator="fatdev" />
+      </WagmiLiFiAdapter>
 
       {/* Fee disclosure */}
       {Number(import.meta.env.VITE_LIFI_FEE ?? 0) > 0 && (
@@ -73,81 +79,3 @@ export function BridgeSection() {
   )
 }
 
-// ── Robinhood Chain bridge card ───────────────────────────────────────────────
-function RobinhoodBridgeCard() {
-  const config: WidgetConfig = useMemo(() => ({
-    ...BASE_CONFIG,
-    toChain: 4663,
-    toToken: '0x0000000000000000000000000000000000000000',
-  }), [])
-
-  return (
-    <div style={{
-      marginTop: 28,
-      borderRadius: 14,
-      border: '1px solid rgba(0,207,255,0.18)',
-      background: 'rgba(13,21,38,0.7)',
-      overflow: 'hidden',
-    }}>
-      {/* Title row */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '16px 20px',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-            background: 'rgba(0,207,255,0.1)',
-            border: '1px solid rgba(0,207,255,0.2)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 18,
-          }}>🔗</div>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--fd-white)', lineHeight: 1.2 }}>
-              Bridge to Robinhood Chain
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--fd-ghost)', marginTop: 2 }}>
-              Any chain → Robinhood Chain (chain 4663) · ETH
-            </div>
-          </div>
-        </div>
-
-        <span style={{
-          fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
-          padding: '4px 10px', borderRadius: 20,
-          background: 'rgba(0,229,122,0.12)',
-          border: '1px solid rgba(0,229,122,0.3)',
-          color: 'var(--fd-green)',
-          whiteSpace: 'nowrap',
-        }}>
-          AVAILABLE
-        </span>
-      </div>
-
-      {/* Widget pre-targeted to Robinhood Chain */}
-      <div style={{ padding: '20px' }}>
-        <p style={{ fontSize: 13, color: 'var(--fd-ghost)', margin: '0 0 16px', lineHeight: 1.6 }}>
-          Destination is pre-set to native ETH on Robinhood Chain — just pick your source chain and amount.
-          ETH is needed on-chain to pay deployment gas.
-        </p>
-
-        <LiFiWidget config={config} integrator="fatdev" />
-
-        <div style={{ marginTop: 14 }}>
-          <Link
-            to="/app"
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '8px 14px', borderRadius: 8,
-              background: 'rgba(0,229,122,0.08)', border: '1px solid rgba(0,229,122,0.2)',
-              fontSize: 12, fontWeight: 600, color: 'var(--fd-green)',
-              textDecoration: 'none',
-            }}>
-            Deploy on Robinhood Chain →
-          </Link>
-        </div>
-      </div>
-    </div>
-  )
-}

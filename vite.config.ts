@@ -16,6 +16,24 @@ export default defineConfig({
     global: 'globalThis',
   },
   optimizeDeps: {
+    // Pre-bundle @lifi/widget-provider as a standalone shared chunk.
     include: ['@lifi/widget-provider'],
+    esbuildOptions: {
+      // Keep @lifi/widget-provider external in ALL esbuild pre-bundle passes
+      // (@lifi/widget, @lifi/wallet-management, etc.) so every package resolves
+      // to the single pre-bundled chunk above instead of getting its own inlined
+      // copy — this guarantees one shared EthereumContext React context instance.
+      plugins: [
+        {
+          name: 'externalize-lifi-widget-provider',
+          setup(build) {
+            build.onResolve({ filter: /^@lifi\/widget-provider$/ }, () => ({
+              path: '@lifi/widget-provider',
+              external: true,
+            }))
+          },
+        },
+      ],
+    },
   },
 })

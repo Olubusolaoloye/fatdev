@@ -4,11 +4,12 @@ import { ConnectButton } from '@rainbow-me/rainbowkit'
 import Logo from './ui-kit/Logo'
 
 const NAV_LINKS = [
-  { label: 'Deploy',  to: '/app'      },
-  { label: 'Bridge',  to: '/bridge'   },
-  { label: 'Migrate', to: '/migrate'  },
-  { label: 'Pricing', to: '/pricing'  },
-  { label: 'Docs',    to: '/docs'     },
+  { label: 'Deploy',    to: '/app'        },
+  { label: 'Dashboard', to: '/dashboard'  },
+  { label: 'Bridge',    to: '/bridge'     },
+  { label: 'Migrate',   to: '/migrate'    },
+  { label: 'Pricing',   to: '/pricing'    },
+  { label: 'Docs',      to: '/docs'       },
 ]
 
 function HamburgerIcon({ open }: { open: boolean }) {
