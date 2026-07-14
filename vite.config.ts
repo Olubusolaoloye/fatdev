@@ -1,7 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
-import type { PluginBuild } from 'esbuild'
 
 export default defineConfig({
   plugins: [react()],
@@ -27,7 +26,7 @@ export default defineConfig({
       plugins: [
         {
           name: 'externalize-lifi-widget-provider',
-          setup(build: PluginBuild) {
+          setup(build: { onResolve: Function }) {
             build.onResolve({ filter: /^@lifi\/widget-provider$/ }, () => ({
               path: '@lifi/widget-provider',
               external: true,
