@@ -21,7 +21,8 @@ import type {
   ExecutionActionStatus,
   LiFiStepExtended,
 } from '@lifi/sdk'
-import type { Token, TokenAmount } from '@lifi/types'
+// Token / TokenAmount live in @lifi/types (re-exported by @lifi/widget)
+import type { Token, TokenAmount } from '@lifi/widget'
 
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000'
 
@@ -33,8 +34,9 @@ class EVMStepExecutor {
 
   private wcRef:     { current: WalletClient | null | undefined } = { current: null }
   private switchRef: { current: ((chainId: number) => Promise<void>) | null } = { current: null }
+  private options:   StepExecutorOptions
 
-  constructor(private options: StepExecutorOptions) {}
+  constructor(options: StepExecutorOptions) { this.options = options }
 
   setInteraction(s?: { allowInteraction?: boolean; allowUpdates?: boolean; allowExecution?: boolean }) {
     if (s?.allowInteraction !== undefined) this.allowUserInteraction = s.allowInteraction
