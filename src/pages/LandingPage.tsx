@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import Navbar from '../components/Navbar'
@@ -265,51 +265,74 @@ function FCard({ icon, title, desc, tag, to }: {
   )
 }
 
-// ── Tool chip ─────────────────────────────────────────────────────────────────
-function ToolChip({ icon, label, to, color, free, hot, delay }: {
-  icon: string; label: string; to: string; color: string
-  free?: boolean; hot?: boolean; delay?: number
-}) {
-  const [hovered, setHovered] = useState(false)
+// ── Typewriter code animation ─────────────────────────────────────────────────
+const CODE_LINES = [
+  '> deploy_token --chain bsc --supply 1B',
+  '> scan_honeypot 0x4a...f9c2',
+  '> bridge --from eth --to bsc',
+  '> airdrop --wallets wallets.csv',
+  '> migrate --v1 0x3b... --snapshot',
+  '> presale --cap 50 --whitelist on',
+]
+
+function Typewriter() {
+  const [lineIdx, setLineIdx] = useState(0)
+  const [displayed, setDisplayed] = useState('')
+  const [phase, setPhase] = useState<'typing' | 'pause' | 'erasing'>('typing')
+  const frame = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  const tick = useCallback(() => {
+    const full = CODE_LINES[lineIdx]
+    if (phase === 'typing') {
+      if (displayed.length < full.length) {
+        setDisplayed(full.slice(0, displayed.length + 1))
+        frame.current = setTimeout(tick, 38)
+      } else {
+        setPhase('pause')
+        frame.current = setTimeout(tick, 1600)
+      }
+    } else if (phase === 'pause') {
+      setPhase('erasing')
+      frame.current = setTimeout(tick, 30)
+    } else {
+      if (displayed.length > 0) {
+        setDisplayed(d => d.slice(0, -1))
+        frame.current = setTimeout(tick, 18)
+      } else {
+        setLineIdx(i => (i + 1) % CODE_LINES.length)
+        setPhase('typing')
+        frame.current = setTimeout(tick, 300)
+      }
+    }
+  }, [displayed, phase, lineIdx])
+
+  useEffect(() => {
+    frame.current = setTimeout(tick, 120)
+    return () => clearTimeout(frame.current)
+  }, [tick])
+
   return (
-    <Link
-      to={to}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: 7,
-        padding: '9px 16px', borderRadius: 10, textDecoration: 'none',
-        background: hovered ? `${color}14` : 'rgba(255,255,255,0.04)',
-        border: `1px solid ${hovered ? `${color}50` : 'rgba(255,255,255,0.1)'}`,
-        transition: 'background 0.18s, border-color 0.18s, transform 0.18s',
-        transform: hovered ? 'translateY(-2px)' : 'translateY(0)',
-        cursor: 'pointer',
-        animation: delay ? `hero-in 0.5s ease ${delay}ms both` : undefined,
-        position: 'relative',
-      }}>
-      {hot && (
-        <span style={{
-          position: 'absolute', top: -7, right: -7,
-          fontSize: 8, fontWeight: 800, padding: '2px 6px', borderRadius: 8,
-          background: color, color: 'var(--fd-void)',
-          fontFamily: "'Space Mono', monospace", letterSpacing: '0.04em',
-        }}>NEW</span>
-      )}
-      <span style={{ fontSize: 15, lineHeight: 1 }}>{icon}</span>
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: 0,
+      fontFamily: "'Space Mono', monospace",
+      fontSize: 'clamp(12px, 1.4vw, 14px)',
+      color: '#00CFFF',
+      background: 'rgba(0,207,255,0.05)',
+      border: '1px solid rgba(0,207,255,0.12)',
+      borderRadius: 8,
+      padding: '10px 18px',
+      letterSpacing: '0.04em',
+      minHeight: 42,
+      minWidth: 280,
+      justifyContent: 'flex-start',
+    }}>
+      <span>{displayed}</span>
       <span style={{
-        fontSize: 13, fontWeight: 600, color: hovered ? color : 'rgba(255,255,255,0.75)',
-        fontFamily: "'Space Grotesk', sans-serif",
-        transition: 'color 0.18s',
-      }}>{label}</span>
-      {free && (
-        <span style={{
-          fontSize: 8, fontWeight: 700, padding: '1px 5px', borderRadius: 5,
-          background: 'rgba(0,230,118,0.12)', color: '#00E676',
-          border: '0.5px solid rgba(0,230,118,0.25)',
-          fontFamily: "'Space Mono', monospace", letterSpacing: '0.05em',
-        }}>FREE</span>
-      )}
-    </Link>
+        display: 'inline-block', width: 2, height: '1.1em',
+        background: '#00CFFF', marginLeft: 2, verticalAlign: 'text-bottom',
+        animation: 'blink-bar 0.9s step-end infinite',
+      }} />
+    </div>
   )
 }
 
@@ -398,12 +421,12 @@ export function LandingPage() {
         </div>
 
         {/* Content */}
-        <div style={{ position: 'relative', zIndex: 2, maxWidth: 820, width: '100%' }}>
+        <div style={{ position: 'relative', zIndex: 2, maxWidth: 760, width: '100%' }}>
 
           {/* Live badge */}
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 10,
-            padding: '5px 14px', borderRadius: 24, marginBottom: 32,
+            padding: '5px 14px', borderRadius: 24, marginBottom: 28,
             background: 'rgba(4,13,24,0.7)',
             border: '0.5px solid rgba(255,215,0,0.2)',
             backdropFilter: 'blur(12px)',
@@ -418,71 +441,60 @@ export function LandingPage() {
             </span>
           </div>
 
-          {/* Eyebrow label */}
+          {/* Eyebrow */}
           <div style={{
-            fontSize: 11, fontFamily: "'Space Mono',monospace",
-            letterSpacing: '0.18em', color: 'var(--fd-cyan)',
-            textTransform: 'uppercase', marginBottom: 14,
+            fontSize: 12, fontFamily: "'Space Mono',monospace",
+            letterSpacing: '0.2em', color: 'var(--fd-cyan)',
+            textTransform: 'uppercase', marginBottom: 12,
             animation: 'hero-in 0.6s ease 0.2s both',
           }}>
             Your On-Chain
           </div>
 
-          {/* Main headline */}
+          {/* Main headline — always bold, always big */}
           <h1 style={{
             fontFamily: "'Orbitron',sans-serif",
-            fontSize: 'clamp(42px, 7vw, 80px)',
-            fontWeight: 900, lineHeight: 1.0,
-            letterSpacing: '-0.02em', margin: '0 0 24px',
-            background: 'linear-gradient(135deg, #EEF2FF 0%, #00CFFF 50%, #00E57A 100%)',
+            fontSize: 'clamp(52px, 9vw, 88px)',
+            fontWeight: 900, lineHeight: 0.98,
+            letterSpacing: '-0.025em', margin: '0 0 32px',
+            background: 'linear-gradient(135deg, #ffffff 0%, #00CFFF 55%, #00E57A 100%)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             backgroundClip: 'text',
-            animation: 'hero-in 0.7s ease 0.3s both',
+            animation: 'hero-in 0.7s ease 0.28s both',
           }}>
-            GENESIS STACK
+            GENESIS<br />STACK
           </h1>
+
+          {/* Code typewriter */}
+          <div style={{
+            display: 'flex', justifyContent: 'center', marginBottom: 32,
+            animation: 'hero-in 0.7s ease 0.45s both',
+          }}>
+            <Typewriter />
+          </div>
 
           {/* Tagline */}
           <p style={{
-            fontSize: 'clamp(14px, 1.6vw, 16px)',
-            color: 'rgba(255,255,255,0.55)', lineHeight: 1.7,
-            maxWidth: 480, margin: '0 auto 44px',
+            fontSize: 'clamp(14px, 1.5vw, 15px)',
+            color: 'rgba(255,255,255,0.45)', lineHeight: 1.75,
+            maxWidth: 440, margin: '0 auto 40px',
             fontFamily: "'Space Grotesk', sans-serif",
-            animation: 'hero-in 0.7s ease 0.4s both',
+            animation: 'hero-in 0.7s ease 0.55s both',
           }}>
             Every tool you need to deploy, secure, bridge, and grow EVM tokens —
-            all from your browser. No Solidity. No dev team.
+            no Solidity, no dev team.
           </p>
 
-          {/* ── Tool chips ── */}
-          <div style={{
-            display: 'flex', flexWrap: 'wrap', gap: 10,
-            justifyContent: 'center', marginBottom: 48,
-            animation: 'hero-in 0.7s ease 0.5s both',
-          }}>
-            {[
-              { icon: '⚡', label: 'Deploy',    to: '/app',     color: '#00CFFF', free: false, hot: true  },
-              { icon: '🔍', label: 'Scan',       to: '/tools',   color: '#00E676', free: true             },
-              { icon: '🌉', label: 'Bridge',     to: '/bridge',  color: '#4A90E2', free: true             },
-              { icon: '🔄', label: 'Migrate',    to: '/migrate', color: '#00CFFF', free: false            },
-              { icon: '🎯', label: 'Presale',    to: '/tools',   color: '#FFD700', free: false            },
-              { icon: '🪂', label: 'Airdrop',    to: '/tools',   color: '#00E676', free: false            },
-              { icon: '📊', label: 'Analytics',  to: '/tools',   color: '#00E676', free: true             },
-            ].map((chip, i) => (
-              <ToolChip key={chip.label} {...chip} delay={520 + i * 55} />
-            ))}
-          </div>
-
-          {/* Primary CTA */}
+          {/* CTAs */}
           <div style={{
             display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap',
-            animation: 'hero-in 0.7s ease 0.9s both',
+            animation: 'hero-in 0.7s ease 0.65s both',
           }}>
             <Link to="/app" className="hero-cta-primary" style={{
-              padding: '13px 32px',
+              padding: '14px 36px',
               borderRadius: 12, fontSize: 15, fontWeight: 700,
               background: 'var(--fd-cyan)', color: 'var(--fd-void)', textDecoration: 'none',
-              boxShadow: '0 0 28px rgba(0,207,255,0.3)',
+              boxShadow: '0 0 32px rgba(0,207,255,0.28)',
               transition: 'box-shadow 0.25s, transform 0.25s',
               fontFamily: "'Space Grotesk', sans-serif",
               display: 'inline-flex', alignItems: 'center', gap: 8,
@@ -490,10 +502,10 @@ export function LandingPage() {
               ⚡ {isConnected ? 'Go to Wizard' : 'Start Building'}
             </Link>
             <Link to="/tools" className="hero-cta-ghost" style={{
-              padding: '13px 28px',
+              padding: '14px 32px',
               borderRadius: 12, fontSize: 15, fontWeight: 600,
-              background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.8)',
-              border: '1px solid rgba(255,255,255,0.12)', textDecoration: 'none',
+              background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.75)',
+              border: '1px solid rgba(255,255,255,0.1)', textDecoration: 'none',
               transition: 'background 0.25s, border-color 0.25s, transform 0.25s',
               fontFamily: "'Space Grotesk', sans-serif",
               display: 'inline-flex', alignItems: 'center', gap: 8,
