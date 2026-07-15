@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import Navbar from '../components/Navbar'
+import Footer from '../components/Footer'
 import { Badge, Btn } from '../components/ui-kit'
 import { useAppConfig } from '../hooks/useAppConfig'
 
@@ -126,7 +127,7 @@ export function PricingPage() {
   const { prices } = useAppConfig()
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--fd-void)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--fd-void)', display: 'flex', flexDirection: 'column' }}>
       <Navbar />
 
       <main style={{
@@ -253,6 +254,8 @@ export function PricingPage() {
           </p>
         </div>
       </main>
+
+      <Footer />
 
       <style>{`
         @media (max-width: 640px) {

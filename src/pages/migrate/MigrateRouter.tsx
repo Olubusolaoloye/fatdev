@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom'
 import { MigrateNav } from '../../components/migrate/MigrateNav'
+import Footer from '../../components/Footer'
 import { MigrateLanding } from './MigrateLanding'
 import { MigrateCalculator } from './MigrateCalculator'
 import { MigrateCreate } from './MigrateCreate'
@@ -10,17 +11,20 @@ import { SnapshotTool } from './SnapshotTool'
 
 export function MigrateRouter() {
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--fd-void)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--fd-void)', display: 'flex', flexDirection: 'column' }}>
       <MigrateNav />
-      <Routes>
-        <Route index element={<MigrateLanding />} />
-        <Route path="calculator" element={<MigrateCalculator />} />
-        <Route path="create" element={<MigrateCreate />} />
-        <Route path="dashboard" element={<MigrateDashboard />} />
-        <Route path=":id" element={<HolderSwap />} />
-        <Route path=":id/oracle" element={<OraclePanel />} />
-        <Route path=":id/snapshot" element={<SnapshotTool />} />
-      </Routes>
+      <div style={{ flex: 1 }}>
+        <Routes>
+          <Route index element={<MigrateLanding />} />
+          <Route path="calculator" element={<MigrateCalculator />} />
+          <Route path="create" element={<MigrateCreate />} />
+          <Route path="dashboard" element={<MigrateDashboard />} />
+          <Route path=":id" element={<HolderSwap />} />
+          <Route path=":id/oracle" element={<OraclePanel />} />
+          <Route path=":id/snapshot" element={<SnapshotTool />} />
+        </Routes>
+      </div>
+      <Footer />
     </div>
   )
 }

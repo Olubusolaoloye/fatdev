@@ -9,7 +9,7 @@ const NAV_LINKS = [
   { label: 'Bridge',    to: '/bridge'     },
   { label: 'Migrate',   to: '/migrate'    },
   { label: 'Pricing',   to: '/pricing'    },
-  { label: 'Docs',      to: '/docs'       },
+  { label: 'Tools',     to: '/tools'      },
 ]
 
 function HamburgerIcon({ open }: { open: boolean }) {
@@ -134,7 +134,7 @@ export default function Navbar() {
             position: 'absolute', left: '50%', transform: 'translateX(-50%)',
           }} className="navbar-desktop-nav">
             {NAV_LINKS.map(l => {
-              const active = l.to !== '/#pricing' && l.to !== '/docs' && isActive(l.to)
+              const active = isActive(l.to)
               return (
                 <Link key={l.label} to={l.to} style={{
                   padding: '6px 14px',

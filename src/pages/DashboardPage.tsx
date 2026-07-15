@@ -1,4 +1,5 @@
 import Navbar from '../components/Navbar'
+import Footer from '../components/Footer'
 import { Step7Dashboard } from '../components/steps/Step7Dashboard'
 
 export function DashboardPage() {
@@ -22,6 +23,7 @@ export function DashboardPage() {
         </div>
         <Step7Dashboard />
       </main>
+      <Footer />
     </div>
   )
 }

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import Navbar from '../components/Navbar'
-import Logo from '../components/ui-kit/Logo'
+import Footer from '../components/Footer'
 
 // ── Intersection observer for scroll-reveal ───────────────────────────────────
 function useReveal() {
@@ -111,25 +111,6 @@ function HeroRings() {
   )
 }
 
-// ── Floating badge ────────────────────────────────────────────────────────────
-function FloatingBadge({ label, color, style }: { label: string; color: string; style?: React.CSSProperties }) {
-  return (
-    <div style={{
-      display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px',
-      borderRadius: 20, background: 'rgba(4,13,24,0.8)',
-      border: `0.5px solid ${color}30`,
-      backdropFilter: 'blur(8px)',
-      animation: 'float 4s ease-in-out infinite',
-      ...style,
-    }}>
-      <span style={{ width: 6, height: 6, borderRadius: '50%', background: color,
-        boxShadow: `0 0 6px ${color}`, display: 'inline-block',
-        animation: 'pulse-dot 1.5s ease-in-out infinite' }} />
-      <span style={{ fontSize: 10, fontFamily: "'Space Mono',monospace",
-        color, letterSpacing: '.08em', fontWeight: 700, textTransform: 'uppercase' }}>{label}</span>
-    </div>
-  )
-}
 
 // ── Scan demo card ────────────────────────────────────────────────────────────
 function ScanCard() {
@@ -284,6 +265,54 @@ function FCard({ icon, title, desc, tag, to }: {
   )
 }
 
+// ── Tool chip ─────────────────────────────────────────────────────────────────
+function ToolChip({ icon, label, to, color, free, hot, delay }: {
+  icon: string; label: string; to: string; color: string
+  free?: boolean; hot?: boolean; delay?: number
+}) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <Link
+      to={to}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 7,
+        padding: '9px 16px', borderRadius: 10, textDecoration: 'none',
+        background: hovered ? `${color}14` : 'rgba(255,255,255,0.04)',
+        border: `1px solid ${hovered ? `${color}50` : 'rgba(255,255,255,0.1)'}`,
+        transition: 'background 0.18s, border-color 0.18s, transform 0.18s',
+        transform: hovered ? 'translateY(-2px)' : 'translateY(0)',
+        cursor: 'pointer',
+        animation: delay ? `hero-in 0.5s ease ${delay}ms both` : undefined,
+        position: 'relative',
+      }}>
+      {hot && (
+        <span style={{
+          position: 'absolute', top: -7, right: -7,
+          fontSize: 8, fontWeight: 800, padding: '2px 6px', borderRadius: 8,
+          background: color, color: 'var(--fd-void)',
+          fontFamily: "'Space Mono', monospace", letterSpacing: '0.04em',
+        }}>NEW</span>
+      )}
+      <span style={{ fontSize: 15, lineHeight: 1 }}>{icon}</span>
+      <span style={{
+        fontSize: 13, fontWeight: 600, color: hovered ? color : 'rgba(255,255,255,0.75)',
+        fontFamily: "'Space Grotesk', sans-serif",
+        transition: 'color 0.18s',
+      }}>{label}</span>
+      {free && (
+        <span style={{
+          fontSize: 8, fontWeight: 700, padding: '1px 5px', borderRadius: 5,
+          background: 'rgba(0,230,118,0.12)', color: '#00E676',
+          border: '0.5px solid rgba(0,230,118,0.25)',
+          fontFamily: "'Space Mono', monospace", letterSpacing: '0.05em',
+        }}>FREE</span>
+      )}
+    </Link>
+  )
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 export function LandingPage() {
   const { isConnected } = useAccount()
@@ -344,19 +373,19 @@ export function LandingPage() {
       <section style={{
         minHeight: '100svh', display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        padding: 'clamp(120px, 16vw, 160px) clamp(16px, 4vw, 2rem) 80px',
+        padding: 'clamp(100px,14vw,140px) clamp(16px,4vw,2rem) 80px',
         position: 'relative', textAlign: 'center', overflow: 'hidden',
       }}>
         {/* Background radial glow */}
         <div style={{
           position: 'absolute', top: '20%', left: '50%', transform: 'translateX(-50%)',
           width: 'min(900px, 120vw)', height: 500, pointerEvents: 'none',
-          background: 'radial-gradient(ellipse at 50% 40%, rgba(255,215,0,0.07) 0%, transparent 65%)',
+          background: 'radial-gradient(ellipse at 50% 40%, rgba(0,207,255,0.06) 0%, transparent 65%)',
         }} />
         <div style={{
           position: 'absolute', bottom: 0, right: '-10%',
           width: 400, height: 400, pointerEvents: 'none',
-          background: 'radial-gradient(ellipse, rgba(74,144,226,0.05) 0%, transparent 70%)',
+          background: 'radial-gradient(ellipse, rgba(74,144,226,0.04) 0%, transparent 70%)',
         }} />
 
         {/* Rings */}
@@ -369,110 +398,121 @@ export function LandingPage() {
         </div>
 
         {/* Content */}
-        <div style={{ position: 'relative', zIndex: 2, maxWidth: 780, width: '100%' }}>
+        <div style={{ position: 'relative', zIndex: 2, maxWidth: 820, width: '100%' }}>
+
           {/* Live badge */}
           <div style={{
-            animation: 'ticker-glow 3s ease-in-out infinite',
             display: 'inline-flex', alignItems: 'center', gap: 10,
-            padding: '6px 16px', borderRadius: 24, marginBottom: 28,
+            padding: '5px 14px', borderRadius: 24, marginBottom: 32,
             background: 'rgba(4,13,24,0.7)',
             border: '0.5px solid rgba(255,215,0,0.2)',
             backdropFilter: 'blur(12px)',
+            animation: 'hero-in 0.5s ease 0.1s both',
           }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--green)',
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)',
               boxShadow: '0 0 8px var(--green)', display: 'inline-block',
               animation: 'pulse-dot 1.6s ease-in-out infinite' }} />
-            <span style={{ fontSize: 11, fontFamily: "'Space Mono',monospace",
-              color: 'rgba(255,255,255,0.7)', letterSpacing: '.1em' }}>
-              LIVE ON BSC · ETH · ARBITRUM
+            <span style={{ fontSize: 10, fontFamily: "'Space Mono',monospace",
+              color: 'rgba(255,255,255,0.65)', letterSpacing: '.1em' }}>
+              LIVE ON BSC · ETH · ARBITRUM · ROBINHOOD CHAIN
             </span>
           </div>
 
-          {/* Headline */}
-          <h1 className="landing-hero-headline" style={{
-            fontFamily: "'Orbitron',sans-serif",
-            fontSize: 'clamp(36px, 6.5vw, 70px)',
-            fontWeight: 900, lineHeight: 1.06,
-            letterSpacing: '-0.01em', margin: '0 0 12px',
-            animation: 'hero-in 0.7s ease 0.25s both',
+          {/* Eyebrow label */}
+          <div style={{
+            fontSize: 11, fontFamily: "'Space Mono',monospace",
+            letterSpacing: '0.18em', color: 'var(--fd-cyan)',
+            textTransform: 'uppercase', marginBottom: 14,
+            animation: 'hero-in 0.6s ease 0.2s both',
           }}>
-            BECOME A DEV
-          </h1>
-          <h1 className="landing-hero-headline" style={{
+            Your On-Chain
+          </div>
+
+          {/* Main headline */}
+          <h1 style={{
             fontFamily: "'Orbitron',sans-serif",
-            fontSize: 'clamp(36px, 6.5vw, 70px)',
-            fontWeight: 900, lineHeight: 1.06,
-            letterSpacing: '-0.01em', margin: '0 0 28px',
-            background: 'linear-gradient(90deg, #00CFFF 0%, #00E57A 50%, #00CFFF 100%)',
+            fontSize: 'clamp(42px, 7vw, 80px)',
+            fontWeight: 900, lineHeight: 1.0,
+            letterSpacing: '-0.02em', margin: '0 0 24px',
+            background: 'linear-gradient(135deg, #EEF2FF 0%, #00CFFF 50%, #00E57A 100%)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text', backgroundSize: '200% 100%',
-            animation: 'hero-in 0.7s ease 0.35s both, shimmer-txt 4s linear infinite',
+            backgroundClip: 'text',
+            animation: 'hero-in 0.7s ease 0.3s both',
           }}>
-            WITHOUT CODE.
+            GENESIS STACK
           </h1>
 
-          {/* Sub */}
-          <p className="landing-hero-sub" style={{
-            fontSize: 'clamp(14px, 1.8vw, 17px)',
-            color: 'var(--text-secondary)', lineHeight: 1.75,
-            maxWidth: 580, margin: '0 auto 40px',
-            animation: 'hero-in 0.7s ease 0.45s both',
+          {/* Tagline */}
+          <p style={{
+            fontSize: 'clamp(14px, 1.6vw, 16px)',
+            color: 'rgba(255,255,255,0.55)', lineHeight: 1.7,
+            maxWidth: 480, margin: '0 auto 44px',
+            fontFamily: "'Space Grotesk', sans-serif",
+            animation: 'hero-in 0.7s ease 0.4s both',
           }}>
-            Deploy tokens, scan for honeypots, simulate taxes, audit LP locks, and launch on any EVM chain —
-            all from your browser. No Solidity. No Remix. No dev team.
-            Everything you need to build, protect, and grow your project in one place.
+            Every tool you need to deploy, secure, bridge, and grow EVM tokens —
+            all from your browser. No Solidity. No dev team.
           </p>
 
-          {/* CTAs */}
+          {/* ── Tool chips ── */}
+          <div style={{
+            display: 'flex', flexWrap: 'wrap', gap: 10,
+            justifyContent: 'center', marginBottom: 48,
+            animation: 'hero-in 0.7s ease 0.5s both',
+          }}>
+            {[
+              { icon: '⚡', label: 'Deploy',    to: '/app',     color: '#00CFFF', free: false, hot: true  },
+              { icon: '🔍', label: 'Scan',       to: '/tools',   color: '#00E676', free: true             },
+              { icon: '🌉', label: 'Bridge',     to: '/bridge',  color: '#4A90E2', free: true             },
+              { icon: '🔄', label: 'Migrate',    to: '/migrate', color: '#00CFFF', free: false            },
+              { icon: '🎯', label: 'Presale',    to: '/tools',   color: '#FFD700', free: false            },
+              { icon: '🪂', label: 'Airdrop',    to: '/tools',   color: '#00E676', free: false            },
+              { icon: '📊', label: 'Analytics',  to: '/tools',   color: '#00E676', free: true             },
+            ].map((chip, i) => (
+              <ToolChip key={chip.label} {...chip} delay={520 + i * 55} />
+            ))}
+          </div>
+
+          {/* Primary CTA */}
           <div style={{
             display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap',
-            animation: 'hero-in 0.7s ease 0.55s both',
+            animation: 'hero-in 0.7s ease 0.9s both',
           }}>
             <Link to="/app" className="hero-cta-primary" style={{
-              padding: 'clamp(12px,2vw,15px) clamp(24px,4vw,36px)',
-              borderRadius: 12, fontSize: 'clamp(14px,1.5vw,16px)', fontWeight: 800,
+              padding: '13px 32px',
+              borderRadius: 12, fontSize: 15, fontWeight: 700,
               background: 'var(--fd-cyan)', color: 'var(--fd-void)', textDecoration: 'none',
-              boxShadow: '0 0 28px rgba(255,215,0,0.3)',
+              boxShadow: '0 0 28px rgba(0,207,255,0.3)',
               transition: 'box-shadow 0.25s, transform 0.25s',
-              fontFamily: "'Syne',sans-serif",
+              fontFamily: "'Space Grotesk', sans-serif",
               display: 'inline-flex', alignItems: 'center', gap: 8,
             }}>
-              <span>⚡</span> {isConnected ? 'Go to Wizard' : 'Launch App'}
+              ⚡ {isConnected ? 'Go to Wizard' : 'Start Building'}
             </Link>
             <Link to="/tools" className="hero-cta-ghost" style={{
-              padding: 'clamp(12px,2vw,15px) clamp(24px,4vw,36px)',
-              borderRadius: 12, fontSize: 'clamp(14px,1.5vw,16px)', fontWeight: 700,
-              background: 'rgba(255,255,255,0.04)', color: '#fff',
-              border: '0.5px solid rgba(255,255,255,0.18)', textDecoration: 'none',
+              padding: '13px 28px',
+              borderRadius: 12, fontSize: 15, fontWeight: 600,
+              background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.8)',
+              border: '1px solid rgba(255,255,255,0.12)', textDecoration: 'none',
               transition: 'background 0.25s, border-color 0.25s, transform 0.25s',
-              fontFamily: "'Syne',sans-serif",
+              fontFamily: "'Space Grotesk', sans-serif",
               display: 'inline-flex', alignItems: 'center', gap: 8,
             }}>
-              <span>🔍</span> Security Scanner
+              Explore Tools →
             </Link>
           </div>
 
-          {/* Floating badges */}
-          <div style={{ marginTop: 52, display: 'flex', gap: 10, justifyContent: 'center',
-            flexWrap: 'wrap', animation: 'hero-in 0.7s ease 0.65s both' }}>
-            <FloatingBadge label="GoPlus Powered" color="var(--green)"
-              style={{ animationDelay: '0s' }} />
-            <FloatingBadge label="No KYC Required" color="var(--fd-cyan)"
-              style={{ animationDelay: '0.4s' }} />
-            <FloatingBadge label="On-Chain Deploy" color="var(--blue)"
-              style={{ animationDelay: '0.8s' }} />
-          </div>
         </div>
 
         {/* Scroll indicator */}
         <div style={{
           position: 'absolute', bottom: 28, left: '50%', transform: 'translateX(-50%)',
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-          opacity: 0.4, animation: 'hero-in 0.7s ease 1s both',
+          opacity: 0.35, animation: 'hero-in 0.7s ease 1.1s both',
         }}>
-          <span style={{ fontSize: 10, fontFamily: "'Space Mono',monospace",
-            letterSpacing: '.1em', color: 'var(--text-muted)' }}>SCROLL</span>
-          <div style={{ width: 1, height: 32, background: 'linear-gradient(to bottom, var(--fd-cyan), transparent)' }} />
+          <span style={{ fontSize: 9, fontFamily: "'Space Mono',monospace",
+            letterSpacing: '.12em', color: 'var(--text-muted)' }}>SCROLL</span>
+          <div style={{ width: 1, height: 28, background: 'linear-gradient(to bottom, var(--fd-cyan), transparent)' }} />
         </div>
       </section>
 
@@ -491,7 +531,7 @@ export function LandingPage() {
             backdropFilter: 'blur(8px)',
           }}>
             {[
-              { val: 4,   suffix: '',     label: 'Chains Supported'    },
+              { val: 5,   suffix: '',     label: 'Chains Supported'    },
               { val: 8,   suffix: '-Step', label: 'Deploy Wizard'      },
               { val: 12,  suffix: '+',     label: 'Security Checks'    },
               { val: 100, suffix: '%',     label: 'On-Chain, No Proxy' },
@@ -670,28 +710,7 @@ export function LandingPage() {
         </Reveal>
       </section>
 
-      {/* ── Footer ── */}
-      <footer style={{
-        borderTop: '0.5px solid rgba(255,215,0,0.07)',
-        padding: 'clamp(24px,3vw,40px) clamp(16px,4vw,2rem)',
-        position: 'relative', zIndex: 1,
-      }}>
-        <div style={{ maxWidth: 1140, margin: '0 auto', display: 'flex',
-          flexDirection: 'column', alignItems: 'center', gap: 14 }}>
-          <Logo variant="full" size={28} />
-          <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', justifyContent: 'center' }}>
-            {[{ to: '/app', label: 'App' }, { to: '/tools', label: 'Tools' },
-              { to: '/migrate', label: 'Migrate' }].map(l => (
-              <Link key={l.to} to={l.to} style={{ fontSize: 12, color: 'var(--text-muted)',
-                textDecoration: 'none', transition: 'color 0.2s' }}>{l.label}</Link>
-            ))}
-          </div>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)',
-            fontFamily: "'Space Mono',monospace", textAlign: 'center' }}>
-            No-code BEP-20 / ERC-20 token deployer · Not financial advice
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   )
 }
