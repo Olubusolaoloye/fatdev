@@ -60,13 +60,27 @@ export const ERC20_APPROVE_ABI = [
   },
 ] as const
 
-// localStorage key: chainId → deployed FatAirdrop address
+// ── FatDev pre-deployed multi-sender addresses (one per chain) ────────────────
+// Deploy FatAirdrop.sol once per chain and paste the address here.
+// All users share the same contract — they just need to whitelist it in their token.
+export const FATDEV_MULTISENDER: Record<number, `0x${string}`> = {
+  // 56:    '0x...',  // BSC Mainnet   — deploy and fill
+  // 1:     '0x...',  // Ethereum       — deploy and fill
+  // 42161: '0x...',  // Arbitrum One   — deploy and fill
+  // 97:    '0x...',  // BSC Testnet    — deploy and fill
+  // 4663:  '0x...',  // Robinhood Chain — deploy and fill
+}
+
+// Fallback: per-user deployed contract cached in localStorage
 const STORAGE_KEY = 'fatdev-airdrop-contracts'
 
 export function getSavedAirdropContract(chainId: number): `0x${string}` | null {
+  // 1. Check FatDev's shared pre-deployed contract first
+  if (FATDEV_MULTISENDER[chainId]) return FATDEV_MULTISENDER[chainId]
+  // 2. Fall back to user-deployed contract cached in localStorage
   try {
-    const raw  = localStorage.getItem(STORAGE_KEY)
-    const map  = raw ? JSON.parse(raw) : {}
+    const raw = localStorage.getItem(STORAGE_KEY)
+    const map = raw ? JSON.parse(raw) : {}
     return map[chainId] ?? null
   } catch { return null }
 }
