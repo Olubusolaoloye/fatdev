@@ -93,7 +93,7 @@ export async function deployAirdropContract(
     account,
     data: AIRDROP_BYTECODE,
     gas: gas * 120n / 100n,
-    chain: walletClient.chain!,
+    chain: null,
   })
   onStatus('Waiting for deployment confirmation…')
   const receipt = await publicClient.waitForTransactionReceipt({ hash })
@@ -124,7 +124,7 @@ export async function executeBatchAirdrop(opts: {
     functionName: 'approve',
     args: [airdropContract, total],
     account,
-    chain: walletClient.chain!,
+    chain: null,
   })
   onStatus('Waiting for approval confirmation…')
   await publicClient.waitForTransactionReceipt({ hash: approveHash })
@@ -137,7 +137,7 @@ export async function executeBatchAirdrop(opts: {
     functionName: 'airdrop',
     args: [tokenAddress, recipients, amounts],
     account,
-    chain: walletClient.chain!,
+    chain: null,
   })
   onStatus('Waiting for airdrop confirmation…')
   await publicClient.waitForTransactionReceipt({ hash: airdropHash })
