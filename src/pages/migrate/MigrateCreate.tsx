@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useWalletClient, usePublicClient } from 'wagmi'
 import { useStore } from '../../lib/store'
-import { deployVault } from '../../lib/migrate/contracts'
+import { deployVault, depositV2, readTokenMeta } from '../../lib/migrate/contracts'
+import { parseUnits } from 'viem'
 import { StatusBox, Spinner } from '../../components/ui-kit'
 import type { MigrationConfig } from '../../lib/store'
 
@@ -49,6 +50,10 @@ export function MigrateCreate() {
     setLoading(true)
     setStatus(null)
     try {
+      // Read V2 token decimals so cap + fund amounts are converted correctly
+      setStatus({ msg: 'Reading V2 token metadata…', type: 'info' })
+      const v2Meta = await readTokenMeta(form.v2Token, publicClient as any)
+
       setStatus({ msg: 'Deploying vault…', type: 'info' })
       const { contractAddress, txHash } = await deployVault(
         {
@@ -57,12 +62,27 @@ export function MigrateCreate() {
           ratioNumerator: BigInt(Math.round(form.ratio * 1000)),
           ratioDenominator: 1000n,
           windowSeconds: BigInt(form.windowDays * 86400),
-          supplyCap: form.cap ? BigInt(form.cap) : 0n,
+          supplyCap: form.cap ? parseUnits(form.cap, v2Meta.decimals) : 0n,
         },
         walletClient as any,
         publicClient as any,
         msg => setStatus({ msg, type: 'info' })
       )
+
+      // Fund the vault with V2 tokens if an amount was entered in step 3
+      if (form.fundAmount && Number(form.fundAmount) > 0) {
+        setStatus({ msg: `Vault deployed. Now funding with ${form.fundAmount} ${v2Meta.symbol}…`, type: 'info' })
+        await depositV2(
+          {
+            vaultAddress: contractAddress,
+            tokenAddress: form.v2Token,
+            amount: parseUnits(form.fundAmount, v2Meta.decimals),
+          },
+          walletClient as any,
+          publicClient as any,
+          msg => setStatus({ msg, type: 'info' })
+        )
+      }
 
       const id = `mig_${Date.now().toString(36)}`
       const [account] = await walletClient.getAddresses()
@@ -83,7 +103,12 @@ export function MigrateCreate() {
         owner: account,
       }
       addMigration(m)
-      setStatus({ msg: `Vault deployed at ${contractAddress} (tx: ${txHash})`, type: 'ok' })
+      setStatus({
+        msg: form.fundAmount && Number(form.fundAmount) > 0
+          ? `Vault deployed and funded at ${contractAddress} (tx: ${txHash})`
+          : `Vault deployed at ${contractAddress} (tx: ${txHash}). Remember to fund it with V2 tokens from the dashboard.`,
+        type: 'ok',
+      })
       setTimeout(() => navigate('/migrate/dashboard'), 2000)
     } catch (e: unknown) {
       setStatus({ msg: e instanceof Error ? e.message : String(e), type: 'err' })
@@ -276,7 +301,7 @@ export function MigrateCreate() {
             <div style={{ fontSize: 48, marginBottom: 16 }}>🚀</div>
             <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Ready to Deploy</h2>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 28, maxWidth: 400, margin: '0 auto 28px', lineHeight: 1.6 }}>
-              This will deploy your MigrationVault contract on-chain and register it with the Migration Registry.
+              This will deploy your MigrationVault contract on-chain{form.fundAmount && Number(form.fundAmount) > 0 ? `, then fund it with ${form.fundAmount} V2 tokens (approve + deposit)` : ''} and register it in your dashboard.
             </p>
 
             {loading && <Spinner />}

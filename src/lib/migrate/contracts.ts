@@ -20,6 +20,75 @@ const ERC20_APPROVE_ABI = [
   },
 ] as const
 
+// ── ERC-20 metadata ABI (minimal) ────────────────────────────────────────────
+const ERC20_META_ABI = [
+  { name: 'symbol',   type: 'function' as const, inputs: [], outputs: [{ name: '', type: 'string' }], stateMutability: 'view' as const },
+  { name: 'decimals', type: 'function' as const, inputs: [], outputs: [{ name: '', type: 'uint8' }],  stateMutability: 'view' as const },
+  { name: 'balanceOf', type: 'function' as const, inputs: [{ name: 'account', type: 'address' }], outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view' as const },
+] as const
+
+export type TokenMeta = { symbol: string; decimals: number }
+
+export async function readTokenMeta(
+  token: string, publicClient: PublicClient
+): Promise<TokenMeta> {
+  const addr = token as `0x${string}`
+  const [symbol, decimals] = await Promise.all([
+    publicClient.readContract({ address: addr, abi: ERC20_META_ABI, functionName: 'symbol' }),
+    publicClient.readContract({ address: addr, abi: ERC20_META_ABI, functionName: 'decimals' }),
+  ])
+  return { symbol: symbol as string, decimals: Number(decimals) }
+}
+
+export async function readTokenBalance(
+  token: string, holder: string, publicClient: PublicClient
+): Promise<bigint> {
+  return await publicClient.readContract({
+    address: token as `0x${string}`,
+    abi: ERC20_META_ABI,
+    functionName: 'balanceOf',
+    args: [holder as `0x${string}`],
+  }) as bigint
+}
+
+// ── Live vault stats from chain ──────────────────────────────────────────────
+export type LiveVaultStats = {
+  vaultBalance: bigint       // V2 remaining in vault
+  totalDeposited: bigint     // V2 ever deposited
+  totalDisbursed: bigint     // V2 ever paid out
+  participantCount: bigint
+  windowEnd: bigint          // unix seconds
+  isWindowOpen: boolean
+  paused: boolean
+  stopped: boolean
+}
+
+export async function readVaultStats(
+  vaultAddress: string, publicClient: PublicClient
+): Promise<LiveVaultStats> {
+  const vault = vaultAddress as `0x${string}`
+  const read = (functionName: string) =>
+    publicClient.readContract({ address: vault, abi: MIGRATION_VAULT_ABI, functionName: functionName as any })
+
+  const [vaultBalance, totalDeposited, totalDisbursed, participantCount, windowEnd, isWindowOpen, paused, stopped] =
+    await Promise.all([
+      read('vaultBalance'), read('totalDeposited'), read('totalDisbursed'),
+      read('participantCount'), read('windowEnd'), read('isWindowOpen'),
+      read('paused'), read('stopped'),
+    ])
+
+  return {
+    vaultBalance:     vaultBalance     as bigint,
+    totalDeposited:   totalDeposited   as bigint,
+    totalDisbursed:   totalDisbursed   as bigint,
+    participantCount: participantCount as bigint,
+    windowEnd:        windowEnd        as bigint,
+    isWindowOpen:     isWindowOpen     as boolean,
+    paused:           paused           as boolean,
+    stopped:          stopped          as boolean,
+  }
+}
+
 // ── Deploy a new MigrationVault ──────────────────────────────────────────────
 
 export async function deployVault(
@@ -60,7 +129,7 @@ export async function deployVault(
     account,
     data: deployData,
     gas: (gasEstimate * 120n) / 100n,
-    chain: walletClient.chain!,
+    chain: null,
   })
 
   onStatus('Waiting for confirmation…')
@@ -98,7 +167,7 @@ export async function depositV2(
       functionName: 'approve',
       args: [vault, maxUint256],
       account,
-      chain: walletClient.chain!,
+      chain: null,
     })
     await publicClient.waitForTransactionReceipt({ hash: approveHash })
     onStatus('Approved. Depositing V2 tokens… confirm in wallet')
@@ -112,7 +181,7 @@ export async function depositV2(
     functionName: 'deposit',
     args: [params.amount],
     account,
-    chain: walletClient.chain!,
+    chain: null,
   })
 
   onStatus('Waiting for deposit confirmation…')
@@ -148,7 +217,7 @@ export async function swapV1(
       functionName: 'approve',
       args: [vault, maxUint256],
       account,
-      chain: walletClient.chain!,
+      chain: null,
     })
     await publicClient.waitForTransactionReceipt({ hash: approveHash })
     onStatus('Approved. Swapping V1 → V2… confirm in wallet')
@@ -162,7 +231,7 @@ export async function swapV1(
     functionName: 'swap',
     args: [params.v1Amount],
     account,
-    chain: walletClient.chain!,
+    chain: null,
   })
 
   onStatus('Waiting for swap confirmation…')
@@ -181,7 +250,7 @@ export async function pauseVault(
     abi: MIGRATION_VAULT_ABI,
     functionName: 'pause',
     account,
-    chain: walletClient.chain!,
+    chain: null,
   })
   await publicClient.waitForTransactionReceipt({ hash })
   return hash
@@ -196,7 +265,7 @@ export async function unpauseVault(
     abi: MIGRATION_VAULT_ABI,
     functionName: 'unpause',
     account,
-    chain: walletClient.chain!,
+    chain: null,
   })
   await publicClient.waitForTransactionReceipt({ hash })
   return hash
@@ -211,7 +280,7 @@ export async function emergencyStopVault(
     abi: MIGRATION_VAULT_ABI,
     functionName: 'emergencyStop',
     account,
-    chain: walletClient.chain!,
+    chain: null,
   })
   await publicClient.waitForTransactionReceipt({ hash })
   return hash
@@ -228,7 +297,7 @@ export async function extendWindowVault(
     functionName: 'extendWindow',
     args: [BigInt(extraDays * 86400)],
     account,
-    chain: walletClient.chain!,
+    chain: null,
   })
   await publicClient.waitForTransactionReceipt({ hash })
   return hash
@@ -245,7 +314,7 @@ export async function disburseVault(
     functionName: 'disburse',
     args: [params.to as `0x${string}`, params.amount],
     account,
-    chain: walletClient.chain!,
+    chain: null,
   })
   await publicClient.waitForTransactionReceipt({ hash })
   return hash
