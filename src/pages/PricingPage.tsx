@@ -199,13 +199,13 @@ export function PricingPage() {
           }} className="pricing-features-grid">
             {[
               ['Security Scanner', 'Full honeypot + tax sim audit with 0–100 trust score'],
-              ['Holder Analytics', 'Top holders, distribution charts, reward tracking'],
+              ['Audit Score',      'Config scoring with a downloadable branded PDF report'],
               ['Social Tools',     'Widget embed code, Telegram/Twitter post templates'],
-              ['Presale Manager',  'Create and manage token presales with whitelists'],
+              ['Cross-Chain Bridge', 'Move tokens between BSC, Ethereum, and Arbitrum'],
               ['Airdrop Tool',     'CSV import, multi-send, progress tracking'],
-              ['Migrate Protocol', 'V1 → V2 migration vault with oracle disbursal'],
               ['LP Launch Wizard', 'Step-by-step add liquidity, startLP(), launch()'],
               ['Param Export',     'Copy or download full constructor params for Remix'],
+              ['Deploy Dashboard', 'Every token you have deployed, with live on-chain status'],
             ].map(([title, desc]) => (
               <div key={title} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                 <span style={{ color: 'var(--fd-green)', flexShrink: 0, marginTop: 2 }}>✓</span>

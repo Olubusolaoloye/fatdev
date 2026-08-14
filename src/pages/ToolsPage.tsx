@@ -4,49 +4,21 @@ import Footer from '../components/Footer'
 import { AirdropTool }     from '../components/tools/AirdropTool'
 import { HolderAnalytics } from '../components/tools/HolderAnalytics'
 import { AuditScore }      from '../components/tools/AuditScore'
-import { PresaleTool }     from '../components/tools/PresaleTool'
 import { SocialTools }     from '../components/tools/SocialTools'
 import { SecurityScanner } from '../components/tools/SecurityScanner'
-
-type Tool = 'scanner' | 'audit' | 'presale' | 'social' | 'airdrop' | 'analytics'
-
-const TOOLS: {
-  key: Tool; icon: string; title: string; desc: string
-  badge?: string; free?: boolean
-}[] = [
-  {
-    key: 'scanner', icon: '🔍', title: 'Security Scanner', free: true,
-    desc: 'Full on-chain audit — honeypot, blacklist, tax sim, LP lock, and a live 0–100 trust score.',
-    badge: 'Free',
-  },
-  {
-    key: 'social', icon: '📢', title: 'Social & Community', free: true,
-    desc: 'Announcement templates for Telegram, X, and Discord. Pre-filled with your tokenomics.',
-    badge: 'Free',
-  },
-  {
-    key: 'analytics', icon: '📊', title: 'Holder Analytics', free: true,
-    desc: 'Top holders, large buys/sells, bot detection by wallet age, LP reward history.',
-    badge: 'Free',
-  },
-  {
-    key: 'audit', icon: '🛡️', title: 'Audit Score',
-    desc: 'Auto-score your token config: taxes, security flags, verification, ownership. Shareable scorecard.',
-    badge: 'Trust Signal',
-  },
-  {
-    key: 'presale', icon: '🎯', title: 'Presale / Fairlaunch',
-    desc: 'Deploy a presale contract with hard cap, soft cap, whitelist, and auto-liquidity on finalise.',
-  },
-  {
-    key: 'airdrop', icon: '🪂', title: 'Airdrop Tool',
-    desc: 'Batch-send tokens to hundreds of wallets from a CSV. One approve + one disperse transaction.',
-  },
-]
+import { TOOL_FEATURES, type FeatureKey, type FeatureMeta } from '../lib/tools'
+import { useAppConfig }    from '../hooks/useAppConfig'
 
 export function ToolsPage() {
-  const [active, setActive] = useState<Tool | null>(null)
-  const tool = active ? TOOLS.find(t => t.key === active)! : null
+  const { features, loading } = useAppConfig()
+  const [active, setActive] = useState<FeatureKey | null>(null)
+
+  // Only tools the admin has switched on
+  const visible = TOOL_FEATURES.filter(t => features[t.key])
+  const tool = active ? visible.find(t => t.key === active) ?? null : null
+
+  // A tool switched off while open (or deep-linked) falls back to the grid
+  if (active && !tool) setActive(null)
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--fd-void)', color: '#fff', display: 'flex', flexDirection: 'column' }}>
@@ -115,7 +87,6 @@ export function ToolsPage() {
             {active === 'airdrop'   && <AirdropTool />}
             {active === 'analytics' && <HolderAnalytics />}
             {active === 'audit'     && <AuditScore />}
-            {active === 'presale'   && <PresaleTool />}
             {active === 'social'    && <SocialTools />}
           </div>
         )}
@@ -154,38 +125,59 @@ export function ToolsPage() {
             </div>
 
             {/* Free tools */}
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                <span style={{
-                  fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-                  letterSpacing: '0.12em', color: 'var(--fd-green)',
-                  fontFamily: 'var(--fd-font-mono)',
-                }}>Free Tools — No wallet required</span>
-                <div style={{ flex: 1, height: 1, background: 'rgba(0,230,118,0.15)' }} />
+            {visible.some(t => t.free) && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+                    letterSpacing: '0.12em', color: 'var(--fd-green)',
+                    fontFamily: 'var(--fd-font-mono)',
+                  }}>Free Tools — No wallet required</span>
+                  <div style={{ flex: 1, height: 1, background: 'rgba(0,230,118,0.15)' }} />
+                </div>
+                <div className="tools-grid">
+                  {visible.filter(t => t.free).map(t => (
+                    <ToolCard key={t.key} tool={t} onOpen={() => setActive(t.key)} />
+                  ))}
+                </div>
               </div>
-              <div className="tools-grid">
-                {TOOLS.filter(t => t.free).map(t => (
-                  <ToolCard key={t.key} tool={t} onOpen={() => setActive(t.key)} />
-                ))}
-              </div>
-            </div>
+            )}
 
             {/* Wallet tools */}
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, marginTop: 32 }}>
-                <span style={{
-                  fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-                  letterSpacing: '0.12em', color: 'var(--fd-ghost)',
-                  fontFamily: 'var(--fd-font-mono)',
-                }}>Deploy Tools — Wallet required</span>
-                <div style={{ flex: 1, height: 1, background: 'var(--fd-border)' }} />
+            {visible.some(t => !t.free) && (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, marginTop: 32 }}>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+                    letterSpacing: '0.12em', color: 'var(--fd-ghost)',
+                    fontFamily: 'var(--fd-font-mono)',
+                  }}>Deploy Tools — Wallet required</span>
+                  <div style={{ flex: 1, height: 1, background: 'var(--fd-border)' }} />
+                </div>
+                <div className="tools-grid">
+                  {visible.filter(t => !t.free).map(t => (
+                    <ToolCard key={t.key} tool={t} onOpen={() => setActive(t.key)} />
+                  ))}
+                </div>
               </div>
-              <div className="tools-grid">
-                {TOOLS.filter(t => !t.free).map(t => (
-                  <ToolCard key={t.key} tool={t} onOpen={() => setActive(t.key)} />
-                ))}
+            )}
+
+            {/* Everything switched off */}
+            {!loading && visible.length === 0 && (
+              <div style={{
+                textAlign: 'center', padding: '56px 24px',
+                background: 'var(--fd-surface)', border: '1px solid var(--fd-border)',
+                borderRadius: 'var(--fd-radius-lg)',
+              }}>
+                <div style={{ fontSize: 40, marginBottom: 14 }}>🔧</div>
+                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8, color: 'var(--fd-white)' }}>
+                  Tools are being updated
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--fd-ghost)' }}>
+                  Check back shortly — we're shipping improvements.
+                </div>
               </div>
-            </div>
+            )}
           </>
         )}
       </main>
@@ -208,7 +200,7 @@ export function ToolsPage() {
 }
 
 // ── Tool card ─────────────────────────────────────────────────────────────────
-function ToolCard({ tool, onOpen }: { tool: typeof TOOLS[0]; onOpen: () => void }) {
+function ToolCard({ tool, onOpen }: { tool: FeatureMeta; onOpen: () => void }) {
   const [hovered, setHovered] = useState(false)
 
   return (

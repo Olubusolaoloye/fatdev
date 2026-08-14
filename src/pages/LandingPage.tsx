@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
+import { useAppConfig } from '../hooks/useAppConfig'
 
 // ── Intersection observer for scroll-reveal ───────────────────────────────────
 function useReveal() {
@@ -272,7 +273,7 @@ const CODE_LINES = [
   '> bridge --from eth --to bsc',
   '> airdrop --wallets wallets.csv',
   '> migrate --v1 0x3b... --snapshot',
-  '> presale --cap 50 --whitelist on',
+  '> audit --report pdf --score A',
 ]
 
 function Typewriter() {
@@ -339,6 +340,7 @@ function Typewriter() {
 // ── Main ──────────────────────────────────────────────────────────────────────
 export function LandingPage() {
   const { isConnected } = useAccount()
+  const { features } = useAppConfig()
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--fd-void)', color: '#fff',
@@ -646,16 +648,30 @@ export function LandingPage() {
         }}>
           <FCard to="/app"    icon="⚡" title="Token Deploy Wizard"
             desc="8-step no-code wizard. Configure name, supply, taxes, anti-bot, and deploy directly on-chain. BSC, ETH, Arbitrum." tag="Live" />
-          <FCard to="/tools"  icon="🔍" title="Security Scanner"
-            desc="Full on-chain audit — honeypot, blacklist, tax sim, LP lock, owner analysis. Free, no wallet needed." tag="Free" />
-          <FCard to="/migrate" icon="🔄" title="Migration Protocol"
-            desc="Move holders from V1 to V2 with snapshot-based vaults. Automatic oracle, airdrop batching, on-chain verification." />
-          <FCard to="/tools"  icon="🎯" title="Presale & Fairlaunch"
-            desc="Deploy presale contracts with hard cap, soft cap, whitelist, and price. Auto-adds liquidity on finalise." />
-          <FCard to="/tools"  icon="🪂" title="Airdrop Tool"
-            desc="Batch-send tokens to hundreds of wallets from a CSV. One approve + one disperse. Fast and gas-efficient." />
-          <FCard to="/tools"  icon="📢" title="Social & Community"
-            desc="One-click announcement templates for Telegram, X, and Discord pre-filled with your tokenomics." />
+          {features.scanner && (
+            <FCard to="/tools"  icon="🔍" title="Security Scanner"
+              desc="Full on-chain audit — honeypot, blacklist, tax sim, LP lock, owner analysis. Free, no wallet needed." tag="Free" />
+          )}
+          {features.migrate && (
+            <FCard to="/migrate" icon="🔄" title="Migration Protocol"
+              desc="Move holders from V1 to V2 with snapshot-based vaults. Automatic oracle, airdrop batching, on-chain verification." />
+          )}
+          {features.audit && (
+            <FCard to="/tools"  icon="🛡️" title="Audit Score"
+              desc="Score any token on taxes, security flags, verification, and ownership. Download a branded PDF report to share." tag="PDF" />
+          )}
+          {features.bridge && (
+            <FCard to="/bridge" icon="🌉" title="Cross-Chain Bridge"
+              desc="Move tokens between BSC, Ethereum, and Arbitrum with live routing and confirmation tracking." />
+          )}
+          {features.airdrop && (
+            <FCard to="/tools"  icon="🪂" title="Airdrop Tool"
+              desc="Batch-send tokens to hundreds of wallets from a CSV. One approve + one disperse. Fast and gas-efficient." />
+          )}
+          {features.social && (
+            <FCard to="/tools"  icon="📢" title="Social & Community"
+              desc="One-click announcement templates for Telegram, X, and Discord pre-filled with your tokenomics." />
+          )}
         </div>
       </section>
 

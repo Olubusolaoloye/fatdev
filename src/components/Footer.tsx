@@ -1,16 +1,21 @@
 import { Link } from 'react-router-dom'
 import Logo from './ui-kit/Logo'
+import { useAppConfig } from '../hooks/useAppConfig'
+import type { FeatureKey } from '../lib/tools'
 
-const FOOTER_LINKS = [
+const FOOTER_LINKS: { label: string; to: string; feature?: FeatureKey }[] = [
   { label: 'Deploy',    to: '/app'       },
   { label: 'Dashboard', to: '/dashboard' },
-  { label: 'Bridge',    to: '/bridge'    },
+  { label: 'Bridge',    to: '/bridge',   feature: 'bridge'  },
   { label: 'Tools',     to: '/tools'     },
-  { label: 'Migrate',   to: '/migrate'   },
+  { label: 'Migrate',   to: '/migrate',  feature: 'migrate' },
   { label: 'Pricing',   to: '/pricing'   },
 ]
 
 export default function Footer() {
+  const { features } = useAppConfig()
+  const links = FOOTER_LINKS.filter(l => !l.feature || features[l.feature])
+
   return (
     <footer style={{
       borderTop: '1px solid var(--fd-border)',
@@ -31,7 +36,7 @@ export default function Footer() {
         <nav style={{
           display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center',
         }}>
-          {FOOTER_LINKS.map(l => (
+          {links.map(l => (
             <Link key={l.label} to={l.to} style={{
               fontSize: 13, color: 'var(--fd-ghost)', textDecoration: 'none',
               padding: '5px 12px', borderRadius: 'var(--fd-radius-sm)',

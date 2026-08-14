@@ -2,15 +2,24 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import Logo from './ui-kit/Logo'
+import { useAppConfig } from '../hooks/useAppConfig'
+import type { FeatureFlags, FeatureKey } from '../lib/tools'
 
-const NAV_LINKS = [
+type NavLink = { label: string; to: string; feature?: FeatureKey }
+
+const NAV_LINKS: NavLink[] = [
   { label: 'Deploy',    to: '/app'        },
   { label: 'Dashboard', to: '/dashboard'  },
-  { label: 'Bridge',    to: '/bridge'     },
-  { label: 'Migrate',   to: '/migrate'    },
+  { label: 'Bridge',    to: '/bridge',    feature: 'bridge'  },
+  { label: 'Migrate',   to: '/migrate',   feature: 'migrate' },
   { label: 'Pricing',   to: '/pricing'    },
   { label: 'Tools',     to: '/tools'      },
 ]
+
+/** Links visible given the current feature flags — flagged-off sections vanish. */
+export function visibleNavLinks(features: FeatureFlags): NavLink[] {
+  return NAV_LINKS.filter(l => !l.feature || features[l.feature])
+}
 
 function HamburgerIcon({ open }: { open: boolean }) {
   return (
@@ -32,7 +41,7 @@ function HamburgerIcon({ open }: { open: boolean }) {
   )
 }
 
-function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+function MobileDrawer({ open, onClose, links }: { open: boolean; onClose: () => void; links: NavLink[] }) {
   useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
@@ -63,7 +72,7 @@ function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void })
         padding: '16px 20px 24px',
         display: 'flex', flexDirection: 'column', gap: 4,
       }}>
-        {NAV_LINKS.map((l, i) => (
+        {links.map((l, i) => (
           <Link key={l.label} to={l.to} onClick={onClose} style={{
             display: 'block',
             padding: '13px 16px',
@@ -102,6 +111,8 @@ function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void })
 export default function Navbar() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const location = useLocation()
+  const { features } = useAppConfig()
+  const links = visibleNavLinks(features)
 
   // Close drawer on route change
   useEffect(() => { setDrawerOpen(false) }, [location.pathname])
@@ -133,7 +144,7 @@ export default function Navbar() {
             display: 'flex', alignItems: 'center', gap: 4,
             position: 'absolute', left: '50%', transform: 'translateX(-50%)',
           }} className="navbar-desktop-nav">
-            {NAV_LINKS.map(l => {
+            {links.map(l => {
               const active = isActive(l.to)
               return (
                 <Link key={l.label} to={l.to} style={{
@@ -180,7 +191,7 @@ export default function Navbar() {
         </div>
       </header>
 
-      <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+      <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} links={links} />
 
       {/* Responsive rules */}
       <style>{`

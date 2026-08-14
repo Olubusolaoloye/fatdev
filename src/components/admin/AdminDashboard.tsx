@@ -4,9 +4,13 @@ import type { DbUser, DbDeploy, DbPayment, TierPrices } from '../../lib/supabase
 import {
   adminGetStats, adminGetDeploysByWallet, adminGetPaymentsByWallet,
   adminSetMaintenanceMode, adminSetTierPrices, adminUpdateUserTier,
-  adminGetAllConfig,
+  adminGetAllConfig, adminSetConfig,
 } from '../../lib/admin'
 import { invalidateAppConfig, DEFAULT_PRICES } from '../../hooks/useAppConfig'
+import {
+  FEATURE_REGISTRY, DEFAULT_FEATURE_FLAGS, normalizeFlags,
+  type FeatureFlags,
+} from '../../lib/tools'
 import { CHAIN_EXPLORERS } from '../../lib/wagmi'
 import { Spinner } from '../ui-kit'
 
@@ -95,7 +99,7 @@ function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
 }
 
 // ── Tab type ──────────────────────────────────────────────────────────────────
-type Tab = 'overview' | 'users' | 'deploys' | 'payments' | 'settings'
+type Tab = 'overview' | 'users' | 'deploys' | 'payments' | 'features' | 'settings'
 
 // ── Main export ───────────────────────────────────────────────────────────────
 export function AdminDashboard() {
@@ -151,6 +155,7 @@ function DashboardContent() {
     { id: 'users',     label: '👛 Users',     count: users.length   },
     { id: 'deploys',   label: '🚀 Deploys',   count: deploys.length  },
     { id: 'payments',  label: '💸 Payments',  count: payments.length },
+    { id: 'features',  label: '🎛️ Features'  },
     { id: 'settings',  label: '⚙️ Settings'  },
   ]
 
@@ -280,10 +285,165 @@ function DashboardContent() {
         )}
 
         {/* ── Settings tab ── */}
+        {tab === 'features' && (
+          <FeaturesTab />
+        )}
+
         {tab === 'settings' && (
           <SettingsTab />
         )}
       </div>
+    </div>
+  )
+}
+
+// ── Features tab — per-tool visibility toggles ────────────────────────────────
+function FeaturesTab() {
+  const [flags,   setFlags]   = useState<FeatureFlags>(DEFAULT_FEATURE_FLAGS)
+  const [saved,   setSaved]   = useState<FeatureFlags>(DEFAULT_FEATURE_FLAGS)
+  const [loading, setLoading] = useState(true)
+  const [saving,  setSaving]  = useState(false)
+  const [msg,     setMsg]     = useState('')
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const cfg = await adminGetAllConfig()
+        const next = normalizeFlags(cfg.feature_flags)
+        setFlags(next); setSaved(next)
+      } catch {
+        // Supabase unreachable — leave defaults on screen
+      }
+      setLoading(false)
+    })()
+  }, [])
+
+  const dirty = FEATURE_REGISTRY.some(f => flags[f.key] !== saved[f.key])
+
+  async function save() {
+    setSaving(true); setMsg('')
+    try {
+      await adminSetConfig('feature_flags', flags)
+      invalidateAppConfig()
+      setSaved(flags)
+      setMsg('Saved. Changes are live — visitors see them on their next page load.')
+    } catch (e: any) {
+      setMsg(`Failed: ${e.message ?? 'could not save'}`)
+    }
+    setSaving(false)
+  }
+
+  const tools    = FEATURE_REGISTRY.filter(f => f.kind === 'tool')
+  const sections = FEATURE_REGISTRY.filter(f => f.kind === 'section')
+
+  function Row({ f }: { f: typeof FEATURE_REGISTRY[0] }) {
+    const on = flags[f.key]
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px',
+        borderBottom: '0.5px solid rgba(255,255,255,0.05)',
+      }}>
+        <div style={{
+          width: 40, height: 40, borderRadius: 10, flexShrink: 0, fontSize: 20,
+          background: 'rgba(255,255,255,0.04)', border: '0.5px solid var(--border)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          opacity: on ? 1 : 0.4,
+        }}>{f.icon}</div>
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3, flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 700, fontSize: 14, opacity: on ? 1 : 0.55 }}>{f.title}</span>
+            <span className="pill" style={{
+              fontSize: 9, padding: '2px 8px',
+              background: on ? 'rgba(0,229,122,0.12)' : 'rgba(255,82,82,0.12)',
+              color:      on ? 'var(--fd-green)' : '#FF5252',
+              border: `0.5px solid ${on ? 'rgba(0,229,122,0.35)' : 'rgba(255,82,82,0.35)'}`,
+            }}>{on ? 'LIVE' : 'HIDDEN'}</span>
+            {!on && f.comingSoon && (
+              <span className="pill" style={{
+                fontSize: 9, padding: '2px 8px', background: 'rgba(0,207,255,0.1)',
+                color: 'var(--fd-cyan)', border: '0.5px solid rgba(0,207,255,0.25)',
+              }}>COMING SOON PAGE</span>
+            )}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>{f.desc}</div>
+        </div>
+
+        <button
+          onClick={() => setFlags(p => ({ ...p, [f.key]: !p[f.key] }))}
+          aria-label={`Toggle ${f.title}`}
+          style={{
+            width: 46, height: 26, borderRadius: 13, flexShrink: 0, cursor: 'pointer',
+            border: 'none', padding: 0, position: 'relative',
+            background: on ? 'var(--fd-green)' : 'rgba(255,255,255,0.14)',
+            transition: 'background 0.2s',
+          }}>
+          <span style={{
+            position: 'absolute', top: 3, left: on ? 23 : 3,
+            width: 20, height: 20, borderRadius: 10, background: '#fff',
+            transition: 'left 0.2s',
+          }} />
+        </button>
+      </div>
+    )
+  }
+
+  if (loading) return <div style={{ padding: 40, textAlign: 'center' }}><Spinner /></div>
+
+  return (
+    <div>
+      <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 4 }}>Features</h1>
+      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>
+        Switch anything off and it disappears from the site entirely — the card, the nav link,
+        and the route. Sections marked <em>coming soon</em> show a branded placeholder page
+        instead of 404-ing.
+      </p>
+
+      <div style={{ background: 'var(--navy-card)', border: '0.5px solid var(--border)', borderRadius: 12, marginBottom: 16 }}>
+        <div style={{
+          padding: '12px 16px', borderBottom: '0.5px solid var(--border)',
+          fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+          color: 'var(--text-muted)', fontFamily: "'Space Mono',monospace",
+        }}>Tools — shown on /tools</div>
+        {tools.map(f => <Row key={f.key} f={f} />)}
+      </div>
+
+      <div style={{ background: 'var(--navy-card)', border: '0.5px solid var(--border)', borderRadius: 12, marginBottom: 20 }}>
+        <div style={{
+          padding: '12px 16px', borderBottom: '0.5px solid var(--border)',
+          fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+          color: 'var(--text-muted)', fontFamily: "'Space Mono',monospace",
+        }}>Sections — full routes and nav links</div>
+        {sections.map(f => <Row key={f.key} f={f} />)}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <button className="btn-primary" onClick={save} disabled={!dirty || saving}
+          style={{ opacity: dirty && !saving ? 1 : 0.5 }}>
+          {saving ? <Spinner /> : dirty ? 'Save changes' : 'No changes'}
+        </button>
+        {dirty && !saving && (
+          <button className="btn-ghost" style={{ fontSize: 12 }} onClick={() => setFlags(saved)}>
+            Discard
+          </button>
+        )}
+        {msg && (
+          <span style={{ fontSize: 12, color: msg.startsWith('Failed') ? '#FF5252' : 'var(--fd-green)' }}>
+            {msg}
+          </span>
+        )}
+      </div>
+
+      {!supabaseReady && (
+        <div style={{
+          marginTop: 16, padding: '10px 14px', borderRadius: 8, fontSize: 12,
+          background: 'rgba(255,82,82,0.08)', border: '0.5px solid rgba(255,82,82,0.25)',
+          color: '#FF5252', lineHeight: 1.6,
+        }}>
+          Supabase is not connected, so toggles cannot be saved. The site is currently running on
+          the built-in defaults (Holder Analytics and Migrate hidden).
+        </div>
+      )}
     </div>
   )
 }

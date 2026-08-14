@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getAppConfig } from '../lib/db'
 import type { TierPrices } from '../lib/supabase'
+import { DEFAULT_FEATURE_FLAGS, normalizeFlags, type FeatureFlags, type FeatureKey } from '../lib/tools'
 
 // ── Defaults (used when Supabase is not configured) ───────────────────────────
 export const DEFAULT_PRICES: TierPrices = {
@@ -13,6 +14,7 @@ type AppConfig = {
   maintenanceMode:    boolean
   maintenanceMessage: string
   prices:             TierPrices
+  features:           FeatureFlags
   loading:            boolean
 }
 
@@ -29,6 +31,7 @@ export function useAppConfig(): AppConfig {
       maintenanceMode:    false,
       maintenanceMessage: 'Scheduled maintenance in progress.',
       prices:             DEFAULT_PRICES,
+      features:           DEFAULT_FEATURE_FLAGS,
       loading:            true,
     }
   )
@@ -44,15 +47,17 @@ export function useAppConfig(): AppConfig {
     }
 
     fetchPromise = (async () => {
-      const [maintenance, message, prices] = await Promise.all([
+      const [maintenance, message, prices, features] = await Promise.all([
         getAppConfig<boolean>('maintenance_mode',    false),
         getAppConfig<string> ('maintenance_message', 'Scheduled maintenance in progress.'),
         getAppConfig<TierPrices>('tier_prices',      DEFAULT_PRICES),
+        getAppConfig<Partial<FeatureFlags>>('feature_flags', DEFAULT_FEATURE_FLAGS),
       ])
       cachedConfig = {
         maintenanceMode:    maintenance,
         maintenanceMessage: message,
         prices:             { ...DEFAULT_PRICES, ...prices },
+        features:           normalizeFlags(features),
         loading:            false,
       }
       setConfig(cachedConfig)
@@ -60,6 +65,16 @@ export function useAppConfig(): AppConfig {
   }, [])
 
   return config
+}
+
+/**
+ * Convenience hook — is a single feature enabled?
+ * Returns `enabled` plus `loading` so callers can avoid flashing a disabled
+ * page before the real flags arrive from Supabase.
+ */
+export function useFeature(key: FeatureKey): { enabled: boolean; loading: boolean } {
+  const { features, loading } = useAppConfig()
+  return { enabled: features[key], loading }
 }
 
 /** Invalidate the cache (call after admin saves config) */

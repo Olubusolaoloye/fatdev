@@ -3,7 +3,13 @@ import { useAccount, usePublicClient, useChainId } from 'wagmi'
 import { useStore } from '../../lib/store'
 import { CHAIN_EXPLORERS } from '../../lib/wagmi'
 import { ERC20_APPROVE_ABI } from '../../lib/airdrop'
+import { generateAuditPdf } from '../../lib/auditPdf'
 import { Spinner } from '../ui-kit'
+
+const CHAIN_NAMES: Record<number, string> = {
+  1: 'Ethereum', 56: 'BNB Chain', 42161: 'Arbitrum One',
+  97: 'BSC Testnet', 4663: 'Robinhood Chain',
+}
 
 // ── Scoring helpers ───────────────────────────────────────────────────────────
 
@@ -249,6 +255,32 @@ export function AuditScore() {
     navigator.clipboard.writeText(text)
   }
 
+  const [pdfBusy, setPdfBusy] = useState(false)
+
+  function downloadPdf() {
+    setPdfBusy(true)
+    try {
+      generateAuditPdf({
+        tokenName:       activeName   || 'Unnamed Token',
+        tokenSymbol:     activeSymbol || '',
+        contractAddress: contractAddr,
+        chainName:       CHAIN_NAMES[chainId] ?? `Chain ${chainId}`,
+        grade,
+        totalScore,
+        maxScore,
+        pct,
+        sections: sections.map(s => ({
+          title:  `${s.icon}  ${s.title}`.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}️]/gu, '').trim(),
+          checks: s.checks,
+        })),
+        onChain: onChainData,
+      })
+    } catch (e: any) {
+      setCheckError(`PDF export failed: ${e.message ?? e}`)
+    }
+    setPdfBusy(false)
+  }
+
   const explorerBase = CHAIN_EXPLORERS[chainId] ?? ''
 
   // ─────────────────────────────────────────────────────────── RENDER ────────────
@@ -466,14 +498,22 @@ export function AuditScore() {
       </div>
 
       {/* Actions */}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <button className="btn-primary" onClick={copyShareText}>📋 Copy for Telegram / Discord</button>
-        <button className="btn-ghost" onClick={() => window.print()}>🖨️ Print / Save as PDF</button>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <button className="btn-primary" onClick={downloadPdf} disabled={pdfBusy}>
+          {pdfBusy ? <Spinner /> : '📄 Download PDF Report'}
+        </button>
+        <button className="btn-ghost" onClick={copyShareText}>📋 Copy for Telegram / Discord</button>
         {contractAddr && (
           <a href={`${explorerBase}/address/${contractAddr}`} target="_blank" rel="noopener" className="btn-ghost">
             Explorer ↗
           </a>
         )}
+      </div>
+
+      <div style={{ marginTop: 10, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+        The PDF is a branded, multi-page report with every check, its score, and the on-chain
+        status — ready to share with your community or attach to a listing application.
+        {!onChainData && ' Run the on-chain checks first so verification and ownership appear in the report.'}
       </div>
     </div>
   )
