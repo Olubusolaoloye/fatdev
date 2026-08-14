@@ -104,7 +104,7 @@ function buildWidgetCode(t: TokenInfo) {
       <div style="font-weight:800;font-size:18px;">${t.name}</div>
       <div style="color:var(--fd-cyan);font-size:12px;">$${t.symbol}</div>
     </div>
-    <img src="https://fatdev.io/logo.png" alt="FatDev" width="32" height="32"
+    <img src="https://fatdev.org/logo.png" alt="FatDev" width="32" height="32"
          style="border-radius:6px;" onerror="this.style.display='none'"/>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
@@ -119,7 +119,7 @@ function buildWidgetCode(t: TokenInfo) {
   </div>
   <div style="margin-top:10px;font-size:10px;color:rgba(255,255,255,0.3);">
     ${t.contractAddr ? t.contractAddr.slice(0, 10) + '...' + t.contractAddr.slice(-8) : 'Contract pending'}
-    · Powered by <a href="https://fatdev.io" style="color:var(--fd-cyan);">FatDev</a>
+    · Powered by <a href="https://fatdev.org" style="color:var(--fd-cyan);">FatDev</a>
   </div>
 </div>`
 }

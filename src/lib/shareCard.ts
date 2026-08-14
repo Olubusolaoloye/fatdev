@@ -348,7 +348,7 @@ export async function renderShareCard(d: ShareCardData): Promise<Blob> {
   ctx.textAlign = 'right'
   ctx.font = `700 17px ${DISPLAY}`
   ctx.fillStyle = CYAN
-  ctx.fillText('fatdev.io', W - PAD, 600)
+  ctx.fillText('fatdev.org', W - PAD, 600)
   ctx.font = `400 12px ${DISPLAY}`
   ctx.fillStyle = 'rgba(138,155,194,0.55)'
   ctx.fillText('Scan any token free', W - PAD, 622)
