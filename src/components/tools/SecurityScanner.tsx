@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { downloadShareCard, copyShareCard, type ShareCardData, type Tone } from '../../lib/shareCard'
 
 // ── Chain config ──────────────────────────────────────────────────────────────
 const CHAINS = [
@@ -278,6 +279,76 @@ export function SecurityScanner() {
   const score = result?.score ?? 0
   const scoreColor = score >= 80 ? 'var(--green)' : score >= 55 ? 'var(--fd-cyan)' : 'var(--red)'
 
+  // ── Share card ──────────────────────────────────────────────────────────────
+  const [cardBusy,   setCardBusy]   = useState<'png' | 'copy' | null>(null)
+  const [cardNotice, setCardNotice] = useState('')
+
+  function buildCard(r: ScanResult): ShareCardData {
+    const taxTone = (t: number): Tone => t > 25 ? 'bad' : t > 10 ? 'warn' : 'good'
+    const verdictTone: Tone = r.isHoneypot ? 'bad'
+      : r.score >= 80 ? 'good' : r.score >= 55 ? 'warn' : 'bad'
+    const verdict = r.isHoneypot ? 'HONEYPOT'
+      : r.score >= 80 ? 'SAFE' : r.score >= 55 ? 'CAUTION' : 'DANGER'
+
+    const failed = r.flags.filter(f => !f.ok)
+    const verdictNote = r.isHoneypot
+      ? (r.honeypotReason || 'Simulation shows this token cannot be sold.')
+      : failed.length === 0
+        ? 'All security checks passed. No critical risks detected.'
+        : `${failed.length} risk${failed.length > 1 ? 's' : ''} flagged: ${failed.slice(0, 3).map(f => f.label).join(', ')}${failed.length > 3 ? '…' : ''}`
+
+    // Lead with the checks a buyer actually asks about
+    const priority = ['Honeypot', 'Mintable', 'Blacklist', 'Proxy Contract', 'Open Source', 'LP Locked']
+    const highlights = priority
+      .map(p => r.flags.find(f => f.label === p))
+      .filter((f): f is Flag => !!f)
+      .map(f => ({ label: f.label, ok: f.ok }))
+
+    return {
+      kicker:   'Token Security Scan',
+      title:    r.name,
+      symbol:   r.symbol,
+      subtitle: `${CHAINS.find(c => c.id === chainId)?.label ?? 'Unknown chain'} · ${parseInt(r.holders as any).toLocaleString()} holders`,
+      score:    r.score,
+      verdict,
+      verdictTone,
+      verdictNote,
+      stats: [
+        { label: 'Buy Tax',   value: `${r.buyTax}%`,  tone: taxTone(r.buyTax)  },
+        { label: 'Sell Tax',  value: `${r.sellTax}%`, tone: taxTone(r.sellTax) },
+        { label: 'LP Locked', value: r.lpPercent > 0 ? `${r.lpPercent}%` : 'Unknown',
+          tone: r.lpLocked ? 'good' : r.lpPercent > 0 ? 'warn' : 'neutral' },
+        { label: 'Ownership', value: r.ownerRenounced ? 'Renounced' : 'Active',
+          tone: r.ownerRenounced ? 'good' : 'warn' },
+      ],
+      highlights,
+      contract: address.trim(),
+      sources:  'GoPlus Security · Honeypot.is',
+    }
+  }
+
+  async function saveCard() {
+    if (!result) return
+    setCardBusy('png'); setCardNotice('')
+    try {
+      const slug = (result.symbol || 'token').replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'token'
+      await downloadShareCard(buildCard(result), `fatdev-scan-${slug}.png`)
+    } catch (e: any) {
+      setCardNotice(`Image export failed: ${e.message ?? e}`)
+    }
+    setCardBusy(null)
+  }
+
+  async function clipCard() {
+    if (!result) return
+    setCardBusy('copy'); setCardNotice('')
+    const ok = await copyShareCard(buildCard(result))
+    setCardNotice(ok
+      ? 'Image copied — paste it straight into Telegram, X, or Discord.'
+      : 'Your browser blocks image copy. Use Download PNG instead.')
+    setCardBusy(null)
+  }
+
   return (
     <div className="step-panel">
 
@@ -458,6 +529,50 @@ export function SecurityScanner() {
                 </span>
               </div>
             ))}
+          </div>
+
+          {/* Share card export */}
+          <div className="card" style={{ background: 'linear-gradient(135deg, #0a1929 0%, #071525 100%)' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
+                  📸 Share this scan
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                  Generates a branded 1200×675 image — the score, verdict, taxes, LP lock,
+                  and security flags. Sized for X, Telegram, and Discord previews.
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button className="btn-primary" style={{ fontSize: 13, padding: '8px 16px' }}
+                  onClick={saveCard} disabled={cardBusy !== null}>
+                  {cardBusy === 'png' ? 'Rendering…' : '↓ Download PNG'}
+                </button>
+                <button className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}
+                  onClick={clipCard} disabled={cardBusy !== null}>
+                  {cardBusy === 'copy' ? 'Copying…' : '⎘ Copy image'}
+                </button>
+              </div>
+            </div>
+            {cardNotice && (
+              <div style={{
+                marginTop: 12, fontSize: 12, lineHeight: 1.6,
+                color: cardNotice.includes('failed') || cardNotice.includes('blocks')
+                  ? 'var(--fd-cyan)' : 'var(--fd-green)',
+              }}>
+                {cardNotice}
+              </div>
+            )}
+            {result.score < 55 && (
+              <div style={{
+                marginTop: 12, padding: '9px 13px', borderRadius: 8, fontSize: 11.5, lineHeight: 1.6,
+                background: 'rgba(255,82,82,0.07)', border: '0.5px solid rgba(255,82,82,0.22)',
+                color: 'rgba(255,255,255,0.7)',
+              }}>
+                This token scored <strong style={{ color: '#FF5252' }}>{result.score}/100</strong> — the
+                image will show the risks it failed. Useful as a warning, not a promotion.
+              </div>
+            )}
           </div>
 
           {/* Data sources */}
