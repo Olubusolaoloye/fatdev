@@ -1,6 +1,3 @@
-
-
-◇ injected env (0) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
 // Sources flattened with hardhat v2.28.6 https://hardhat.org
 
 // SPDX-License-Identifier: MIT

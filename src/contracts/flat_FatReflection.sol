@@ -1,6 +1,3 @@
-
-
-◇ injected env (0) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
 // Sources flattened with hardhat v2.28.6 https://hardhat.org
 
 // SPDX-License-Identifier: MIT
