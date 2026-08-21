@@ -644,3 +644,100 @@ html, body { overflow-x: hidden; }
   background: rgba(255,255,255,0.05); border-radius: 999px;
   padding: 1px 7px; white-space: nowrap;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Shared tool chrome
+   Extracted from the scanner pass so every tool gets the same panel, section
+   label, option-grid and preview treatment instead of each re-inventing it.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.tool-panel {
+  background: linear-gradient(135deg, #0A1929 0%, #071525 100%);
+  border: 1px solid var(--fd-border);
+  border-radius: var(--fd-radius-lg, 14px);
+  padding: 18px;
+}
+.tool-panel--plain {
+  background: var(--fd-surface);
+}
+
+.tool-head {
+  display: flex; align-items: center; gap: 11px; margin-bottom: 16px;
+}
+.tool-head__icon {
+  width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
+  background: var(--fd-cyan-ghost); border: 1px solid var(--fd-border-cyan);
+  color: var(--fd-cyan);
+  display: flex; align-items: center; justify-content: center;
+}
+.tool-head__title { font-weight: 800; font-size: 15px; margin: 0; color: var(--fd-white); }
+.tool-head__sub   { font-size: 11.5px; color: var(--fd-ghost); margin: 2px 0 0; }
+
+/* Option grid — post kinds, tones, anything pick-one */
+.opt-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 9px;
+}
+.opt {
+  text-align: left; cursor: pointer;
+  background: var(--fd-slate, rgba(255,255,255,0.03));
+  border: 1px solid var(--fd-border);
+  border-radius: var(--fd-radius, 10px);
+  padding: 11px 13px;
+  transition: background 160ms ease, border-color 160ms ease;
+  color: inherit;
+}
+.opt:hover { border-color: var(--fd-border-cyan); }
+.opt[aria-pressed="true"] {
+  background: var(--fd-cyan-ghost);
+  border-color: var(--fd-cyan);
+}
+.opt__label {
+  font-size: 13px; font-weight: 700; color: var(--fd-white);
+  font-family: var(--fd-font-display); display: block; margin-bottom: 3px;
+}
+.opt[aria-pressed="true"] .opt__label { color: var(--fd-cyan); }
+.opt__blurb { font-size: 11px; color: var(--fd-ghost); line-height: 1.45; display: block; }
+
+/* Segmented control — platforms, small switches */
+.seg {
+  display: inline-flex; gap: 4px; padding: 4px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--fd-border);
+  border-radius: 999px;
+}
+.seg__btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: 999px; border: none;
+  background: transparent; color: var(--fd-ghost);
+  font-size: 12.5px; font-weight: 600; cursor: pointer;
+  font-family: var(--fd-font-display);
+  transition: background 160ms ease, color 160ms ease;
+}
+.seg__btn:hover { color: var(--fd-white); }
+.seg__btn[aria-pressed="true"] {
+  background: var(--fd-cyan); color: var(--fd-void);
+}
+
+/* Generated-output preview */
+.preview {
+  position: relative;
+  background: rgba(0,0,0,0.34);
+  border: 1px solid var(--fd-border);
+  border-radius: var(--fd-radius, 10px);
+  padding: 15px 16px;
+  font-family: var(--fd-font-mono);
+  font-size: 12.5px; line-height: 1.75;
+  color: rgba(238,242,255,0.9);
+  white-space: pre-wrap; word-break: break-word;
+  max-height: 420px; overflow-y: auto;
+}
+.preview__meta {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-top: 9px; flex-wrap: wrap;
+}
+.preview__count {
+  font-family: var(--fd-font-mono); font-size: 11px; color: var(--fd-ghost);
+}
+.preview__count--over { color: #FF5252; font-weight: 700; }

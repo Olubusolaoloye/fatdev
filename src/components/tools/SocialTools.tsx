@@ -1,464 +1,311 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useStore } from '../../lib/store'
 import { useAccount, usePublicClient, useChainId } from 'wagmi'
-import { CHAIN_EXPLORERS, CHAIN_NAME as CHAIN_NAMES } from '../../lib/wagmi'
+import { CHAIN_NAME } from '../../lib/wagmi'
 import { ERC20_APPROVE_ABI } from '../../lib/airdrop'
+import {
+  generatePost, variantCount, POST_KINDS, TONES,
+  type Platform, type Tone, type PostKind, type TokenFacts,
+} from '../../lib/socialContent'
 import { Spinner } from '../ui-kit'
+import Icon, { type IconName } from '../ui-kit/Icon'
+import ChainIcon from '../ui-kit/ChainIcon'
 
-type Platform = 'telegram' | 'twitter' | 'discord'
-type Tab = 'announcement' | 'widget'
+type Tab = 'content' | 'widget'
 
-// ── Token info used across the tool ───────────────────────────────────────────
-type TokenInfo = {
-  name: string; symbol: string; decimals: number; totalSupply: number
-  buyTax: number; sellTax: number   // as % (e.g. 5.0)
-  killBlock: boolean; walletLimit: boolean; antiSync: boolean; taxLocked: boolean
-  contractAddr: string; chainId: number
-}
+const PLATFORMS: { id: Platform; label: string; icon: IconName }[] = [
+  { id: 'telegram', label: 'Telegram', icon: 'send' },
+  { id: 'twitter',  label: 'X',        icon: 'megaphone' },
+  { id: 'discord',  label: 'Discord',  icon: 'users' },
+]
 
-
-// ── Template builders ─────────────────────────────────────────────────────────
-function buildAnnouncement(platform: Platform, t: TokenInfo) {
-  const explorer   = t.contractAddr ? `${CHAIN_EXPLORERS[t.chainId] ?? ''}/token/${t.contractAddr}` : ''
-  const chainName  = CHAIN_NAMES[t.chainId] ?? `Chain ${t.chainId}`
-  const killBlocks = t.killBlock
-
-  if (platform === 'telegram') {
-    return `🚀 *${t.name} (${t.symbol}) is now LIVE!*
-
-🌐 Chain: ${chainName}
-💰 Supply: ${t.totalSupply.toLocaleString()} ${t.symbol}
-
-💸 *Taxes*
-• Buy:  ${t.buyTax.toFixed(1)}%
-• Sell: ${t.sellTax.toFixed(1)}%
-
-🛡️ *Features*
-${killBlocks      ? '• ✅ Anti-sniper kill block protection\n' : ''}${t.walletLimit    ? '• ✅ Wallet limit protection\n' : ''}${t.antiSync       ? '• ✅ Anti-SYNC protection\n' : ''}${t.taxLocked     ? '• ✅ Taxes locked forever\n' : '• ⚠️ Tax change enabled\n'}
-📋 *Contract*
-\`${t.contractAddr || '[contract address]'}\`
-
-🔍 [View on Explorer](${explorer || '#'})
-
-_Always DYOR. Not financial advice._`
-  }
-
-  if (platform === 'twitter') {
-    const features = [
-      killBlocks    ? '🛡️ Anti-sniper' : '',
-      t.taxLocked   ? '🔒 Locked taxes' : '',
-      t.walletLimit ? '💼 Wallet limit' : '',
-    ].filter(Boolean).join(' | ')
-
-    return `🚀 ${t.name} $${t.symbol} is LIVE on ${chainName}!
-
-📊 ${t.totalSupply.toLocaleString()} supply
-💸 Buy: ${t.buyTax.toFixed(1)}% | Sell: ${t.sellTax.toFixed(1)}%
-${features ? features + '\n' : ''}📋 CA: ${t.contractAddr || '[address]'}
-${explorer ? `🔍 ${explorer}` : ''}
-
-#${t.symbol} #BSC #DeFi #NewToken #GEM 🔥
-
-DYOR. NFA.`
-  }
-
-  // Discord
-  return `## 🚀 ${t.name} (${t.symbol}) — Now Live!
-
-> **Chain:** ${chainName}
-> **Contract:** \`${t.contractAddr || '[address]'}\`
-> **Explorer:** ${explorer || '[pending]'}
-
-### Tokenomics
-| Parameter | Value |
-|-----------|-------|
-| Total Supply | ${t.totalSupply.toLocaleString()} ${t.symbol} |
-| Decimals | ${t.decimals} |
-| Buy Tax | ${t.buyTax.toFixed(1)}% |
-| Sell Tax | ${t.sellTax.toFixed(1)}% |
-
-### Features
-${killBlocks    ? `- ✅ Anti-sniper protection\n` : ''
-}${t.walletLimit ? '- ✅ Max wallet limit\n' : ''
-}${t.antiSync    ? '- ✅ Anti-SYNC protection\n' : ''
-}${t.taxLocked   ? '- ✅ Taxes permanently locked\n' : '- ⚠️ Tax changes enabled (owner can update)\n'
-}
-> ⚠️ Always do your own research. This is not financial advice.`
-}
-
-function buildWidgetCode(t: TokenInfo) {
+// ── Embeddable widget ─────────────────────────────────────────────────────────
+function buildWidgetCode(t: TokenFacts) {
   return `<!-- FatDev Token Widget -->
 <div id="fattoken-widget"
      data-contract="${t.contractAddr}"
      data-chain="${t.chainId}"
-     data-name="${t.name}"
-     data-symbol="${t.symbol}"
-     data-supply="${t.totalSupply}"
-     style="font-family:sans-serif;max-width:300px;border:1px solid var(--fd-cyan)30;border-radius:12px;
-            background:#0A1929;padding:16px;color:#fff;">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+     style="font-family:system-ui,sans-serif;max-width:320px;border:1px solid #00CFFF33;
+            border-radius:14px;background:#0A1929;padding:18px;color:#EEF2FF;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
     <div>
-      <div style="font-weight:800;font-size:18px;">${t.name}</div>
-      <div style="color:var(--fd-cyan);font-size:12px;">$${t.symbol}</div>
+      <div style="font-weight:800;font-size:18px;">${t.name || 'Token'}</div>
+      <div style="color:#00CFFF;font-size:12px;">$${t.symbol || 'SYMBOL'}</div>
     </div>
     <img src="https://fatdev.org/logo.png" alt="FatDev" width="32" height="32"
-         style="border-radius:6px;" onerror="this.style.display='none'"/>
+         style="border-radius:7px;" onerror="this.style.display='none'"/>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
-    <div style="background:rgba(255,215,0,0.08);border-radius:8px;padding:8px 10px;">
-      <div style="color:rgba(255,255,255,0.5);font-size:10px;margin-bottom:2px;">Supply</div>
+    <div style="background:#00CFFF14;border-radius:9px;padding:9px 11px;">
+      <div style="color:#8A9BC2;font-size:10px;margin-bottom:3px;">Supply</div>
       <div style="font-weight:700;">${t.totalSupply.toLocaleString()}</div>
     </div>
-    <div style="background:rgba(255,215,0,0.08);border-radius:8px;padding:8px 10px;">
-      <div style="color:rgba(255,255,255,0.5);font-size:10px;margin-bottom:2px;">Buy / Sell Tax</div>
+    <div style="background:#00CFFF14;border-radius:9px;padding:9px 11px;">
+      <div style="color:#8A9BC2;font-size:10px;margin-bottom:3px;">Buy / Sell Tax</div>
       <div style="font-weight:700;">${t.buyTax.toFixed(1)}% / ${t.sellTax.toFixed(1)}%</div>
     </div>
   </div>
-  <div style="margin-top:10px;font-size:10px;color:rgba(255,255,255,0.3);">
-    ${t.contractAddr ? t.contractAddr.slice(0, 10) + '...' + t.contractAddr.slice(-8) : 'Contract pending'}
-    · Powered by <a href="https://fatdev.org" style="color:var(--fd-cyan);">FatDev</a>
+  <div style="margin-top:11px;font-size:10px;color:#8A9BC299;">
+    ${t.contractAddr ? t.contractAddr.slice(0, 10) + '…' + t.contractAddr.slice(-8) : 'Contract pending'}
+    · Powered by <a href="https://fatdev.org" style="color:#00CFFF;">FatDev</a>
   </div>
 </div>`
 }
 
-// ── Component ──────────────────────────────────────────────────────────────────
+// ── Component ─────────────────────────────────────────────────────────────────
 export function SocialTools() {
-  const { cfg, getUserData }  = useStore()
-  const { address }           = useAccount()
-  const chainId               = useChainId()
-  const publicClient          = usePublicClient()
-  const user                  = address ? getUserData(address) : null
-  const deploys               = user?.deploys ?? []
+  const { cfg, getUserData } = useStore()
+  const { address }   = useAccount()
+  const chainId       = useChainId()
+  const publicClient  = usePublicClient()
+  const user          = address ? getUserData(address) : null
+  const deploys       = user?.deploys ?? []
 
-  // ── Contract address input ─────────────────────────────────────────────────
-  const [contractInput,  setContractInput]  = useState('')
-  const [loadingToken,   setLoadingToken]   = useState(false)
-  const [loadError,      setLoadError]      = useState('')
-  const [source,         setSource]         = useState<'wizard' | 'custom'>('wizard')
+  const [tab, setTab] = useState<Tab>('content')
 
-  // ── Editable token info (defaults from wizard cfg, overridable) ────────────
-  const [info, setInfo] = useState<TokenInfo>({
-    name:         cfg.name,
-    symbol:       cfg.symbol,
-    decimals:     cfg.decimals,
-    totalSupply:  Number(cfg.totalSupply),
-    buyTax:       cfg.buyTax / 100,
-    sellTax:      cfg.sellTax / 100,
-    killBlock:    false,
-    walletLimit:  false,
-    antiSync:     false,
-    taxLocked:    true,
+  // ── Token facts ─────────────────────────────────────────────────────────────
+  const [facts, setFacts] = useState<TokenFacts>({
+    name: cfg.name, symbol: cfg.symbol, decimals: cfg.decimals,
+    totalSupply: Number(cfg.totalSupply) || 0,
+    buyTax: cfg.buyTax / 100, sellTax: cfg.sellTax / 100,
     contractAddr: deploys[0]?.contractAddress ?? '',
     chainId,
+    taxLocked: true,
   })
 
-  const [tab,          setTab]          = useState<Tab>('announcement')
-  const [platform,     setPlatform]     = useState<Platform>('telegram')
-  const [copied,       setCopied]       = useState(false)
-  const [widgetCopied, setWidgetCopied] = useState(false)
+  const [contractInput, setContractInput] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState('')
 
-  // ── Load custom contract (pulls symbol/decimals on-chain) ─────────────────
+  // ── Composer state ──────────────────────────────────────────────────────────
+  const [kind, setKind]         = useState<PostKind>('launch')
+  const [tone, setTone]         = useState<Tone>('hype')
+  const [platform, setPlatform] = useState<Platform>('telegram')
+  const [variant, setVariant]   = useState(0)
+  const [copied, setCopied]     = useState<string | null>(null)
+
+  const post = useMemo(
+    () => generatePost(kind, platform, tone, facts, variant),
+    [kind, platform, tone, facts, variant]
+  )
+  const widgetCode = useMemo(() => buildWidgetCode(facts), [facts])
+
+  async function copy(text: string, tag: string) {
+    await navigator.clipboard.writeText(text)
+    setCopied(tag)
+    setTimeout(() => setCopied(c => (c === tag ? null : c)), 1800)
+  }
+
   async function loadContract(addr: string) {
     const clean = addr.trim()
     if (!/^0x[0-9a-fA-F]{40}$/.test(clean)) { setLoadError('Enter a valid 0x contract address'); return }
     if (!publicClient) return
-    setLoadingToken(true); setLoadError('')
+    setLoading(true); setLoadError('')
     try {
       const [sym, dec] = await Promise.all([
         publicClient.readContract({ address: clean as `0x${string}`, abi: ERC20_APPROVE_ABI, functionName: 'symbol' }),
         publicClient.readContract({ address: clean as `0x${string}`, abi: ERC20_APPROVE_ABI, functionName: 'decimals' }),
       ])
-      setInfo(i => ({ ...i, contractAddr: clean, symbol: sym as string, decimals: Number(dec), chainId, name: i.name || (sym as string) }))
-      setSource('custom')
+      setFacts(f => ({
+        ...f, contractAddr: clean, chainId,
+        symbol: sym as string, decimals: Number(dec),
+        name: f.name || (sym as string),
+      }))
     } catch (e: any) {
       setLoadError(e.shortMessage ?? e.message ?? 'Failed to read contract')
     }
-    setLoadingToken(false)
+    setLoading(false)
   }
 
-  // ── Use wizard config ──────────────────────────────────────────────────────
-  function useWizardConfig() {
-    setInfo({
-      name:         cfg.name,
-      symbol:       cfg.symbol,
-      decimals:     cfg.decimals,
-      totalSupply:  Number(cfg.totalSupply),
-      buyTax:       cfg.buyTax / 100,
-      sellTax:      cfg.sellTax / 100,
-      killBlock:    false,
-      walletLimit:  false,
-      antiSync:     false,
-      taxLocked:    true,
-      contractAddr: deploys[0]?.contractAddress ?? '',
-      chainId,
-    })
-    setContractInput('')
-    setSource('wizard')
-  }
-
-  const announcement = buildAnnouncement(platform, info)
-  const widgetCode   = buildWidgetCode(info)
-
-  async function copyText(text: string, setCop: (b: boolean) => void) {
-    await navigator.clipboard.writeText(text)
-    setCop(true); setTimeout(() => setCop(false), 2000)
-  }
-
-  const platformMeta: Record<Platform, { icon: string; label: string; color: string }> = {
-    telegram: { icon: '✈️', label: 'Telegram',   color: '#2CA5E0' },
-    twitter:  { icon: '🐦', label: 'X / Twitter', color: '#1DA1F2' },
-    discord:  { icon: '🎮', label: 'Discord',     color: '#7289DA' },
-  }
-
-  // ── Inline toggle ──────────────────────────────────────────────────────────
-  function BoolToggle({ field, label }: { field: keyof TokenInfo; label: string }) {
-    const val = info[field] as boolean
-    return (
-      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12 }}>
-        <div style={{ width: 36, height: 20, borderRadius: 10, flexShrink: 0,
-          background: val ? 'var(--fd-cyan)' : 'rgba(255,255,255,0.1)', position: 'relative', transition: 'background 0.2s' }}
-          onClick={() => setInfo(i => ({ ...i, [field]: !val }))}>
-          <div style={{ width: 16, height: 16, borderRadius: 8, background: '#fff',
-            position: 'absolute', top: 2, left: val ? 18 : 2, transition: 'left 0.2s' }} />
-        </div>
-        {label}
-      </label>
-    )
-  }
+  const variants = variantCount(kind, tone)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div className="step-panel" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-      {/* ── Contract address input ── */}
-      <div className="card">
-        <div style={{ fontWeight: 700, marginBottom: 4 }}>Token contract address</div>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10 }}>
-          Paste any ERC-20 / BEP-20 contract to auto-fill symbol &amp; decimals, then fill in the rest below. Or use your wizard config.
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input
-            className="field-input"
-            style={{ flex: 1, fontFamily: "'Space Mono',monospace", fontSize: 12 }}
-            placeholder="0x… token contract address"
-            value={contractInput}
-            onChange={e => { setContractInput(e.target.value); setLoadError('') }}
-            onKeyDown={e => e.key === 'Enter' && loadContract(contractInput)}
-          />
-          <button className="btn-primary" style={{ padding: '8px 16px', fontSize: 13 }}
-            onClick={() => loadContract(contractInput)} disabled={loadingToken}>
-            {loadingToken ? <Spinner /> : 'Load'}
+      {/* ── Tabs ── */}
+      <div className="seg" style={{ alignSelf: 'flex-start' }}>
+        {([['content', 'Content', 'megaphone'], ['widget', 'Website widget', 'code']] as const).map(([id, label, ic]) => (
+          <button key={id} className="seg__btn" aria-pressed={tab === id}
+            onClick={() => setTab(id as Tab)}>
+            <Icon name={ic as IconName} size={14} />{label}
           </button>
-        </div>
-        {loadError && <div style={{ marginTop: 8, fontSize: 12, color: 'var(--red)' }}>{loadError}</div>}
+        ))}
+      </div>
 
-        {/* Status + quick-select */}
-        <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          {source === 'custom' && info.contractAddr && (
-            <>
-              <span className="pill pill-ok">✓ Custom contract</span>
-              {info.symbol && <span className="pill pill-gold">{info.symbol}</span>}
-            </>
-          )}
-          {source === 'wizard' && <span className="pill pill-gold">Using wizard config</span>}
-          <button className="btn-ghost" style={{ fontSize: 11, padding: '3px 10px' }} onClick={useWizardConfig}>
-            ↩ Use wizard config
-          </button>
+      {/* ── Token facts ── */}
+      <section className="tool-panel">
+        <div className="tool-head">
+          <span className="tool-head__icon"><Icon name="coins" size={17} /></span>
+          <div>
+            <h3 className="tool-head__title">Token details</h3>
+            <p className="tool-head__sub">Every post is built from these — nothing left as a placeholder</p>
+          </div>
         </div>
 
-        {/* Deploys quick-select */}
         {deploys.filter(d => d.contractAddress).length > 0 && (
-          <div style={{ marginTop: 10, paddingTop: 10, borderTop: '0.5px solid var(--border)' }}>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>Your FatDev deploys:</div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 11, color: 'var(--fd-ghost)', marginBottom: 7 }}>From your deploys:</div>
+            <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
               {deploys.filter(d => d.contractAddress).map(d => (
-                <button key={d.contractAddress} className="btn-ghost" style={{ fontSize: 11, padding: '3px 10px' }}
-                  onClick={() => {
-                    const deployChain = d.chainId ?? chainId
-                    setInfo(i => ({ ...i, contractAddr: d.contractAddress!, chainId: deployChain,
-                      name: d.tokenName ?? i.name, symbol: d.tokenSymbol ?? i.symbol,
-                      decimals: d.decimals ?? i.decimals }))
-                    setContractInput(d.contractAddress!)
-                    setSource('custom')
-                  }}>
+                <button key={d.id} className="btn-ghost" style={{ fontSize: 11, padding: '4px 11px' }}
+                  onClick={() => setFacts(f => ({
+                    ...f, contractAddr: d.contractAddress!, symbol: d.tokenSymbol,
+                    name: d.tokenName ?? f.name, chainId: d.chainId ?? f.chainId,
+                  }))}>
                   {d.tokenSymbol}
                 </button>
               ))}
             </div>
           </div>
         )}
-      </div>
 
-      {/* ── Editable token info ── */}
-      <div className="card">
-        <div style={{ fontWeight: 700, marginBottom: 10 }}>Token details for announcements</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
-          <div>
-            <div className="field-label">Token name</div>
-            <input className="field-input" style={{ width: '100%' }} value={info.name}
-              onChange={e => setInfo(i => ({ ...i, name: e.target.value }))} />
-          </div>
-          <div>
-            <div className="field-label">Symbol</div>
-            <input className="field-input" style={{ width: '100%' }} value={info.symbol}
-              onChange={e => setInfo(i => ({ ...i, symbol: e.target.value }))} />
-          </div>
-          <div>
-            <div className="field-label">Total supply</div>
-            <input type="number" className="field-input" style={{ width: '100%' }} min={0}
-              value={info.totalSupply} onChange={e => setInfo(i => ({ ...i, totalSupply: parseFloat(e.target.value) || 0 }))} />
-          </div>
-          <div>
-            <div className="field-label">Buy tax %</div>
-            <input type="number" className="field-input" style={{ width: '100%' }} min={0} max={25} step="0.1"
-              value={info.buyTax} onChange={e => setInfo(i => ({ ...i, buyTax: parseFloat(e.target.value) || 0 }))} />
-          </div>
-          <div>
-            <div className="field-label">Sell tax %</div>
-            <input type="number" className="field-input" style={{ width: '100%' }} min={0} max={25} step="0.1"
-              value={info.sellTax} onChange={e => setInfo(i => ({ ...i, sellTax: parseFloat(e.target.value) || 0 }))} />
-          </div>
-          <div>
-            <div className="field-label">Contract address</div>
-            <input className="field-input" style={{ width: '100%', fontFamily: "'Space Mono',monospace", fontSize: 11 }}
-              value={info.contractAddr} onChange={e => setInfo(i => ({ ...i, contractAddr: e.target.value }))}
-              placeholder="0x…" />
-          </div>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <BoolToggle field="taxLocked"    label="Taxes locked" />
-          <BoolToggle field="antiSync"     label="Anti-SYNC" />
-          <BoolToggle field="killBlock"    label="Kill block / anti-sniper" />
-          <BoolToggle field="walletLimit"  label="Wallet limit" />
-        </div>
-      </div>
-
-      {/* ── Tabs ── */}
-      <div style={{ display: 'flex', gap: 8 }}>
-        {(['announcement', 'widget'] as Tab[]).map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            className={tab === t ? 'btn-primary' : 'btn-ghost'}
-            style={{ fontSize: 13, padding: '6px 18px', textTransform: 'capitalize' }}>
-            {t === 'announcement' ? '📢 Announcement' : '🔲 Embed Widget'}
+        <div style={{ display: 'flex', gap: 9, marginBottom: 14, flexWrap: 'wrap' }}>
+          <input className="field-input"
+            style={{ flex: 1, minWidth: 220, fontFamily: 'var(--fd-font-mono)', fontSize: 12.5 }}
+            placeholder="0x… paste a contract to auto-fill"
+            value={contractInput}
+            onChange={e => { setContractInput(e.target.value); setLoadError('') }}
+            onKeyDown={e => e.key === 'Enter' && loadContract(contractInput)} />
+          <button className="btn-primary" onClick={() => loadContract(contractInput)} disabled={loading}
+            style={{ padding: '9px 16px', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+            {loading ? <Spinner /> : <><Icon name="download" size={14} />Load</>}
           </button>
-        ))}
-      </div>
-
-      {/* ── Announcement tab ── */}
-      {tab === 'announcement' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {(Object.keys(platformMeta) as Platform[]).map(p => (
-              <button key={p} onClick={() => setPlatform(p)}
-                style={{
-                  padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                  border: `1px solid ${platform === p ? platformMeta[p].color : 'var(--border)'}`,
-                  background: platform === p ? `${platformMeta[p].color}20` : 'transparent',
-                  color: platform === p ? platformMeta[p].color : 'var(--text-secondary)',
-                  transition: 'all 0.15s',
-                }}>
-                {platformMeta[p].icon} {platformMeta[p].label}
-              </button>
-            ))}
-          </div>
-
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <div style={{ padding: '10px 16px', borderBottom: '0.5px solid var(--border)',
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              background: `${platformMeta[platform].color}12` }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: platformMeta[platform].color }}>
-                {platformMeta[platform].icon} {platformMeta[platform].label} Preview
-              </span>
-              <button className="btn-primary" style={{ fontSize: 11, padding: '4px 12px' }}
-                onClick={() => copyText(announcement, setCopied)}>
-                {copied ? '✓ Copied!' : '📋 Copy'}
-              </button>
-            </div>
-            <pre style={{
-              whiteSpace: 'pre-wrap', wordBreak: 'break-word', padding: '16px',
-              fontFamily: 'inherit', fontSize: 12.5, lineHeight: 1.7, margin: 0,
-              color: 'var(--text-secondary)', maxHeight: 480, overflowY: 'auto',
-            }}>
-              {announcement}
-            </pre>
-          </div>
         </div>
-      )}
+        {loadError && (
+          <div style={{ fontSize: 12, color: 'var(--red)', marginBottom: 10 }}>{loadError}</div>
+        )}
 
-      {/* ── Widget tab ── */}
-      {tab === 'widget' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ padding: '12px 16px', borderRadius: 10, background: 'rgba(74,144,226,0.08)',
-            border: '0.5px solid rgba(74,144,226,0.25)', fontSize: 12, color: 'var(--text-secondary)' }}>
-            <strong style={{ color: 'var(--blue)' }}>Embed on your website:</strong>{' '}
-            Paste this HTML anywhere on your token landing page to show live stats.
-            Style it further with your own CSS — all inline styles are overridable.
-          </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10 }}>
+          {([
+            ['Name',     facts.name,               (v: string) => setFacts(f => ({ ...f, name: v })),            'text'],
+            ['Symbol',   facts.symbol,             (v: string) => setFacts(f => ({ ...f, symbol: v.toUpperCase() })), 'text'],
+            ['Supply',   String(facts.totalSupply), (v: string) => setFacts(f => ({ ...f, totalSupply: Number(v) || 0 })), 'number'],
+            ['Buy tax %',  String(facts.buyTax),   (v: string) => setFacts(f => ({ ...f, buyTax: Number(v) || 0 })),  'number'],
+            ['Sell tax %', String(facts.sellTax),  (v: string) => setFacts(f => ({ ...f, sellTax: Number(v) || 0 })), 'number'],
+          ] as const).map(([label, value, onChange, type]) => (
+            <label key={label} style={{ display: 'block' }}>
+              <span className="field-label">{label}</span>
+              <input className="field-input" type={type} value={value}
+                onChange={e => onChange(e.target.value)} style={{ width: '100%' }} />
+            </label>
+          ))}
+        </div>
 
-          <div className="card" style={{ padding: 20, display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-            {/* Preview */}
-            <div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 }}>PREVIEW</div>
-              <div style={{ fontFamily: 'sans-serif', maxWidth: 280, border: '1px solid rgba(255,215,0,0.2)',
-                borderRadius: 12, background: '#0A1929', padding: 16, color: '#fff' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <div>
-                    <div style={{ fontWeight: 800, fontSize: 18 }}>{info.name || 'Token Name'}</div>
-                    <div style={{ color: 'var(--fd-cyan)', fontSize: 12 }}>${info.symbol || 'TKN'}</div>
-                  </div>
-                  <div style={{ width: 32, height: 32, borderRadius: 6, background: 'var(--fd-cyan)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontWeight: 800, color: '#040D18', fontSize: 14 }}>F</div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12 }}>
-                  <div style={{ background: 'rgba(255,215,0,0.08)', borderRadius: 8, padding: '8px 10px' }}>
-                    <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, marginBottom: 2 }}>Supply</div>
-                    <div style={{ fontWeight: 700 }}>{info.totalSupply > 0 ? info.totalSupply.toLocaleString() : '—'}</div>
-                  </div>
-                  <div style={{ background: 'rgba(255,215,0,0.08)', borderRadius: 8, padding: '8px 10px' }}>
-                    <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, marginBottom: 2 }}>Buy/Sell Tax</div>
-                    <div style={{ fontWeight: 700 }}>{info.buyTax.toFixed(1)}% / {info.sellTax.toFixed(1)}%</div>
-                  </div>
-                </div>
-                <div style={{ marginTop: 10, fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>
-                  {info.contractAddr ? info.contractAddr.slice(0, 10) + '...' + info.contractAddr.slice(-8) : 'Contract pending'}
-                  {' '}· Powered by FatDev
-                </div>
-              </div>
+        <div style={{
+          marginTop: 12, fontSize: 11.5, color: 'var(--fd-ghost)',
+          display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap',
+        }}>
+          <ChainIcon chainId={facts.chainId} size={14} />
+          {CHAIN_NAME[facts.chainId] ?? `Chain ${facts.chainId}`}
+          {facts.contractAddr && (
+            <>
+              <span style={{ opacity: 0.5 }}>·</span>
+              <code style={{ fontFamily: 'var(--fd-font-mono)' }}>
+                {facts.contractAddr.slice(0, 10)}…{facts.contractAddr.slice(-6)}
+              </code>
+            </>
+          )}
+        </div>
+      </section>
+
+      {tab === 'content' ? (
+        <>
+          {/* ── Post kind ── */}
+          <section>
+            <div className="scan-section-label">What are you posting?</div>
+            <div className="opt-grid">
+              {POST_KINDS.map(k => (
+                <button key={k.kind} className="opt" aria-pressed={kind === k.kind}
+                  onClick={() => { setKind(k.kind); setVariant(0) }}>
+                  <span className="opt__label">{k.label}</span>
+                  <span className="opt__blurb">{k.blurb}</span>
+                </button>
+              ))}
             </div>
+          </section>
 
-            {/* Embed code */}
-            <div style={{ flex: 1, minWidth: 240 }}>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 }}>EMBED CODE</div>
-              <div style={{ position: 'relative' }}>
-                <pre style={{
-                  whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: 10.5,
-                  fontFamily: "'Space Mono',monospace", lineHeight: 1.6,
-                  background: 'rgba(0,0,0,0.3)', borderRadius: 8, padding: 12,
-                  border: '0.5px solid var(--border)', maxHeight: 260, overflowY: 'auto',
-                  color: 'var(--text-secondary)', margin: 0,
-                }}>
-                  {widgetCode}
-                </pre>
+          {/* ── Tone ── */}
+          <section>
+            <div className="scan-section-label">Tone of voice</div>
+            <div className="opt-grid">
+              {TONES.map(t => (
+                <button key={t.tone} className="opt" aria-pressed={tone === t.tone}
+                  onClick={() => { setTone(t.tone); setVariant(0) }}>
+                  <span className="opt__label">{t.label}</span>
+                  <span className="opt__blurb">{t.blurb}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* ── Output ── */}
+          <section>
+            <div className="scan-section-label">Your post</div>
+
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              gap: 10, marginBottom: 11, flexWrap: 'wrap',
+            }}>
+              <div className="seg">
+                {PLATFORMS.map(p => (
+                  <button key={p.id} className="seg__btn" aria-pressed={platform === p.id}
+                    onClick={() => setPlatform(p.id)}>
+                    <Icon name={p.icon} size={14} />{p.label}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {variants > 1 && (
+                  <button className="btn-ghost"
+                    onClick={() => setVariant(v => (v + 1) % variants)}
+                    style={{ fontSize: 12, padding: '7px 13px', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                    <Icon name="refresh" size={14} />Reword
+                  </button>
+                )}
                 <button className="btn-primary"
-                  style={{ position: 'absolute', top: 8, right: 8, fontSize: 10, padding: '3px 10px' }}
-                  onClick={() => copyText(widgetCode, setWidgetCopied)}>
-                  {widgetCopied ? '✓' : '📋'}
+                  onClick={() => copy(post.text, 'post')}
+                  style={{ fontSize: 12.5, padding: '7px 15px', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                  <Icon name={copied === 'post' ? 'check' : 'copy'} size={14} />
+                  {copied === 'post' ? 'Copied' : 'Copy post'}
                 </button>
               </div>
             </div>
-          </div>
 
-          <div className="card" style={{ padding: 14 }}>
-            <div style={{ fontWeight: 700, marginBottom: 8, fontSize: 13 }}>💡 Enhance the widget</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.8 }}>
-              The static widget above works out-of-the-box. To add <strong style={{ color: '#fff' }}>live price &amp; holder data</strong>,
-              wire up the widget's <code style={{ color: 'var(--fd-cyan)', fontSize: 11 }}>data-contract</code> to the
-              BSCScan/Etherscan API (same key used by FatDev: <code style={{ color: 'var(--fd-cyan)', fontSize: 11 }}>BHPP1DMU8YABI4Y9MV7PUGATK49IKR8D3F</code>).
-              Call <code style={{ color: 'var(--fd-cyan)', fontSize: 11 }}>tokenholderlist</code> for holder count
-              and <code style={{ color: 'var(--fd-cyan)', fontSize: 11 }}>tokentx</code> for recent activity.
+            <div className="preview">{post.text}</div>
+
+            <div className="preview__meta">
+              <span style={{ fontSize: 11.5, color: 'var(--fd-ghost)' }}>
+                {platform === 'telegram' && 'Telegram markdown — paste straight into your channel'}
+                {platform === 'twitter'  && 'Plain text with hashtags — ready for X'}
+                {platform === 'discord'  && 'Discord markdown — headings and tables render natively'}
+              </span>
+              {platform === 'twitter' && (
+                <span className={`preview__count${post.overLimit ? ' preview__count--over' : ''}`}>
+                  {post.charCount} / 280
+                  {post.overLimit && ' — too long, trim before posting'}
+                </span>
+              )}
             </div>
+          </section>
+        </>
+      ) : (
+        /* ── Widget tab ── */
+        <section>
+          <div className="scan-section-label">Embeddable widget</div>
+          <p style={{ fontSize: 12.5, color: 'var(--fd-ghost)', lineHeight: 1.6, margin: '0 0 12px' }}>
+            Drop this into any website to show live token details. Self-contained HTML —
+            no script tag, no external dependency.
+          </p>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+            <button className="btn-primary" onClick={() => copy(widgetCode, 'widget')}
+              style={{ fontSize: 12.5, padding: '7px 15px', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+              <Icon name={copied === 'widget' ? 'check' : 'copy'} size={14} />
+              {copied === 'widget' ? 'Copied' : 'Copy embed code'}
+            </button>
           </div>
-        </div>
+          <div className="preview">{widgetCode}</div>
+        </section>
       )}
     </div>
   )
