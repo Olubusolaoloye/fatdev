@@ -5,6 +5,19 @@ import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
 import { useAppConfig } from '../hooks/useAppConfig'
 import Icon, { type IconName } from '../components/ui-kit/Icon'
+import ChainIcon from '../components/ui-kit/ChainIcon'
+import { SUPPORTED_CHAINS, hasVerifiedRouter, CHAIN_NAME } from '../lib/wagmi'
+
+/**
+ * Chains the badge advertises as live.
+ *
+ * Derived from hasVerifiedRouter rather than hardcoded, so the claim stays
+ * truthful on its own as routers are added. A chain without a verified router
+ * still scans and transfers, but a tax/reflection token deployed there would
+ * point at a dead router and could never auto-pair — not something to put on
+ * the homepage as "live".
+ */
+const LIVE_CHAINS = SUPPORTED_CHAINS.filter(c => !c.testnet && hasVerifiedRouter(c.id))
 
 // ── Intersection observer for scroll-reveal ───────────────────────────────────
 function useReveal() {
@@ -445,7 +458,15 @@ export function LandingPage() {
               animation: 'pulse-dot 1.6s ease-in-out infinite' }} />
             <span style={{ fontSize: 10, fontFamily: "'Space Mono',monospace",
               color: 'rgba(255,255,255,0.65)', letterSpacing: '.1em' }}>
-              LIVE ON BSC · ETH · ARBITRUM · ROBINHOOD CHAIN
+              LIVE ON
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              {LIVE_CHAINS.map(c => (
+                <ChainIcon key={c.id} chainId={c.id} size={16} />
+              ))}
+            </span>
+            <span className="sr-only">
+              Live on {LIVE_CHAINS.map(c => CHAIN_NAME[c.id]).join(', ')}
             </span>
           </div>
 
