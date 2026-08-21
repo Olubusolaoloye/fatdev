@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabaseReady } from '../../lib/supabase'
-import type { DbUser, DbDeploy, DbPayment, TierPrices } from '../../lib/supabase'
+import type { DbUser, DbDeploy, DbPayment } from '../../lib/supabase'
 import {
   adminGetStats, adminGetDeploysByWallet, adminGetPaymentsByWallet,
-  adminSetMaintenanceMode, adminSetTierPrices, adminUpdateUserTier,
+  adminSetMaintenanceMode, adminUpdateUserTier,
   adminGetAllConfig, adminSetConfig,
 } from '../../lib/admin'
-import { invalidateAppConfig, DEFAULT_PRICES } from '../../hooks/useAppConfig'
+import { invalidateAppConfig } from '../../hooks/useAppConfig'
 import {
   FEATURE_REGISTRY, DEFAULT_FEATURE_FLAGS, normalizeFlags,
   type FeatureFlags,
@@ -16,10 +16,6 @@ import { Spinner } from '../ui-kit'
 import Icon, { type IconName } from '../ui-kit/Icon'
 
 const ADMIN_PASSWORD = 'fatadmin2025'
-
-const TIER_COLOR: Record<string, string> = {
-  free: 'var(--text-muted)', starter: 'var(--blue)', pro: 'var(--fd-cyan)', elite: 'var(--green)',
-}
 
 function fmt(n: number) {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
@@ -118,7 +114,6 @@ function DashboardContent() {
   const [deploys, setDeploys]   = useState<DbDeploy[]>([])
   const [payments,setPayments]  = useState<DbPayment[]>([])
 
-  const [tierCounts,   setTierCounts]   = useState<Record<string, number>>({})
   const [chainCounts,  setChainCounts]  = useState<Record<number, number>>({})
   const [totalRevenue, setTotalRevenue] = useState(0)
 
@@ -133,7 +128,6 @@ function DashboardContent() {
       setUsers(stats.users)
       setDeploys(stats.deploys)
       setPayments(stats.payments)
-      setTierCounts(stats.tierCounts)
       setChainCounts(stats.chainCounts)
       setTotalRevenue(stats.totalRevenue)
     } catch (e: any) {
@@ -241,12 +235,12 @@ function DashboardContent() {
                 {/* Charts */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
                   <div style={{ background: 'var(--navy-card)', border: '0.5px solid var(--border)', borderRadius: 12, padding: 20 }}>
-                    <div style={{ fontWeight: 700, marginBottom: 16 }}>Users by tier</div>
+                    <div style={{ fontWeight: 700, marginBottom: 16 }}>Users by deploys purchased</div>
                     <BarChart data={[
-                      { label: 'Elite',   value: tierCounts.elite   ?? 0, color: 'var(--green)' },
-                      { label: 'Pro',     value: tierCounts.pro     ?? 0, color: 'var(--fd-cyan)'  },
-                      { label: 'Starter', value: tierCounts.starter ?? 0, color: 'var(--blue)'  },
-                      { label: 'Free',    value: tierCounts.free    ?? 0, color: 'rgba(255,255,255,0.2)' },
+                      { label: '5+',   value: users.filter(u => (u.deploys_limit ?? 0) >= 5).length, color: 'var(--fd-green)' },
+                      { label: '2-4',  value: users.filter(u => (u.deploys_limit ?? 0) >= 2 && (u.deploys_limit ?? 0) < 5).length, color: 'var(--fd-cyan)' },
+                      { label: '1',    value: users.filter(u => (u.deploys_limit ?? 0) === 1).length, color: 'var(--blue)' },
+                      { label: 'None', value: users.filter(u => !(u.deploys_limit ?? 0)).length, color: 'rgba(255,255,255,0.2)' },
                     ]} />
                   </div>
                   <div style={{ background: 'var(--navy-card)', border: '0.5px solid var(--border)', borderRadius: 12, padding: 20 }}>
@@ -518,7 +512,8 @@ function UsersTab({ users, loading, onRefresh }: { users: DbUser[]; loading: boo
   const [saving,        setSaving]        = useState(false)
 
   const filtered = users.filter(u => {
-    const matchTier   = tierFilter === 'all' || u.tier === tierFilter
+    const matchTier   = tierFilter === 'all'
+      || (tierFilter === 'paid' ? (u.deploys_limit ?? 0) > 0 : !(u.deploys_limit ?? 0))
     const matchSearch = u.wallet.toLowerCase().includes(search.toLowerCase())
     return matchTier && matchSearch
   })
@@ -553,11 +548,9 @@ function UsersTab({ users, loading, onRefresh }: { users: DbUser[]; loading: boo
             onChange={e => setSearch(e.target.value)} style={{ width: 220, fontSize: 12, padding: '6px 12px' }} />
           <select value={tierFilter} onChange={e => setTierFilter(e.target.value)}
             style={{ background: 'var(--fd-void)', border: '0.5px solid var(--border)', color: '#fff', borderRadius: 8, padding: '6px 10px', fontSize: 12, cursor: 'pointer' }}>
-            <option value="all">All tiers</option>
-            <option value="free">Free</option>
-            <option value="starter">Starter</option>
-            <option value="pro">Pro</option>
-            <option value="elite">Elite</option>
+            <option value="all">All wallets</option>
+            <option value="paid">Has paid deploys</option>
+            <option value="none">No deploys purchased</option>
           </select>
         </div>
       </div>
@@ -567,7 +560,7 @@ function UsersTab({ users, loading, onRefresh }: { users: DbUser[]; loading: boo
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>
               <tr style={{ borderBottom: '0.5px solid var(--border)', background: 'rgba(255,255,255,0.02)' }}>
-                {['Wallet', 'Tier', 'Deploys used', 'Limit', 'Payment TX', 'Joined', 'Actions'].map(h => (
+                {['Wallet', 'Deploys used', 'Purchased', 'Payment TX', 'Joined', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -582,9 +575,6 @@ function UsersTab({ users, loading, onRefresh }: { users: DbUser[]; loading: boo
                     <td style={{ padding: '10px 12px', fontFamily: "'Space Mono',monospace" }}>
                       <span style={{ color: 'var(--text-secondary)', marginRight: 6 }}>{expandedWallet === u.wallet ? '▾' : '▸'}</span>
                       <span title={u.wallet}>{shortAddr(u.wallet)}</span>
-                    </td>
-                    <td style={{ padding: '10px 12px' }}>
-                      <span style={{ fontWeight: 700, color: TIER_COLOR[u.tier], textTransform: 'uppercase', fontSize: 11 }}>{u.tier}</span>
                     </td>
                     <td style={{ padding: '10px 12px', textAlign: 'center' }}>{u.deploys_used}</td>
                     <td style={{ padding: '10px 12px', textAlign: 'center' }}>{u.deploys_limit >= 999 ? '∞' : u.deploys_limit}</td>
@@ -640,7 +630,7 @@ function UsersTab({ users, loading, onRefresh }: { users: DbUser[]; loading: boo
                                   ? <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>No payments recorded.</p>
                                   : drillPayments.map(p => (
                                     <div key={p.id} style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', marginBottom: 6, fontSize: 11 }}>
-                                      <div style={{ fontWeight: 700, textTransform: 'uppercase', color: TIER_COLOR[p.tier] }}>
+                                      <div style={{ fontWeight: 700, textTransform: 'uppercase', color: 'var(--fd-cyan)' }}>
                                         {p.tier} — {p.amount_usd ? fmt(p.amount_usd) : '—'}
                                       </div>
                                       <div style={{ color: 'var(--text-muted)', marginTop: 2 }}>
@@ -675,15 +665,7 @@ function UsersTab({ users, loading, onRefresh }: { users: DbUser[]; loading: boo
             onClick={e => e.stopPropagation()}>
             <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 4 }}>Edit User Tier</div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: "'Space Mono',monospace", marginBottom: 16 }}>{editTier.wallet}</div>
-            <div className="field-label" style={{ marginBottom: 6 }}>Tier</div>
-            <select value={editTier.tier} onChange={e => setEditTier(t => t ? { ...t, tier: e.target.value } : null)}
-              style={{ width: '100%', background: 'var(--fd-void)', border: '0.5px solid var(--border)', color: '#fff', borderRadius: 8, padding: '8px 10px', fontSize: 13, marginBottom: 14, cursor: 'pointer' }}>
-              <option value="free">Free</option>
-              <option value="starter">Starter</option>
-              <option value="pro">Pro</option>
-              <option value="elite">Elite</option>
-            </select>
-            <div className="field-label" style={{ marginBottom: 6 }}>Deploy limit (999 = unlimited)</div>
+            <div className="field-label" style={{ marginBottom: 6 }}>Deploys purchased (999 = unlimited)</div>
             <input type="number" className="field-input" style={{ width: '100%', marginBottom: 16 }}
               value={editTier.limit} onChange={e => setEditTier(t => t ? { ...t, limit: parseInt(e.target.value) || 0 } : null)} />
             <div style={{ display: 'flex', gap: 10 }}>
@@ -722,7 +704,7 @@ function PaymentsTab({ payments, loading, totalRevenue }: { payments: DbPayment[
                 <tr key={p.id} style={{ borderBottom: '0.5px solid rgba(255,255,255,0.04)' }}>
                   <td style={{ padding: '10px 12px', fontFamily: "'Space Mono',monospace" }}>{shortAddr(p.wallet)}</td>
                   <td style={{ padding: '10px 12px' }}>
-                    <span style={{ fontWeight: 700, color: TIER_COLOR[p.tier], textTransform: 'uppercase', fontSize: 11 }}>{p.tier}</span>
+                    <span style={{ fontWeight: 700, color: 'var(--fd-cyan)', textTransform: 'uppercase', fontSize: 11 }}>{p.tier}</span>
                   </td>
                   <td style={{ padding: '10px 12px', color: 'var(--green)', fontWeight: 600 }}>
                     {p.amount_usd ? fmt(p.amount_usd) : '—'}
@@ -750,7 +732,6 @@ function PaymentsTab({ payments, loading, totalRevenue }: { payments: DbPayment[
 function SettingsTab() {
   const [maintenance,   setMaintenance]   = useState(false)
   const [maintMsg,      setMaintMsg]      = useState('Scheduled maintenance in progress. We\'ll be back shortly.')
-  const [prices,        setPrices]        = useState<TierPrices>(DEFAULT_PRICES)
   const [loadingConfig, setLoadingConfig] = useState(true)
   const [saving,        setSaving]        = useState(false)
   const [saved,         setSaved]         = useState('')
@@ -761,7 +742,6 @@ function SettingsTab() {
       const config = await adminGetAllConfig()
       if (config.maintenance_mode    !== undefined) setMaintenance(config.maintenance_mode)
       if (config.maintenance_message !== undefined) setMaintMsg(config.maintenance_message)
-      if (config.tier_prices         !== undefined) setPrices({ ...DEFAULT_PRICES, ...config.tier_prices })
       setLoadingConfig(false)
     })()
   }, [])
@@ -775,24 +755,6 @@ function SettingsTab() {
       setTimeout(() => setSaved(''), 2000)
     } catch (e: any) { alert(e.message) }
     setSaving(false)
-  }
-
-  async function savePrices() {
-    setSaving(true)
-    try {
-      await adminSetTierPrices(prices)
-      invalidateAppConfig()
-      setSaved('prices')
-      setTimeout(() => setSaved(''), 2000)
-    } catch (e: any) { alert(e.message) }
-    setSaving(false)
-  }
-
-  function updatePrice(tier: keyof TierPrices, field: keyof TierPrices['starter'], val: number | string) {
-    setPrices(p => ({
-      ...p,
-      [tier]: { ...p[tier], [field]: field === 'label' ? val : Number(val) }
-    }))
   }
 
   if (loadingConfig) return <div style={{ textAlign: 'center', padding: 60 }}><Spinner /></div>
@@ -839,61 +801,6 @@ function SettingsTab() {
 
         <button className="btn-primary" onClick={saveMaintenance} disabled={saving || !supabaseReady}>
           {saving ? <Spinner /> : saved === 'maintenance' ? '✓ Saved!' : 'Save maintenance settings'}
-        </button>
-      </div>
-
-      {/* ── Tier price editor ── */}
-      <div className="card">
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Icon name="coins" size={16} />Tier Prices</div>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 20 }}>
-          Update pricing for each plan. Changes reflect immediately on the Plan step for all users.
-        </div>
-
-        {(['starter', 'pro', 'elite'] as const).map(tier => (
-          <div key={tier} style={{ marginBottom: 20, padding: '16px', borderRadius: 10,
-            background: 'rgba(255,255,255,0.03)', border: '0.5px solid var(--border)' }}>
-            <div style={{ fontWeight: 700, fontSize: 13, textTransform: 'uppercase', color: TIER_COLOR[tier], marginBottom: 12 }}>
-              {tier}
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 10 }}>
-              <div>
-                <div className="field-label">Display label</div>
-                <input className="field-input" style={{ width: '100%' }}
-                  value={prices[tier].label}
-                  onChange={e => updatePrice(tier, 'label', e.target.value)} />
-              </div>
-              <div>
-                <div className="field-label">USD price</div>
-                <input type="number" className="field-input" style={{ width: '100%' }} min={0}
-                  value={prices[tier].usd}
-                  onChange={e => updatePrice(tier, 'usd', e.target.value)} />
-              </div>
-              <div>
-                <div className="field-label">BLIN amount</div>
-                <input type="number" className="field-input" style={{ width: '100%' }} min={0}
-                  value={prices[tier].blin}
-                  onChange={e => updatePrice(tier, 'blin', e.target.value)} />
-              </div>
-              <div>
-                <div className="field-label">Native (ETH/BNB)</div>
-                <input type="number" className="field-input" style={{ width: '100%' }} min={0} step="0.001"
-                  value={prices[tier].native}
-                  onChange={e => updatePrice(tier, 'native', e.target.value)} />
-              </div>
-            </div>
-          </div>
-        ))}
-
-        {!supabaseReady && (
-          <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(255,82,82,0.1)', fontSize: 12, color: 'var(--red)', marginBottom: 14 }}>
-            <Icon name="alert" size={14} style={{ verticalAlign: '-2px', marginRight: 6 }} />
-            Supabase not connected — changes will not persist. Configure env vars first.
-          </div>
-        )}
-
-        <button className="btn-primary" onClick={savePrices} disabled={saving || !supabaseReady}>
-          {saving ? <Spinner /> : saved === 'prices' ? '✓ Prices saved!' : 'Save prices'}
         </button>
       </div>
     </div>

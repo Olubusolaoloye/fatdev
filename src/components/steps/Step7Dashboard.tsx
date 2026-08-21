@@ -31,7 +31,7 @@ export function Step7Dashboard() {
         padding: '4px 20px',
       }}>
         <SumTile val={address ? `${address.slice(0,6)}…${address.slice(-4)}` : '—'} label="Wallet" />
-        <SumTile val={<span style={{ textTransform: 'uppercase' }}>{user?.tier ?? '—'}</span>} label="Plan" />
+        <SumTile val={user?.deploysLimit ?? 0} label="Deploys paid" />
         <SumTile val={user?.deploysUsed ?? 0} label="Deploys used" />
         <SumTile val={deploysLeft} label="Deploys left" />
       </div>
@@ -180,9 +180,9 @@ export function Step7Dashboard() {
         <Btn variant="primary" onClick={newDeploy} style={{ flex: 1, justifyContent: 'center' }}>
           + New deploy
         </Btn>
-        {user?.tier !== 'elite' && (
-          <Btn variant="secondary" onClick={() => setStep(1)}>
-            Upgrade plan →
+        {true && (
+          <Btn variant="secondary" onClick={() => setStep(5)}>
+            Buy another deploy →
           </Btn>
         )}
         <Btn variant="ghost" onClick={() => setStep(8)}>Tools</Btn>

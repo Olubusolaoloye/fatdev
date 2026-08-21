@@ -11,7 +11,7 @@ export async function syncUser(wallet: string, data: UserData) {
   if (!supabaseReady) return
   await supabase.from('users').upsert({
     wallet:          wallet.toLowerCase(),
-    tier:            data.tier,
+    tier:            'deploy',
     deploys_used:    data.deploysUsed,
     deploys_limit:   data.deploysLimit,
     payment_tx_hash: data.paymentTxHash,
@@ -84,7 +84,6 @@ export async function fetchUserFromSupabase(wallet: string): Promise<Partial<Use
     .single()
   if (error || !data) return null
   return {
-    tier:           data.tier as UserData['tier'],
     deploysUsed:    data.deploys_used,
     deploysLimit:   data.deploys_limit,
     paymentTxHash:  data.payment_tx_hash,

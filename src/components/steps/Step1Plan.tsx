@@ -1,361 +1,227 @@
 import { useState, useEffect } from 'react'
 import { useWalletClient, usePublicClient, useAccount, useChainId } from 'wagmi'
 import { mainnet } from 'viem/chains'
-import { formatUnits, parseEther, parseUnits } from 'viem'
+import { parseEther, parseUnits } from 'viem'
 import { useStore } from '../../lib/store'
-import { payWithBLIN, payWithNative, BLIN_ADDRESS } from '../../lib/contracts'
-import { useAppConfig } from '../../hooks/useAppConfig'
+import { payWithBLIN, payWithNative } from '../../lib/contracts'
 import { quoteNative, roundNative, formatQuote, isChainPriceable, type NativeQuote } from '../../lib/priceOracle'
-import { StatusBox, Spinner, Badge, Btn } from '../ui-kit'
+import { SERVICES } from '../../lib/services'
+import { CHAIN_NAME } from '../../lib/wagmi'
+import { StatusBox, Spinner, Btn } from '../ui-kit'
+import Icon from '../ui-kit/Icon'
+import ChainIcon from '../ui-kit/ChainIcon'
 
-const TIERS = {
-  starter: {
-    label: 'Starter', deploys: 1,
-    badge: 'cyan' as const,
-    accent: 'var(--fd-cyan)',
-    features: ['1 token deploy', 'All config options', 'Param export', 'Email support'],
-  },
-  pro: {
-    label: 'Pro', deploys: 3, popular: true,
-    badge: 'purple' as const,
-    accent: 'var(--fd-cyan)',
-    features: ['3 token deploys', 'Full tax config', 'Anti-bot suite', 'One-click deploy', 'Priority support'],
-  },
-  elite: {
-    label: 'Elite', deploys: 999,
-    badge: 'green' as const,
-    accent: 'var(--fd-green)',
-    features: ['Unlimited deploys', 'All chains', 'Custom tokenomics', 'Telegram bot access', 'Dedicated support'],
-  },
-}
-
-const TIER_PRICES: Record<string, string> = {
-  starter: '0.02 ETH',
-  pro:     '0.05 ETH',
-  elite:   '0.1 ETH',
-}
+/** $BLIN is priced in USD too; the discount is part of the service catalogue. */
+const CREATOR = SERVICES.find(s => s.key === 'creator')!
+const PRICE_USD      = CREATOR.fee.kind === 'flat' ? CREATOR.fee.usd : 30
+const PRICE_BLIN_USD = CREATOR.fee.kind === 'flat' ? (CREATOR.fee.blinUsd ?? PRICE_USD) : PRICE_USD
 
 export function Step1Plan({ onNext }: { onNext: () => void }) {
   const { address } = useAccount()
   const chainId = useChainId()
   const { data: walletClient } = useWalletClient()
   const publicClient = usePublicClient()
-  const { selectedTier, setSelectedTier, payMethod, setPayMethod, getUserData, upgradeTier } = useStore()
-  const { prices } = useAppConfig()
+  const { payMethod, setPayMethod, getUserData, addDeployCredits } = useStore()
 
-  // ── Live native quote ───────────────────────────────────────────────────────
-  // The tier's USD price is authoritative; the native amount is derived from it
-  // at current rates, so the same tier costs the same everywhere.
-  const [quote, setQuote]         = useState<NativeQuote | null>(null)
-  const [quoteErr, setQuoteErr]   = useState('')
-  const [quoting, setQuoting]     = useState(false)
+  const [quote, setQuote]     = useState<NativeQuote | null>(null)
+  const [quoteErr, setQuoteErr] = useState('')
+  const [quoting, setQuoting] = useState(false)
 
-  const [paying, setPaying]   = useState(false)
-  const [paid, setPaid]       = useState(false)
-  const [status, setStatus]   = useState('')
-  const [error, setError]     = useState('')
+  const [paying, setPaying] = useState(false)
+  const [paid, setPaid]     = useState(false)
+  const [status, setStatus] = useState('')
+  const [error, setError]   = useState('')
 
-  const user        = address ? getUserData(address) : null
-  const deploysLeft = user ? (user.deploysLimit >= 999 ? '∞' : user.deploysLimit - user.deploysUsed) : 0
-  const alreadyTier = user && user.tier !== 'free'
-  const onMainnet   = chainId === mainnet.id
-  const selTier     = TIERS[selectedTier]
-  const tierCfg     = prices[selectedTier]
-  const price       = {
-    blin:  parseUnits(String(tierCfg.blin), 18),
-    label: tierCfg.label,
-  }
+  const user      = address ? getUserData(address) : null
+  const credits   = user ? user.deploysLimit - user.deploysUsed : 0
+  const onMainnet = chainId === mainnet.id
 
-  // Refresh the quote whenever the chain or tier changes
+  // Live native quote for the connected chain
   useEffect(() => {
     let cancelled = false
     if (!isChainPriceable(chainId)) {
       setQuote(null)
-      setQuoteErr(`No native price feed for this network yet — pay in $BLIN or switch chains.`)
+      setQuoteErr('No native price feed for this network yet — pay in $BLIN or switch chains.')
       return
     }
     setQuoting(true); setQuoteErr('')
-    quoteNative(chainId, tierCfg.usd)
+    quoteNative(chainId, PRICE_USD)
       .then(q => { if (!cancelled) { setQuote(q); setQuoteErr('') } })
       .catch(e => { if (!cancelled) { setQuote(null); setQuoteErr(e.message) } })
       .finally(() => { if (!cancelled) setQuoting(false) })
     return () => { cancelled = true }
-  }, [chainId, tierCfg.usd])
+  }, [chainId])
 
   async function doPay() {
     if (!walletClient || !publicClient || !address) return
     setPaying(true); setError(''); setStatus('')
     try {
       let txHash: string
+      let usdPaid: number
+
       if (payMethod === 'blin') {
-        txHash = await payWithBLIN(selectedTier, walletClient as any, publicClient as any, setStatus, price.blin)
+        // $BLIN amount still comes from the configured token quantity
+        const blinAmount = parseUnits(String(PRICE_BLIN_USD * 1000), 18)
+        txHash  = await payWithBLIN('deploy', walletClient as any, publicClient as any, setStatus, blinAmount)
+        usdPaid = PRICE_BLIN_USD
       } else {
-        // Re-quote immediately before charging so the rate is never stale
-        const fresh = await quoteNative(chainId, tierCfg.usd)
+        // Re-quote at the moment of charging so the rate is never stale
+        const fresh = await quoteNative(chainId, PRICE_USD)
         const wei   = parseEther(String(roundNative(fresh.nativeAmount)))
-        txHash = await payWithNative(selectedTier, walletClient as any, publicClient as any, setStatus, wei)
+        txHash  = await payWithNative('deploy', walletClient as any, publicClient as any, setStatus, wei)
+        usdPaid = PRICE_USD
       }
-      upgradeTier(address, selectedTier, txHash, payMethod === 'blin' ? 'BLIN' : 'native')
+
+      addDeployCredits(address, 1, txHash, payMethod === 'blin' ? 'BLIN' : 'native', usdPaid)
       setPaid(true)
-      setStatus('Tier unlocked! ✓')
-      setTimeout(() => onNext(), 1000)
+      setStatus('Payment confirmed — deploy unlocked.')
+      setTimeout(() => onNext(), 900)
     } catch (e: any) {
       setError(e.message || 'Payment failed')
     }
     setPaying(false)
   }
 
-  return (
-    <div>
-      {alreadyTier && (
-        <StatusBox
-          msg={`You're on ${user!.tier.toUpperCase()} — ${deploysLeft} deploy${deploysLeft !== 1 ? 's' : ''} remaining. You can skip payment and continue.`}
-          type="ok"
-        />
-      )}
-
-      {/* ── Tier card grid ── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: 16,
-        margin: '24px 0',
-      }} className="tier-grid">
-
-        {(Object.entries(TIERS) as [keyof typeof TIERS, typeof TIERS['pro']][]).map(([key, tier]) => {
-          const selected = selectedTier === key
-          const isActive = user?.tier === key
-          return (
-            <TierCard
-              key={key}
-              tier={tier}
-              price={prices[key]?.label ?? TIER_PRICES[key]}
-              selected={selected}
-              isActive={isActive}
-              onClick={() => setSelectedTier(key)}
-            />
-          )
-        })}
+  // Already holds an unused credit — no need to pay again
+  if (credits > 0 && !paid) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <div className="tool-panel" style={{ borderColor: 'var(--fd-border-green)' }}>
+          <div className="tool-head">
+            <span className="tool-head__icon" style={{
+              background: 'rgba(0,229,122,0.1)', borderColor: 'rgba(0,229,122,0.3)',
+              color: 'var(--fd-green)',
+            }}><Icon name="check" size={17} /></span>
+            <div>
+              <h3 className="tool-head__title">Deploy already paid for</h3>
+              <p className="tool-head__sub">
+                {credits} deploy{credits === 1 ? '' : 's'} remaining on this wallet
+              </p>
+            </div>
+          </div>
+          <Btn variant="primary" onClick={onNext} style={{ width: '100%', justifyContent: 'center' }}>
+            Continue to deploy
+            <Icon name="arrowRight" size={15} />
+          </Btn>
+        </div>
       </div>
+    )
+  }
 
-      {/* ── Payment card ── */}
-      <div style={{
-        background: 'var(--fd-surface)',
-        border: '1px solid var(--fd-border)',
-        borderRadius: 'var(--fd-radius-lg)',
-        padding: 24,
-      }}>
-        <div style={{
-          fontSize: 15, fontWeight: 600, color: 'var(--fd-white)',
-          marginBottom: 16, fontFamily: 'var(--fd-font-display)',
-        }}>
-          Pay to unlock <span style={{ color: 'var(--fd-cyan)' }}>{selTier.label}</span>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+      {/* ── Price ── */}
+      <section className="tool-panel">
+        <div className="tool-head">
+          <span className="tool-head__icon"><Icon name="zap" size={17} /></span>
+          <div>
+            <h3 className="tool-head__title">Token deployment</h3>
+            <p className="tool-head__sub">One payment, one deploy — no plans, no subscription</p>
+          </div>
         </div>
 
-        {/* Payment method pill switcher */}
-        <div style={{
-          display: 'flex',
-          background: 'var(--fd-slate)',
-          borderRadius: 'var(--fd-radius)',
-          padding: 3,
-          marginBottom: 16,
-        }}>
-          {(['blin', 'native'] as const).map(m => (
-            <button key={m}
-              onClick={() => setPayMethod(m)}
-              style={{
-                flex: 1, padding: '8px 12px',
-                borderRadius: 'calc(var(--fd-radius) - 2px)',
-                border: 'none', cursor: 'pointer',
-                fontFamily: 'var(--fd-font-display)', fontSize: 13, fontWeight: 600,
-                background: payMethod === m ? 'var(--fd-cyan)' : 'transparent',
-                color:      payMethod === m ? 'var(--fd-void)' : 'var(--fd-ghost)',
-                transition: 'background 150ms ease, color 150ms ease',
-                whiteSpace: 'nowrap',
-              }}>
-              {m === 'blin'
-                ? `$BLIN · ${Number(formatUnits(price.blin, 18)).toLocaleString()} BLIN`
-                : quote
-                  ? `Native · ${formatQuote(quote)}`
-                  : quoting ? 'Native · fetching rate…' : 'Native · rate unavailable'
-              }
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6 }}>
+          <span style={{
+            fontSize: 40, fontWeight: 800, color: 'var(--fd-cyan)',
+            fontFamily: 'var(--fd-font-display)', lineHeight: 1,
+          }}>${PRICE_USD}</span>
+          <span style={{ fontSize: 14, color: 'var(--fd-ghost)' }}>per deploy</span>
+        </div>
+        <div style={{ fontSize: 12.5, color: 'var(--fd-ghost)', marginBottom: 16 }}>
+          or <strong style={{ color: 'var(--fd-cyan)' }}>${PRICE_BLIN_USD}</strong> paying in $BLIN
+        </div>
+
+        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {[
+            'Standard, Tax, Deflationary or Reflection token',
+            'Deployed and verified on-chain from your own wallet',
+            'Full tax, anti-bot and limit configuration',
+            'Every free tool included — scanner, audit, airdrop, social',
+          ].map(f => (
+            <li key={f} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', fontSize: 13, color: 'var(--fd-ghost)' }}>
+              <Icon name="check" size={14} style={{ color: 'var(--fd-green)', marginTop: 1 }} />
+              {f}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {/* ── Payment method ── */}
+      <section className="tool-panel">
+        <div className="scan-section-label">Pay with</div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+          {([
+            ['blin',   '$BLIN',  `$${PRICE_BLIN_USD}`, 'Ethereum mainnet'],
+            ['native', 'Native', `$${PRICE_USD}`,      CHAIN_NAME[chainId] ?? 'connected chain'],
+          ] as const).map(([m, label, price, sub]) => (
+            <button key={m} className="opt" aria-pressed={payMethod === m}
+              onClick={() => setPayMethod(m)}>
+              <span className="opt__label">{label} · {price}</span>
+              <span className="opt__blurb">{sub}</span>
             </button>
           ))}
         </div>
 
-        {/* BLIN info banner */}
-        {payMethod === 'blin' && (
-          <div style={{
-            padding: '10px 14px', borderRadius: 'var(--fd-radius-sm)', marginBottom: 16,
-            background: 'var(--fd-cyan-ghost)', border: '1px solid var(--fd-border-cyan)',
-            fontSize: 12, color: 'var(--fd-cyan)', lineHeight: 1.6,
-          }}>
-            <strong>$BLIN lives on Ethereum mainnet.</strong>
-            {!onMainnet
-              ? <span> Your wallet will be switched to mainnet automatically when you pay.</span>
-              : <span> Your wallet is already on Ethereum mainnet ✓</span>
-            }
-            <br />
-            Contract: <span style={{ fontFamily: 'var(--fd-font-mono)', fontSize: 11, opacity: 0.8 }}>{BLIN_ADDRESS}</span>
-          </div>
-        )}
-
-        {/* Native info banner */}
         {payMethod === 'native' && (
           <div style={{
-            padding: '10px 14px', borderRadius: 'var(--fd-radius-sm)', marginBottom: 16,
-            background: 'var(--fd-green-ghost)', border: '1px solid var(--fd-border-green)',
-            fontSize: 12, color: 'var(--fd-green)', lineHeight: 1.6,
+            padding: '11px 14px', borderRadius: 'var(--fd-radius-sm)',
+            background: 'var(--fd-cyan-ghost)', border: '1px solid var(--fd-border-cyan)',
+            fontSize: 12, color: 'var(--fd-ghost)', lineHeight: 1.65,
+            display: 'flex', gap: 9,
           }}>
-            {quoteErr ? (
-              <span style={{ color: 'var(--amber)' }}>{quoteErr}</span>
-            ) : quote ? (
-              <>
-                <strong style={{ color: '#fff' }}>${quote.usd}</strong> ={' '}
-                <strong style={{ color: '#fff' }}>{formatQuote(quote)}</strong>{' '}
-                at ${quote.usdPerNative.toLocaleString(undefined, { maximumFractionDigits: 6 })} / {quote.symbol}.
-                <br />
-                {quote.pegged
-                  ? 'Native coin is USD-pegged on this network.'
-                  : 'Rate is refreshed when you pay, so you are charged the USD price regardless of which chain you are on.'}
-              </>
-            ) : (
-              'Fetching the current rate for this network…'
-            )}
+            <ChainIcon chainId={chainId} size={16} />
+            <div>
+              {quoteErr ? (
+                <span style={{ color: 'var(--amber)' }}>{quoteErr}</span>
+              ) : quote ? (
+                <>
+                  <strong style={{ color: '#fff' }}>${quote.usd}</strong> ={' '}
+                  <strong style={{ color: '#fff' }}>{formatQuote(quote)}</strong>{' '}
+                  at ${quote.usdPerNative.toLocaleString(undefined, { maximumFractionDigits: 6 })} / {quote.symbol}.
+                  <br />
+                  {quote.pegged
+                    ? 'Native coin is USD-pegged on this network.'
+                    : 'Re-quoted the moment you pay, so the USD price holds on every chain.'}
+                </>
+              ) : quoting ? 'Fetching the current rate…' : 'Rate unavailable.'}
+            </div>
           </div>
         )}
 
-        <Btn
-          variant="primary"
-          onClick={doPay}
-          disabled={paying || paid}
-          style={{ width: '100%', justifyContent: 'center', padding: '13px 22px' }}>
-          {paid     ? '✓ Payment confirmed'
-           : paying ? 'Processing…'
-           : `Pay ${price.label} → Unlock ${selTier.label}`}
-        </Btn>
-
-        {status && <StatusBox msg={status} type={paid ? 'ok' : 'info'} />}
-        {error  && <StatusBox msg={error}  type="err" />}
-        {paying && <Spinner />}
-      </div>
-
-      <style>{`
-        @media (max-width: 600px) {
-          .tier-grid { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
-    </div>
-  )
-}
-
-// ── TierCard ──────────────────────────────────────────────────────────────────
-function TierCard({
-  tier, price, selected, isActive, onClick,
-}: {
-  tier: typeof TIERS['pro']
-  price: string
-  selected: boolean
-  isActive: boolean
-  onClick: () => void
-}) {
-  const [hovered, setHovered] = useState(false)
-
-  const borderColor = selected
-    ? 'var(--fd-border-cyan)'
-    : hovered ? 'var(--fd-border-cyan)' : 'var(--fd-border)'
-
-  return (
-    <div
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        position: 'relative',
-        background: 'var(--fd-surface)',
-        border: `1px solid ${borderColor}`,
-        borderRadius: 'var(--fd-radius-lg)',
-        padding: '20px 18px 18px',
-        cursor: 'pointer',
-        transition: 'border-color 150ms ease',
-        overflow: 'hidden',
-        display: 'flex', flexDirection: 'column', gap: 0,
-      }}>
-
-      {/* Popular banner (Pro only) */}
-      {'popular' in tier && tier.popular && (
-        <div style={{
-          position: 'absolute', top: 0, left: 0, right: 0,
-          background: 'var(--fd-cyan)', color: 'var(--fd-void)',
-          fontFamily: 'var(--fd-font-mono)', fontSize: 11,
-          fontWeight: 700, letterSpacing: '0.08em',
-          textAlign: 'center', padding: '4px 0',
-        }}>
-          MOST POPULAR
-        </div>
-      )}
-
-      {/* Top accent bar (selected state) */}
-      {selected && (
-        <div style={{
-          position: 'absolute',
-          top: 'popular' in tier && tier.popular ? 25 : 0,
-          left: 0, right: 0,
-          height: 3,
-          background: tier.accent,
-        }} />
-      )}
-
-      {/* Badge — absolute top-right */}
-      <div style={{
-        position: 'absolute',
-        top: 'popular' in tier && tier.popular ? 36 : 12,
-        right: 12,
-      }}>
-        {isActive
-          ? <Badge variant="green">ACTIVE</Badge>
-          : <Badge variant={tier.badge}>{tier.label}</Badge>
-        }
-      </div>
-
-      {/* Spacer for popular banner */}
-      {'popular' in tier && tier.popular && <div style={{ height: 22 }} />}
-
-      {/* Tier name */}
-      <div style={{
-        fontSize: 18, fontWeight: 600,
-        color: 'var(--fd-white)',
-        fontFamily: 'var(--fd-font-display)',
-        marginBottom: 8, marginTop: 4,
-      }}>
-        {tier.label}
-      </div>
-
-      {/* Price */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 16 }}>
-        <span style={{
-          fontSize: 32, fontWeight: 700,
-          color: 'var(--fd-cyan)',
-          fontFamily: 'var(--fd-font-display)',
-          lineHeight: 1,
-        }}>{price}</span>
-        <span style={{ fontSize: 14, color: 'var(--fd-ghost)' }}>/deploy</span>
-      </div>
-
-      {/* Divider */}
-      <div style={{ height: 1, background: 'var(--fd-border)', marginBottom: 14 }} />
-
-      {/* Feature list */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-        {tier.features.map(f => (
-          <div key={f} style={{
-            display: 'flex', alignItems: 'flex-start', gap: 8,
-            fontSize: 13, color: 'var(--fd-ghost)', lineHeight: 1.4,
+        {payMethod === 'blin' && !onMainnet && (
+          <div style={{
+            padding: '11px 14px', borderRadius: 'var(--fd-radius-sm)',
+            background: 'rgba(255,176,32,0.07)', border: '1px solid rgba(255,176,32,0.22)',
+            fontSize: 12, color: 'var(--fd-ghost)', lineHeight: 1.65,
+            display: 'flex', gap: 9,
           }}>
-            <span style={{ color: 'var(--fd-green)', flexShrink: 0, marginTop: 1 }}>✓</span>
-            {f}
+            <Icon name="alert" size={15} style={{ color: 'var(--amber)', marginTop: 1 }} />
+            <span>$BLIN lives on Ethereum mainnet — your wallet will be asked to switch networks.</span>
           </div>
-        ))}
+        )}
+      </section>
+
+      {/* ── Pay ── */}
+      <div>
+        {status && <StatusBox msg={status} type={paid ? 'ok' : 'info'} />}
+        {error  && <StatusBox msg={error} type="err" />}
+
+        {!paid && (
+          <Btn variant="primary" onClick={doPay}
+            disabled={paying || (payMethod === 'native' && !quote)}
+            style={{ width: '100%', justifyContent: 'center', marginTop: 10 }}>
+            {paying ? <Spinner /> : (
+              <>
+                <Icon name="coins" size={16} />
+                Pay {payMethod === 'blin'
+                  ? `$${PRICE_BLIN_USD} in $BLIN`
+                  : quote ? formatQuote(quote) : `$${PRICE_USD}`}
+              </>
+            )}
+          </Btn>
+        )}
       </div>
     </div>
   )

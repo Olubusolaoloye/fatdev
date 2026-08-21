@@ -61,9 +61,10 @@ export type DeployRecord = {
 }
 
 export type UserData = {
-  tier: 'free' | 'starter' | 'pro' | 'elite'
-  deploysUsed: number
+  /** Deploys purchased, cumulative. One credit per paid deploy. */
   deploysLimit: number
+  /** Deploys consumed. Remaining = deploysLimit - deploysUsed. */
+  deploysUsed: number
   paymentTxHash: string | null
   paymentToken: string | null
   deploys: DeployRecord[]
@@ -144,8 +145,6 @@ export const DEFAULT_CFG: TokenConfig = {
   maxBuyAmount: '10000000', maxWalletAmount: '20000000',
 }
 
-const TIER_LIMITS: Record<string, number> = { free: 0, starter: 1, pro: 3, elite: 999 }
-
 type MigrateStore = {
   migrations: MigrationConfig[]
   activeMigrationId: string | null
@@ -173,15 +172,14 @@ type AppStore = MigrateStore & {
   // per-wallet user data (key = wallet address)
   userData: Record<string, UserData>
   getUserData: (addr: string) => UserData
-  upgradeTier: (addr: string, tier: string, txHash: string, token: string) => void
+  /** Grant deploy credits after a successful payment. */
+  addDeployCredits: (addr: string, credits: number, txHash: string, token: string, usdPaid: number) => void
   addDeploy: (addr: string, d: DeployRecord) => void
   patchDeploy: (addr: string, id: string, patch: Partial<DeployRecord>) => void
-  /** Merge server-authoritative fields (tier/limits) without overwriting local deploy history */
+  /** Merge server-authoritative fields (credits) without overwriting local deploy history */
   mergeUserData: (addr: string, patch: Partial<UserData>) => void
 
-  // tier selection & payment UI
-  selectedTier: 'starter' | 'pro' | 'elite'
-  setSelectedTier: (t: 'starter' | 'pro' | 'elite') => void
+  // payment UI
   payMethod: 'blin' | 'native'
   setPayMethod: (m: 'blin' | 'native') => void
 }
@@ -218,37 +216,32 @@ export const useStore = create<AppStore>()(
       getUserData: (addr) => {
         const key = addr.toLowerCase()
         return get().userData[key] ?? {
-          tier: 'free', deploysUsed: 0, deploysLimit: 0,
+          deploysUsed: 0, deploysLimit: 0,
           paymentTxHash: null, paymentToken: null, deploys: [],
         }
       },
-      upgradeTier: (addr, tier, txHash, token) => {
+      addDeployCredits: (addr, credits, txHash, token, usdPaid) => {
         const key = addr.toLowerCase()
         set(s => {
           const existing = s.userData[key]
-          const prevRemaining = (existing?.deploysLimit ?? 0) - (existing?.deploysUsed ?? 0)
-          const newCredits = TIER_LIMITS[tier] ?? 0
-          const newUsed = 0
-          const newLimit = Math.max(0, prevRemaining) + newCredits
+          // Credits accumulate; used count is never reset, so a purchase can
+          // never silently wipe a record of past deploys.
           const updated: UserData = {
-            ...(existing ?? { deploys: [] }),
-            tier: tier as UserData['tier'],
-            deploysLimit: newLimit,
-            deploysUsed: newUsed,
+            ...(existing ?? { deploysUsed: 0, deploys: [] }),
+            deploysLimit: (existing?.deploysLimit ?? 0) + credits,
+            deploysUsed:  existing?.deploysUsed ?? 0,
             paymentTxHash: txHash,
             paymentToken: token,
-          }
-          // Sync to Supabase (fire-and-forget)
+          } as UserData
           syncUser(key, updated)
-          const TIER_PRICE_USD: Record<string, number> = { starter: 49, pro: 149, elite: 399 }
-          insertPayment(key, tier, txHash, token, TIER_PRICE_USD[tier] ?? 0, 0)
+          insertPayment(key, 'deploy', txHash, token, usdPaid, 0)
           return { userData: { ...s.userData, [key]: updated } }
         })
       },
       addDeploy: (addr, d) => {
         const key = addr.toLowerCase()
         set(s => {
-          const u = s.userData[key] ?? { tier: 'free', deploysUsed: 0, deploysLimit: 0, paymentTxHash: null, paymentToken: null, deploys: [] }
+          const u = s.userData[key] ?? { deploysUsed: 0, deploysLimit: 0, paymentTxHash: null, paymentToken: null, deploys: [] }
           const updated = { ...u, deploysUsed: u.deploysUsed + 1, deploys: [d, ...u.deploys] }
           // Sync to Supabase (fire-and-forget)
           insertDeploy(key, d)
@@ -277,15 +270,13 @@ export const useStore = create<AppStore>()(
         const key = addr.toLowerCase()
         set(s => {
           const existing = s.userData[key] ?? {
-            tier: 'free', deploysUsed: 0, deploysLimit: 0,
+            deploysUsed: 0, deploysLimit: 0,
             paymentTxHash: null, paymentToken: null, deploys: [],
           }
           return { userData: { ...s.userData, [key]: { ...existing, ...patch } } }
         })
       },
 
-      selectedTier: 'pro',
-      setSelectedTier: (selectedTier) => set({ selectedTier }),
       payMethod: 'blin',
       setPayMethod: (payMethod) => set({ payMethod }),
     }),

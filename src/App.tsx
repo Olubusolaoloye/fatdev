@@ -175,7 +175,7 @@ export default function App() {
 
   // Payment now gates the Deploy step rather than the whole wizard, so users can
   // configure and review a token before being asked to pay for it.
-  const hasCredit = user?.tier !== 'free' && (user?.deploysLimit ?? 0) > 0
+  const hasCredit = ((user?.deploysLimit ?? 0) - (user?.deploysUsed ?? 0)) > 0
 
   const canNext =
     step === 1 ? (cfg.name.length > 0 && cfg.symbol.length > 0 && cfg.fundAddress.length > 10 && cfg.receiveAddress.length > 10)

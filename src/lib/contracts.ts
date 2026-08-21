@@ -1,4 +1,4 @@
-import { parseEther, parseUnits, formatUnits, createPublicClient, http, fallback } from 'viem'
+import { formatUnits, createPublicClient, http, fallback } from 'viem'
 import { mainnet } from 'viem/chains'
 import type { WalletClient, PublicClient } from 'viem'
 import { ROUTERS } from './wagmi'
@@ -20,12 +20,6 @@ const ethMainnetClient = createPublicClient({
     http('https://ethereum.publicnode.com'),
   ]),
 })
-
-export const TIER_PRICES = {
-  starter: { blin: parseUnits('50000',  18), native: parseEther('0.05'),  label: '$49'  },
-  pro:     { blin: parseUnits('150000', 18), native: parseEther('0.15'),  label: '$149' },
-  elite:   { blin: parseUnits('400000', 18), native: parseEther('0.40'),  label: '$399' },
-}
 
 // ERC-20 ABI (minimal)
 export const ERC20_ABI = [
@@ -51,15 +45,14 @@ export const ERC20_ABI = [
 //   2. Ask the wallet to switch to mainnet before sending the transfer
 //   3. Wait for receipt on mainnet
 export async function payWithBLIN(
-  tier: string,
+  _tier: string,
   walletClient: WalletClient,
   _publicClient: PublicClient, // kept for API compat, but we use ethMainnetClient for reads
   onStatus: (s: string) => void,
   overrideBlinAmount?: bigint,  // explicit amount from Supabase dynamic pricing
 ): Promise<string> {
-  const fallback = TIER_PRICES[tier as keyof typeof TIER_PRICES]
-  const blinAmount = overrideBlinAmount ?? fallback?.blin
-  if (!blinAmount) throw new Error('Unknown tier')
+  const blinAmount = overrideBlinAmount
+  if (!blinAmount) throw new Error('No $BLIN amount supplied for this payment')
   // Build a price-like object so the rest of the function stays unchanged
   const price = { blin: blinAmount }
 
@@ -116,15 +109,14 @@ export async function payWithBLIN(
 
 // ── Pay with native (ETH/BNB on user's connected chain) ───────────────────────
 export async function payWithNative(
-  tier: string,
+  _tier: string,
   walletClient: WalletClient,
   publicClient: PublicClient,
   onStatus: (s: string) => void,
   overrideNativeAmount?: bigint,  // explicit amount from Supabase dynamic pricing
 ): Promise<string> {
-  const fallback = TIER_PRICES[tier as keyof typeof TIER_PRICES]
-  const nativeAmount = overrideNativeAmount ?? fallback?.native
-  if (!nativeAmount) throw new Error('Unknown tier')
+  const nativeAmount = overrideNativeAmount
+  if (!nativeAmount) throw new Error('No native amount supplied for this payment')
   const [account] = await walletClient.getAddresses()
 
   onStatus('Sending payment…')
