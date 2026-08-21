@@ -15,26 +15,26 @@ import { Step7Dashboard } from './components/steps/Step7Dashboard'
 import { AdminDashboard } from './components/admin/AdminDashboard'
 import './index.css'
 
-const STEPS = ['Connect', 'Plan', 'Identity', 'Taxes', 'Features', 'Review', 'Deploy', 'Dashboard']
+const STEPS = ['Connect', 'Identity', 'Taxes', 'Features', 'Review', 'Payment', 'Deploy', 'Dashboard']
 
 const STEP_TITLES = [
   'Connect Wallet',
-  'Choose Your Plan',
   'Token Identity',
   'Tax Configuration',
   'Features & Anti-Bot',
   'Review & Export',
+  'Choose Your Plan',
   'Deploy On-Chain',
   'My Deploys',
 ]
 
 const STEP_SUBTITLES = [
   'Link your wallet to get started',
-  'Select a deployment tier',
   'Name, symbol, supply and addresses',
   'Buy and sell tax percentages',
   'Anti-bot, swap limits and wallet caps',
   'Confirm all parameters before deploying',
+  'Your token is ready — pick a tier to deploy it',
   'Send the contract to the blockchain',
   'View and manage your deployed tokens',
 ]
@@ -173,10 +173,14 @@ export default function App() {
 
   const distTotal = cfg.mktPct + cfg.lpPct + cfg.teamPct + cfg.buybackPct + cfg.burnPct
 
+  // Payment now gates the Deploy step rather than the whole wizard, so users can
+  // configure and review a token before being asked to pay for it.
+  const hasCredit = user?.tier !== 'free' && (user?.deploysLimit ?? 0) > 0
+
   const canNext =
-    step === 1 ? (user?.tier !== 'free' && (user?.deploysLimit ?? 0) > 0)
-    : step === 2 ? (cfg.name.length > 0 && cfg.symbol.length > 0 && cfg.fundAddress.length > 10 && cfg.receiveAddress.length > 10)
-    : step === 3 ? (taxOk(cfg) && (cfg.tokenType === 'standard' || distTotal === 100))
+    step === 1 ? (cfg.name.length > 0 && cfg.symbol.length > 0 && cfg.fundAddress.length > 10 && cfg.receiveAddress.length > 10)
+    : step === 2 ? (taxOk(cfg) && (cfg.tokenType === 'standard' || distTotal === 100))
+    : step === 5 ? hasCredit
     : true
 
   // Steps with no bottom nav (terminal or self-advancing)
@@ -198,11 +202,11 @@ export default function App() {
 
         {/* Step panels */}
         {step === 0 && <Step0Connect />}
-        {step === 1 && <Step1Plan onNext={() => setStep(2)} />}
-        {step === 2 && <Step2Identity />}
-        {step === 3 && <Step3Taxes />}
-        {step === 4 && <Step4Features />}
-        {step === 5 && <Step5Review />}
+        {step === 1 && <Step2Identity />}
+        {step === 2 && <Step3Taxes />}
+        {step === 3 && <Step4Features />}
+        {step === 4 && <Step5Review />}
+        {step === 5 && <Step1Plan onNext={() => setStep(6)} />}
         {step === 6 && <Step6Deploy onSuccess={() => setStep(7)} />}
         {step === 7 && <Step7Dashboard />}
       </main>
