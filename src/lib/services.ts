@@ -9,10 +9,15 @@
  */
 import type { IconName } from '../components/ui-kit/Icon'
 import type { FeatureKey } from './tools'
-import { ROUTERS } from './wagmi'
+import { SUPPORTED_CHAINS, hasVerifiedRouter } from './wagmi'
 
-/** Chains a token can actually be deployed to — those with a verified router. */
-export const DEPLOYABLE_CHAIN_COUNT = Object.keys(ROUTERS).length
+/**
+ * Mainnet chains a token can actually be deployed to — those with a verified
+ * router. Testnets are excluded: BSC Testnet is deployable but is not a chain
+ * anyone launches on, so counting it would inflate the claim.
+ */
+export const DEPLOYABLE_CHAIN_COUNT =
+  SUPPORTED_CHAINS.filter(c => !c.testnet && hasVerifiedRouter(c.id)).length
 
 export type ServiceFee =
   | { kind: 'free' }

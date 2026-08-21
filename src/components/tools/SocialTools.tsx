@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useStore } from '../../lib/store'
 import { useAccount, usePublicClient, useChainId } from 'wagmi'
 import { CHAIN_NAME } from '../../lib/wagmi'
-import { ERC20_APPROVE_ABI } from '../../lib/airdrop'
+import { resolveToken } from '../../lib/chainDetect'
 import {
   generatePost, variantCount, POST_KINDS, TONES,
   type Platform, type Tone, type PostKind, type TokenFacts,
@@ -102,14 +102,13 @@ export function SocialTools() {
     if (!publicClient) return
     setLoading(true); setLoadError('')
     try {
-      const [sym, dec] = await Promise.all([
-        publicClient.readContract({ address: clean as `0x${string}`, abi: ERC20_APPROVE_ABI, functionName: 'symbol' }),
-        publicClient.readContract({ address: clean as `0x${string}`, abi: ERC20_APPROVE_ABI, functionName: 'decimals' }),
-      ])
+      // Resolve against the chain the token actually lives on, not whichever
+      // network the wallet happens to be connected to.
+      const t = await resolveToken(clean)
       setFacts(f => ({
-        ...f, contractAddr: clean, chainId,
-        symbol: sym as string, decimals: Number(dec),
-        name: f.name || (sym as string),
+        ...f, contractAddr: t.address, chainId: t.chainId,
+        symbol: t.symbol, decimals: t.decimals,
+        name: t.name || f.name || t.symbol,
       }))
     } catch (e: any) {
       setLoadError(e.shortMessage ?? e.message ?? 'Failed to read contract')
@@ -162,7 +161,7 @@ export function SocialTools() {
         <div style={{ display: 'flex', gap: 9, marginBottom: 14, flexWrap: 'wrap' }}>
           <input className="field-input"
             style={{ flex: 1, minWidth: 220, fontFamily: 'var(--fd-font-mono)', fontSize: 12.5 }}
-            placeholder="0x… paste a contract to auto-fill"
+            placeholder="0x… paste a contract — network detected automatically"
             value={contractInput}
             onChange={e => { setContractInput(e.target.value); setLoadError('') }}
             onKeyDown={e => e.key === 'Enter' && loadContract(contractInput)} />

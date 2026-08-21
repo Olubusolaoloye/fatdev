@@ -5,7 +5,7 @@ import { ROUTERS } from './wagmi'
 import { BYTECODES } from './bytecodes'
 
 // ── Payment constants ─────────────────────────────────────────────────────────
-export const TREASURY     = '0xA7d617117887b3cAf2C93B07ceD3081Ee9F8F63a' as `0x${string}` // REPLACE with your wallet
+export const TREASURY     = '0xA7d617117887b3cAf2C93B07ceD3081Ee9F8F63a' as `0x${string}` // confirmed FatDev treasury
 export const BLIN_ADDRESS = '0xaEFB54306240502c5421Be478fa16aACfA9698A2' as `0x${string}`
 export const BLIN_CHAIN_ID = 1 // $BLIN is on Ethereum mainnet
 

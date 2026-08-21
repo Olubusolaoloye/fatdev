@@ -572,7 +572,7 @@ export function LandingPage() {
             backdropFilter: 'blur(8px)',
           }}>
             {[
-              { val: 5,   suffix: '',     label: 'Chains Supported'    },
+              { val: LIVE_CHAINS.length, suffix: '', label: 'Chains Supported' },
               { val: 8,   suffix: '-Step', label: 'Deploy Wizard'      },
               { val: 12,  suffix: '+',     label: 'Security Checks'    },
               { val: 100, suffix: '%',     label: 'On-Chain, No Proxy' },

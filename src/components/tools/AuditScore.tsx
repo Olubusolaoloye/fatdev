@@ -2,10 +2,11 @@ import { useState, useRef } from 'react'
 import { useAccount, usePublicClient, useChainId } from 'wagmi'
 import { useStore } from '../../lib/store'
 import { CHAIN_EXPLORERS, CHAIN_NAME as CHAIN_NAMES } from '../../lib/wagmi'
-import { ERC20_APPROVE_ABI } from '../../lib/airdrop'
+import { resolveToken, publicClientFor } from '../../lib/chainDetect'
 import { generateAuditPdf } from '../../lib/auditPdf'
 import { Spinner } from '../ui-kit'
 import Icon, { type IconName } from '../ui-kit/Icon'
+import ChainIcon from '../ui-kit/ChainIcon'
 
 
 // ── Scoring helpers ───────────────────────────────────────────────────────────
@@ -55,6 +56,7 @@ export function AuditScore() {
   // ── Contract address input (primary) ─────────────────────────────────────────
   const [contractInput,  setContractInput]  = useState('')
   const [contractAddr,   setContractAddr]   = useState('')   // confirmed / loaded
+  const [detectedChain,  setDetectedChain]  = useState<number | null>(null)
   const [loadingToken,   setLoadingToken]   = useState(false)
   const [loadError,      setLoadError]      = useState('')
 
@@ -76,15 +78,14 @@ export function AuditScore() {
     if (!publicClient) return
     setLoadingToken(true); setLoadError(''); setOnChainData(null)
     try {
-      const [sym, dec] = await Promise.all([
-        publicClient.readContract({ address: clean as `0x${string}`, abi: ERC20_APPROVE_ABI, functionName: 'symbol' }),
-        publicClient.readContract({ address: clean as `0x${string}`, abi: ERC20_APPROVE_ABI, functionName: 'decimals' }),
-      ])
-      setContractAddr(clean)
-      setManual(m => ({ ...m, symbol: sym as string, decimals: Number(dec), name: sym as string }))
+      // The address decides the chain — reading through the wallet's current
+      // network returned "0x" whenever the token lived somewhere else.
+      const tok = await resolveToken(clean)
+      setContractAddr(tok.address)
+      setDetectedChain(tok.chainId)
+      setManual(m => ({ ...m, symbol: tok.symbol, decimals: tok.decimals, name: tok.name || tok.symbol }))
       setUseManual(true)
-      // auto-run on-chain checks immediately
-      await runOnChainChecks(clean)
+      await runOnChainChecks(tok.address, tok.chainId)
     } catch (e: any) {
       setLoadError(e.shortMessage ?? e.message ?? 'Failed to read contract')
     }
@@ -92,32 +93,34 @@ export function AuditScore() {
   }
 
   // ── Run on-chain checks for a given address ───────────────────────────────────
-  async function runOnChainChecks(addr?: string) {
-    const target = addr ?? contractAddr
-    if (!target || !publicClient) return
+  async function runOnChainChecks(addr?: string, forChain?: number) {
+    const target  = addr ?? contractAddr
+    const chain   = forChain ?? detectedChain ?? chainId
+    const client  = publicClientFor(chain) ?? publicClient
+    if (!target || !client) return
     setChecking(true); setCheckError(''); setOnChainData(null)
     try {
       let ownerRenounced = false
       try {
         const ownerAbi = [{ name: 'owner', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] }] as const
-        const owner = await publicClient.readContract({ address: target as `0x${string}`, abi: ownerAbi, functionName: 'owner' })
+        const owner = await client.readContract({ address: target as `0x${string}`, abi: ownerAbi, functionName: 'owner' })
         ownerRenounced = owner === '0x0000000000000000000000000000000000000000'
       } catch { /* no owner() */ }
 
       let verified = false
       try {
-        const r = await fetch(`https://api.etherscan.io/v2/api?chainid=${chainId}&module=contract&action=getsourcecode&address=${target}&apikey=BHPP1DMU8YABI4Y9MV7PUGATK49IKR8D3F`)
+        const r = await fetch(`https://api.etherscan.io/v2/api?chainid=${chain}&module=contract&action=getsourcecode&address=${target}&apikey=BHPP1DMU8YABI4Y9MV7PUGATK49IKR8D3F`)
         const j = await r.json()
         verified = !!(j?.result?.[0]?.SourceCode && j.result[0].SourceCode !== '')
       } catch { /* API error */ }
 
       let hasLiquidity = false
       try {
-        const bal = await publicClient.getBalance({ address: target as `0x${string}` })
+        const bal = await client.getBalance({ address: target as `0x${string}` })
         hasLiquidity = bal > 0n
         if (!hasLiquidity) {
           const balAbi = [{ name: 'balanceOf', type: 'function', stateMutability: 'view', inputs: [{ name: '', type: 'address' }], outputs: [{ type: 'uint256' }] }] as const
-          const tb = await publicClient.readContract({ address: target as `0x${string}`, abi: balAbi, functionName: 'balanceOf', args: [target as `0x${string}`] })
+          const tb = await client.readContract({ address: target as `0x${string}`, abi: balAbi, functionName: 'balanceOf', args: [target as `0x${string}`] })
           hasLiquidity = (tb as bigint) > 0n
         }
       } catch { /* ignore */ }
@@ -309,6 +312,12 @@ export function AuditScore() {
         {contractAddr && !loadingToken && (
           <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <span className="pill pill-ok" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="check" size={12} />Loaded</span>
+            {detectedChain != null && (
+              <span className="pill" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <ChainIcon chainId={detectedChain} size={12} />
+                {CHAIN_NAMES[detectedChain] ?? `Chain ${detectedChain}`}
+              </span>
+            )}
             {manual.symbol && <span className="pill pill-gold">{manual.symbol}</span>}
             <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: "'Space Mono',monospace" }}>
               {contractAddr.slice(0, 10)}…{contractAddr.slice(-8)}

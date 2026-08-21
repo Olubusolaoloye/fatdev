@@ -18,7 +18,7 @@
  * Since a token with a live pair is by definition deployed on that chain, the
  * probe adds nothing in the common case and is now skipped there.
  */
-import { SUPPORTED_CHAINS, CHAIN_RPC, DEXSCREENER_SLUG, CHAIN_ID_BY_DEX_SLUG } from './wagmi'
+import { SUPPORTED_CHAINS, CHAIN_RPC_LIST, DEXSCREENER_SLUG, CHAIN_ID_BY_DEX_SLUG } from './wagmi'
 
 export type ChainCandidate = {
   chainId: number
@@ -68,7 +68,15 @@ async function fromDexScreener(address: string): Promise<{
     fetch(`https://api.dexscreener.com/latest/dex/tokens/${address}`).then(r => r.json()),
     DEX_TIMEOUT_MS
   )
-  const pairs: any[] = res?.pairs ?? []
+  const all: any[] = res?.pairs ?? []
+
+  // Only count pairs where this token is the BASE asset. DexScreener also
+  // returns pairs where it is merely the quote currency, and for widely-quoted
+  // tokens those dominate the (truncated) response — querying USDC returned
+  // enough PulseChain pairs quoting USDC to outrank its actual home on
+  // Ethereum. Being the quote side says nothing about where a token lives.
+  const lower = address.toLowerCase()
+  const pairs = all.filter(p => p?.baseToken?.address?.toLowerCase() === lower)
 
   for (const p of pairs) {
     const chainId = CHAIN_ID_BY_DEX_SLUG[p.chainId]
@@ -97,21 +105,27 @@ async function fromDexScreener(address: string): Promise<{
 
 // ── Stage 2: bytecode probe ───────────────────────────────────────────────────
 async function hasBytecode(address: string, chainId: number): Promise<boolean> {
-  const url = CHAIN_RPC[chainId]
-  if (!url) return false
+  const urls = CHAIN_RPC_LIST[chainId] ?? []
   const body = JSON.stringify({
     jsonrpc: '2.0', id: 1, method: 'eth_getCode', params: [address, 'latest'],
   })
-  const json = await withTimeout(
-    fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body,
-    }).then(r => r.json()),
-    RPC_TIMEOUT_MS
-  )
-  const code = json?.result
-  return typeof code === 'string' && code !== '0x' && code.length > 2
+
+  // Walk the endpoint list — public RPCs fail often enough that a single dead
+  // URL used to take the whole chain out of detection.
+  for (const url of urls) {
+    const json = await withTimeout(
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      }).then(r => r.json()),
+      RPC_TIMEOUT_MS
+    )
+    if (json?.result === undefined) continue      // endpoint failed — try the next
+    const code = json.result
+    return typeof code === 'string' && code !== '0x' && code.length > 2
+  }
+  return false
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -124,7 +138,21 @@ export async function detectChains(address: string): Promise<DetectResult> {
   const dex = await fromDexScreener(address)
 
   if (dex.byChain.size > 0) {
-    const candidates = [...dex.byChain.values()].sort(rankCandidates)
+    // If a fork chain showed up, make sure its origin is considered even when
+    // DexScreener's capped response contained none of the origin's pairs.
+    // Querying USDT returns 30 PulseChain pairs and zero Ethereum ones, so
+    // without this the origin never becomes a candidate to prefer.
+    for (const id of [...dex.byChain.keys()]) {
+      const origin = FORK_ORIGIN[id]
+      if (origin && !dex.byChain.has(origin) && await hasBytecode(address, origin)) {
+        dex.byChain.set(origin, {
+          chainId: origin, hasLiquidity: true,
+          liquidityUsd: 0, volume24h: 0, pairCreatedAt: null,
+        })
+      }
+    }
+
+    const candidates = resolveForkPreference([...dex.byChain.values()].sort(rankCandidates))
     const best = candidates[0]
     return { candidates, best, dexPairs: dex.pairsByChain.get(best.chainId) ?? [] }
   }
@@ -145,14 +173,59 @@ export async function detectChains(address: string): Promise<DetectResult> {
     }))
     .sort(rankCandidates)
 
-  return { candidates, best: candidates[0] ?? null, dexPairs: [] }
+  const ordered = resolveForkPreference(candidates)
+  return { candidates: ordered, best: ordered[0] ?? null, dexPairs: [] }
 }
 
-/** Traded deployments first, then by liquidity, then by 24h volume. */
+/**
+ * Chains that forked another chain's entire state, mapped to their origin.
+ *
+ * PulseChain copied Ethereum at the fork block, so every pre-fork Ethereum
+ * contract exists there at the same address. Bytecode presence on such a chain
+ * is an artifact of the fork, not a deliberate deployment, and DexScreener's
+ * 30-pair cap makes the copies easy to over-count: querying USDT returns 30
+ * PulseChain pairs and no Ethereum ones at all.
+ *
+ * So when an address appears on both a fork and its origin, the origin wins
+ * unless the fork is doing materially more volume. The scanner still lists both
+ * as candidates, so a user who genuinely wants the fork can switch to it.
+ */
+const FORK_ORIGIN: Record<number, number> = { 369: 1 }
+
+/**
+ * When both a fork and its origin hold the same address, the origin wins.
+ *
+ * No volume comparison: the origin is often added from a bytecode probe with no
+ * market data attached, and treating "we did not measure it" as "it has zero
+ * volume" hands the decision straight back to the fork. A contract that exists
+ * on both is an Ethereum contract that PulseChain copied, and that stays true
+ * whatever the sampled pair data happens to say.
+ */
+function resolveForkPreference(candidates: ChainCandidate[]): ChainCandidate[] {
+  const present = new Set(candidates.map(c => c.chainId))
+  return [...candidates].sort((a, b) => {
+    const aIsCopy = FORK_ORIGIN[a.chainId] != null && present.has(FORK_ORIGIN[a.chainId])
+    const bIsCopy = FORK_ORIGIN[b.chainId] != null && present.has(FORK_ORIGIN[b.chainId])
+    if (aIsCopy !== bIsCopy) return aIsCopy ? 1 : -1
+    return 0
+  })
+}
+
+/**
+ * Traded deployments first, then by 24h VOLUME, then liquidity.
+ *
+ * Volume leads deliberately. DexScreener caps its response at 30 pairs, and
+ * chains that forked Ethereum's state host the same contract at the same
+ * address — querying USDC returns 29 PulseChain pairs and 1 Ethereum pair.
+ * Ranking on sampled liquidity picked PulseChain ($10.6M vs $884k in-sample),
+ * which is wrong: Ethereum did $104.8M of volume that day against PulseChain's
+ * $101k. Real economic activity identifies a token's home; a truncated
+ * liquidity sample does not.
+ */
 function rankCandidates(a: ChainCandidate, b: ChainCandidate): number {
   if (a.hasLiquidity !== b.hasLiquidity) return a.hasLiquidity ? -1 : 1
-  if (b.liquidityUsd !== a.liquidityUsd) return b.liquidityUsd - a.liquidityUsd
-  return b.volume24h - a.volume24h
+  if (b.volume24h !== a.volume24h) return b.volume24h - a.volume24h
+  return b.liquidityUsd - a.liquidityUsd
 }
 
 /** Market data for a token on one chain — reused by the scanner's pillars. */
@@ -164,4 +237,85 @@ export async function fetchDexPairs(address: string, chainId: number): Promise<a
     DEX_TIMEOUT_MS
   )
   return (res?.pairs ?? []).filter((p: any) => p.chainId === slug)
+}
+
+// ── Reading a token from the chain it actually lives on ───────────────────────
+import { createPublicClient, http as viemHttp, fallback as viemFallback, type PublicClient } from 'viem'
+
+const clientCache = new Map<number, PublicClient>()
+
+/**
+ * A read-only client bound to a specific chain.
+ *
+ * Tools must not read token metadata through wagmi's usePublicClient: that is
+ * scoped to whichever network the user's wallet happens to be on, so pasting a
+ * BSC token while connected to Ethereum makes `symbol()` return "0x" and the
+ * tool reports a broken contract. The address decides the chain, not the wallet.
+ */
+export function publicClientFor(chainId: number): PublicClient | null {
+  const urls = CHAIN_RPC_LIST[chainId]
+  if (!urls?.length) return null
+  let c = clientCache.get(chainId)
+  if (!c) {
+    c = createPublicClient({
+      transport: viemFallback(urls.map(u => viemHttp(u, { timeout: 15_000 }))),
+    }) as PublicClient
+    clientCache.set(chainId, c)
+  }
+  return c
+}
+
+const ERC20_META = [
+  { name: 'symbol',   type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
+  { name: 'decimals', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint8' }]  },
+  { name: 'name',     type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
+] as const
+
+export type ResolvedToken = {
+  address: string
+  chainId: number
+  symbol: string
+  decimals: number
+  name: string
+}
+
+/**
+ * Find which chain a token is on, then read its metadata from there.
+ * Throws with an explanation rather than a raw ABI decode error.
+ */
+export async function resolveToken(address: string): Promise<ResolvedToken> {
+  const clean = address.trim()
+  if (!/^0x[0-9a-fA-F]{40}$/.test(clean)) {
+    throw new Error('Enter a valid contract address (0x followed by 40 hex characters)')
+  }
+
+  const det = await detectChains(clean)
+  if (!det.best) {
+    throw new Error(
+      'No contract found at this address on any supported network. ' +
+      'Check the address — it may be a wallet rather than a token, or on a chain FatDev does not cover yet.'
+    )
+  }
+
+  const chainId = det.best.chainId
+  const client  = publicClientFor(chainId)
+  if (!client) throw new Error(`No RPC configured for chain ${chainId}`)
+
+  try {
+    const [symbol, decimals, name] = await Promise.all([
+      client.readContract({ address: clean as `0x${string}`, abi: ERC20_META, functionName: 'symbol' }),
+      client.readContract({ address: clean as `0x${string}`, abi: ERC20_META, functionName: 'decimals' }),
+      client.readContract({ address: clean as `0x${string}`, abi: ERC20_META, functionName: 'name' })
+        .catch(() => ''),
+    ])
+    return {
+      address: clean, chainId,
+      symbol: String(symbol), decimals: Number(decimals), name: String(name || symbol),
+    }
+  } catch {
+    throw new Error(
+      'That address has code but does not respond like an ERC-20 token — ' +
+      'no symbol() or decimals(). It may be an NFT, a proxy, or a non-token contract.'
+    )
+  }
 }

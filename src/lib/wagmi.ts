@@ -9,6 +9,43 @@ import { robinhoodChain } from '../chains/robinhoodChain'
 
 export { robinhoodChain }
 
+/**
+ * RPC endpoints per chain, in preference order.
+ *
+ * A list rather than a single URL because public endpoints rot: eth.llamarpc.com
+ * started failing outright (CORS), rpc.ankr.com began requiring auth, and
+ * cloudflare-eth.com returns internal errors. With one URL per chain any of
+ * those took the whole chain offline for detection and token reads.
+ */
+export const CHAIN_RPC_LIST: Record<number, string[]> = {
+  56:    ['https://bsc-dataseed.binance.org', 'https://bsc.publicnode.com', 'https://bsc-dataseed1.defibit.io'],
+  1:     ['https://ethereum.publicnode.com', 'https://1rpc.io/eth', 'https://eth.drpc.org'],
+  42161: ['https://arb1.arbitrum.io/rpc', 'https://arbitrum.publicnode.com', 'https://1rpc.io/arb'],
+  8453:  ['https://mainnet.base.org', 'https://base.publicnode.com', 'https://1rpc.io/base'],
+  137:   ['https://polygon-rpc.com', 'https://polygon-bor.publicnode.com', 'https://1rpc.io/matic'],
+  10:    ['https://mainnet.optimism.io', 'https://optimism.publicnode.com', 'https://1rpc.io/op'],
+  43114: ['https://api.avax.network/ext/bc/C/rpc', 'https://avalanche-c-chain.publicnode.com'],
+  59144: [linea.rpcUrls.default.http[0], 'https://linea.drpc.org'],
+  999:   [hyperEvm.rpcUrls.default.http[0]],
+  146:   [sonic.rpcUrls.default.http[0]],
+  5000:  [mantle.rpcUrls.default.http[0], 'https://mantle.publicnode.com'],
+  1329:  [sei.rpcUrls.default.http[0]],
+  100:   [gnosis.rpcUrls.default.http[0], 'https://gnosis.publicnode.com'],
+  25:    [cronos.rpcUrls.default.http[0]],
+  4663:  [import.meta.env.VITE_ROBINHOOD_RPC_URL ?? 'https://rpc.mainnet.chain.robinhood.com'],
+  143:   [monad.rpcUrls.default.http[0]],
+  369:   [pulsechain.rpcUrls.default.http[0], 'https://rpc-pulsechain.g4mm4.io'],
+  9745:  [plasma.rpcUrls.default.http[0]],
+  988:   [stable.rpcUrls.default.http[0]],
+  15551: [loop.rpcUrls.default.http[0]],
+  97:    ['https://bsc-testnet.publicnode.com', 'https://data-seed-prebsc-1-s1.binance.org:8545'],
+}
+
+/** First working-order endpoint per chain, for callers that want just one. */
+export const CHAIN_RPC: Record<number, string> = Object.fromEntries(
+  Object.entries(CHAIN_RPC_LIST).map(([id, urls]) => [Number(id), urls[0]])
+)
+
 export const config = getDefaultConfig({
   appName: 'FatDev',
   appDescription: 'No-code BEP-20 / ERC-20 token deployer — deploy FatToken without writing Solidity.',
@@ -29,13 +66,7 @@ export const config = getDefaultConfig({
       http('https://bsc.publicnode.com'),
       http('https://1rpc.io/bnb'),
     ]),
-    [mainnet.id]: fallback([
-      http('https://eth.llamarpc.com'),
-      http('https://rpc.ankr.com/eth'),
-      http('https://1rpc.io/eth'),
-      http('https://ethereum.publicnode.com'),
-      http('https://cloudflare-eth.com'),
-    ]),
+    [mainnet.id]: fallback(CHAIN_RPC_LIST[1].map(u => http(u))),
     [arbitrum.id]: fallback([
       http('https://arb1.arbitrum.io/rpc'),
       http('https://arbitrum.llamarpc.com'),
@@ -85,34 +116,6 @@ export const config = getDefaultConfig({
     [loop.id]:      http(),
   },
 })
-
-/**
- * Plain RPC URL per chain — used for lightweight `eth_getCode` probes during
- * chain auto-detection, where spinning up 20 viem clients would be wasteful.
- */
-export const CHAIN_RPC: Record<number, string> = {
-  56:    'https://bsc-dataseed.binance.org',
-  1:     'https://eth.llamarpc.com',
-  42161: 'https://arb1.arbitrum.io/rpc',
-  8453:  'https://mainnet.base.org',
-  137:   'https://polygon-rpc.com',
-  10:    'https://mainnet.optimism.io',
-  43114: 'https://api.avax.network/ext/bc/C/rpc',
-  59144: linea.rpcUrls.default.http[0],
-  999:   hyperEvm.rpcUrls.default.http[0],
-  146:   sonic.rpcUrls.default.http[0],
-  5000:  mantle.rpcUrls.default.http[0],
-  1329:  sei.rpcUrls.default.http[0],
-  100:   gnosis.rpcUrls.default.http[0],
-  25:    cronos.rpcUrls.default.http[0],
-  4663:  import.meta.env.VITE_ROBINHOOD_RPC_URL ?? 'https://rpc.mainnet.chain.robinhood.com',
-  143:   monad.rpcUrls.default.http[0],
-  369:   pulsechain.rpcUrls.default.http[0],
-  9745:  plasma.rpcUrls.default.http[0],
-  988:   stable.rpcUrls.default.http[0],
-  15551: loop.rpcUrls.default.http[0],
-  97:    'https://bsc-testnet.publicnode.com',
-}
 
 /**
  * DexScreener's chain slugs, keyed by our chain id. Used both for market data
