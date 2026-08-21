@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useWalletClient, usePublicClient, useAccount, useChainId } from 'wagmi'
 import { mainnet } from 'viem/chains'
 import { formatUnits, parseEther, parseUnits } from 'viem'
 import { useStore } from '../../lib/store'
 import { payWithBLIN, payWithNative, BLIN_ADDRESS } from '../../lib/contracts'
 import { useAppConfig } from '../../hooks/useAppConfig'
+import { quoteNative, roundNative, formatQuote, isChainPriceable, type NativeQuote } from '../../lib/priceOracle'
 import { StatusBox, Spinner, Badge, Btn } from '../ui-kit'
 
 const TIERS = {
@@ -42,6 +43,13 @@ export function Step1Plan({ onNext }: { onNext: () => void }) {
   const { selectedTier, setSelectedTier, payMethod, setPayMethod, getUserData, upgradeTier } = useStore()
   const { prices } = useAppConfig()
 
+  // ── Live native quote ───────────────────────────────────────────────────────
+  // The tier's USD price is authoritative; the native amount is derived from it
+  // at current rates, so the same tier costs the same everywhere.
+  const [quote, setQuote]         = useState<NativeQuote | null>(null)
+  const [quoteErr, setQuoteErr]   = useState('')
+  const [quoting, setQuoting]     = useState(false)
+
   const [paying, setPaying]   = useState(false)
   const [paid, setPaid]       = useState(false)
   const [status, setStatus]   = useState('')
@@ -54,10 +62,25 @@ export function Step1Plan({ onNext }: { onNext: () => void }) {
   const selTier     = TIERS[selectedTier]
   const tierCfg     = prices[selectedTier]
   const price       = {
-    blin:   parseUnits(String(tierCfg.blin),   18),
-    native: parseEther(String(tierCfg.native)),
-    label:  tierCfg.label,
+    blin:  parseUnits(String(tierCfg.blin), 18),
+    label: tierCfg.label,
   }
+
+  // Refresh the quote whenever the chain or tier changes
+  useEffect(() => {
+    let cancelled = false
+    if (!isChainPriceable(chainId)) {
+      setQuote(null)
+      setQuoteErr(`No native price feed for this network yet — pay in $BLIN or switch chains.`)
+      return
+    }
+    setQuoting(true); setQuoteErr('')
+    quoteNative(chainId, tierCfg.usd)
+      .then(q => { if (!cancelled) { setQuote(q); setQuoteErr('') } })
+      .catch(e => { if (!cancelled) { setQuote(null); setQuoteErr(e.message) } })
+      .finally(() => { if (!cancelled) setQuoting(false) })
+    return () => { cancelled = true }
+  }, [chainId, tierCfg.usd])
 
   async function doPay() {
     if (!walletClient || !publicClient || !address) return
@@ -67,7 +90,10 @@ export function Step1Plan({ onNext }: { onNext: () => void }) {
       if (payMethod === 'blin') {
         txHash = await payWithBLIN(selectedTier, walletClient as any, publicClient as any, setStatus, price.blin)
       } else {
-        txHash = await payWithNative(selectedTier, walletClient as any, publicClient as any, setStatus, price.native)
+        // Re-quote immediately before charging so the rate is never stale
+        const fresh = await quoteNative(chainId, tierCfg.usd)
+        const wei   = parseEther(String(roundNative(fresh.nativeAmount)))
+        txHash = await payWithNative(selectedTier, walletClient as any, publicClient as any, setStatus, wei)
       }
       upgradeTier(address, selectedTier, txHash, payMethod === 'blin' ? 'BLIN' : 'native')
       setPaid(true)
@@ -149,7 +175,9 @@ export function Step1Plan({ onNext }: { onNext: () => void }) {
               }}>
               {m === 'blin'
                 ? `$BLIN · ${Number(formatUnits(price.blin, 18)).toLocaleString()} BLIN`
-                : `Native · ${formatUnits(price.native, 18)} ETH/BNB`
+                : quote
+                  ? `Native · ${formatQuote(quote)}`
+                  : quoting ? 'Native · fetching rate…' : 'Native · rate unavailable'
               }
             </button>
           ))}
@@ -179,8 +207,21 @@ export function Step1Plan({ onNext }: { onNext: () => void }) {
             background: 'var(--fd-green-ghost)', border: '1px solid var(--fd-border-green)',
             fontSize: 12, color: 'var(--fd-green)', lineHeight: 1.6,
           }}>
-            Pays in native token on your currently connected chain.
-            Price is denominated in ETH-equivalent — make sure you have enough gas + value.
+            {quoteErr ? (
+              <span style={{ color: 'var(--amber)' }}>{quoteErr}</span>
+            ) : quote ? (
+              <>
+                <strong style={{ color: '#fff' }}>${quote.usd}</strong> ={' '}
+                <strong style={{ color: '#fff' }}>{formatQuote(quote)}</strong>{' '}
+                at ${quote.usdPerNative.toLocaleString(undefined, { maximumFractionDigits: 6 })} / {quote.symbol}.
+                <br />
+                {quote.pegged
+                  ? 'Native coin is USD-pegged on this network.'
+                  : 'Rate is refreshed when you pay, so you are charged the USD price regardless of which chain you are on.'}
+              </>
+            ) : (
+              'Fetching the current rate for this network…'
+            )}
           </div>
         )}
 
