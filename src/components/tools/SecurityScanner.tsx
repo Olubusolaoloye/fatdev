@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { downloadShareCard, copyShareCard, type ShareCardData, type Tone } from '../../lib/shareCard'
 import { CHAIN_NAME, CHAIN_EXPLORERS, SUPPORTED_CHAINS } from '../../lib/wagmi'
 import { detectChains, fetchDexPairs, type ChainCandidate } from '../../lib/chainDetect'
-import { buildScanReport, type ScanReport, type Pillar, type FindingState } from '../../lib/scanEngine'
+import { buildScanReport, type ScanReport, type Pillar, type Finding as FindingType, type FindingState } from '../../lib/scanEngine'
 import Icon from '../ui-kit/Icon'
 
 // ── APIs ──────────────────────────────────────────────────────────────────────
@@ -36,6 +36,10 @@ function verdictTone(v: ScanReport['verdict']): Tone {
 function verdictColor(v: ScanReport['verdict']): string {
   return v === 'LOW RISK' ? 'var(--fd-green)' : v === 'CAUTION' ? 'var(--amber)' : 'var(--red)'
 }
+/** Literal hex — CSS custom properties need a real colour to build rgba tints from. */
+function verdictHex(v: ScanReport['verdict']): string {
+  return v === 'LOW RISK' ? '#00E57A' : v === 'CAUTION' ? '#FFB020' : '#FF5252'
+}
 
 function ScoreRing({ score, color }: { score: number; color: string }) {
   const R = 58, circ = 2 * Math.PI * R
@@ -63,72 +67,58 @@ function ScoreRing({ score, color }: { score: number; color: string }) {
   )
 }
 
-function PillarCard({ p }: { p: Pillar }) {
-  const [open, setOpen] = useState(true)
-  const barColor = p.score >= 80 ? 'var(--fd-green)' : p.score >= 50 ? 'var(--amber)' : 'var(--red)'
+function pillarColor(p: Pillar): string {
+  if (!p.covered) return 'var(--text-muted)'
+  return p.score >= 80 ? 'var(--fd-green)' : p.score >= 50 ? 'var(--amber)' : 'var(--red)'
+}
+
+function Finding({ f }: { f: FindingType }) {
   return (
-    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        aria-expanded={open}
-        style={{
-          width: '100%', background: 'none', border: 'none', padding: '14px 16px',
-          display: 'flex', alignItems: 'center', gap: 12, color: '#fff', textAlign: 'left',
-        }}>
-        <Icon name={open ? 'eye' : 'eye'} size={0} />
+    <li className="scan-finding">
+      <span style={{ color: STATE_COLOR[f.state], marginTop: 1, flexShrink: 0 }}>
+        <Icon name={STATE_ICON[f.state]} size={14} />
+      </span>
+      <div style={{ minWidth: 0 }}>
+        <div className={`scan-finding__label${f.state === 'unknown' ? ' scan-finding__label--muted' : ''}`}>
+          {f.label}
+        </div>
+        {f.detail && <div className="scan-finding__detail">{f.detail}</div>}
+      </div>
+    </li>
+  )
+}
+
+function PillarCard({ p, defaultOpen }: { p: Pillar; defaultOpen: boolean }) {
+  const [open, setOpen] = useState(defaultOpen)
+  const color = pillarColor(p)
+
+  return (
+    <section className="scan-pillar" style={{ ['--pillar-color' as any]: color }}>
+      <button className="scan-pillar__head" onClick={() => setOpen(o => !o)} aria-expanded={open}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span style={{ fontWeight: 700, fontSize: 14 }}>{p.title}</span>
-            <span style={{
-              fontSize: 10, fontFamily: 'var(--fd-font-mono)', color: 'var(--text-muted)',
-              border: '0.5px solid var(--border)', borderRadius: 20, padding: '1px 7px',
-            }}>weight {Math.round(p.weight * 100)}%</span>
-            {!p.covered && (
-              <span style={{
-                fontSize: 10, fontFamily: 'var(--fd-font-mono)', color: 'var(--text-muted)',
-                background: 'rgba(255,255,255,0.05)', borderRadius: 20, padding: '1px 7px',
-              }}>NOT ASSESSED</span>
-            )}
+            <h3 className="scan-pillar__title" style={{ margin: 0 }}>{p.title}</h3>
+            <span className="scan-pillar__weight">{Math.round(p.weight * 100)}%</span>
+            {!p.covered && <span className="scan-badge-muted">NOT ASSESSED</span>}
+          </div>
+          <div className="scan-pillar__track">
+            <div className="scan-pillar__fill" style={{ width: `${p.covered ? p.score : 0}%` }} />
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-          <div style={{ width: 70, height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.08)' }}>
-            <div style={{
-              width: `${p.covered ? p.score : 0}%`, height: '100%', borderRadius: 3,
-              background: barColor, transition: 'width 700ms ease',
-            }} />
-          </div>
-          <span style={{
-            fontFamily: 'var(--fd-font-mono)', fontSize: 13, fontWeight: 700,
-            color: p.covered ? barColor : 'var(--text-muted)', minWidth: 28, textAlign: 'right',
-          }}>{p.covered ? p.score : '—'}</span>
-          <Icon name="arrowRight" size={14}
-            style={{ color: 'var(--text-muted)', transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 180ms ease' }} />
-        </div>
+        <span className="scan-pillar__score">{p.covered ? p.score : '—'}</span>
+        <Icon name="arrowRight" size={14} style={{
+          color: 'var(--fd-ghost)',
+          transform: open ? 'rotate(90deg)' : 'none',
+          transition: 'transform 180ms ease',
+        }} />
       </button>
 
       {open && (
-        <div style={{ padding: '0 16px 14px', display: 'flex', flexDirection: 'column', gap: 9 }}>
-          {p.findings.map((f, i) => (
-            <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
-              <span style={{ color: STATE_COLOR[f.state], marginTop: 1, flexShrink: 0 }}>
-                <Icon name={STATE_ICON[f.state]} size={14} />
-              </span>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 12.5, fontWeight: 600, color: f.state === 'unknown' ? 'var(--text-muted)' : '#fff' }}>
-                  {f.label}
-                </div>
-                {f.detail && (
-                  <div style={{ fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.5, marginTop: 2 }}>
-                    {f.detail}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+        <ul className="scan-pillar__body" style={{ listStyle: 'none', margin: 0 }}>
+          {p.findings.map((f, i) => <Finding key={i} f={f} />)}
+        </ul>
       )}
-    </div>
+    </section>
   )
 }
 
@@ -234,12 +224,14 @@ export function SecurityScanner() {
         { label: 'Ownership', value: r.ownerRenounced ? 'Renounced' : 'Active',
           tone: r.ownerRenounced ? 'good' : 'warn' },
       ],
+      // A pillar holding any critical finding must never show a green tick, even
+      // if its weighted score survived — otherwise the chips contradict the
+      // verdict note directly above them.
       highlights: r.pillars.map(p => ({
         label: p.title.replace(' & ', ' + '),
-        ok: p.covered && p.score >= 70,
+        ok: p.covered && p.score >= 70 && !p.findings.some(f => f.state === 'fail'),
       })),
       contract: r.address,
-      sources:  'GoPlus · Honeypot.is · DexScreener',
     }
   }
 
@@ -264,7 +256,72 @@ export function SecurityScanner() {
 
   const busy = phase === 'detecting' || phase === 'scanning'
   const vColor = report ? verdictColor(report.verdict) : 'var(--fd-cyan)'
+  const vRaw   = report ? verdictHex(report.verdict) : '#00CFFF'
   const explorer = report ? CHAIN_EXPLORERS[report.chainId] : ''
+
+  // ── Derived view models ─────────────────────────────────────────────────────
+  // Everything a red/amber pillar flagged, hoisted above the accordions so a
+  // real problem is never one click away from being missed.
+  const allFindings = report ? report.pillars.flatMap(p => p.findings) : []
+  const failCount   = allFindings.filter(f => f.state === 'fail').length
+  const topRisks    = [
+    ...allFindings.filter(f => f.state === 'fail'),
+    ...allFindings.filter(f => f.state === 'warn'),
+  ].slice(0, 6)
+
+  const riskRaw   = failCount > 0 ? '#FF5252' : '#FFB020'
+  const riskColor = failCount > 0 ? 'var(--red)' : 'var(--amber)'
+
+  // Worst-scoring covered pillars first; unassessed ones sink to the bottom
+  const orderedPillars = report
+    ? [...report.pillars].sort((a, b) => {
+        if (a.covered !== b.covered) return a.covered ? -1 : 1
+        return a.score - b.score
+      })
+    : []
+
+  const taxColor = (t: number) =>
+    t > 25 ? 'var(--red)' : t > 10 ? 'var(--amber)' : 'var(--fd-green)'
+
+  const lpSecured = report ? report.lpLockedPct + report.lpBurnedPct : 0
+
+  const stats = report ? [
+    {
+      label: 'Liquidity',
+      value: report.liquidityUsd > 0 ? `$${Math.round(report.liquidityUsd).toLocaleString()}` : 'None',
+      color: report.liquidityUsd > 25_000 ? 'var(--fd-green)'
+           : report.liquidityUsd > 0      ? 'var(--amber)' : 'var(--red)',
+      sub: report.volume24h > 0 ? `$${Math.round(report.volume24h).toLocaleString()} 24h vol` : undefined,
+    },
+    {
+      label: 'Buy / Sell Tax',
+      value: `${report.buyTax.toFixed(1)}% / ${report.sellTax.toFixed(1)}%`,
+      color: taxColor(Math.max(report.buyTax, report.sellTax)),
+    },
+    {
+      label: 'LP Secured',
+      value: lpSecured > 0 ? `${lpSecured}%` : 'Unknown',
+      color: lpSecured >= 80 ? 'var(--fd-green)' : lpSecured > 0 ? 'var(--amber)' : 'var(--text-muted)',
+      sub: report.lpBurnedPct > 0 ? `${report.lpBurnedPct}% burnt` : undefined,
+    },
+    {
+      label: 'Ownership',
+      value: report.ownerRenounced ? 'Renounced' : 'Active',
+      color: report.ownerRenounced ? 'var(--fd-green)' : 'var(--amber)',
+    },
+    {
+      label: 'Holders',
+      value: report.holders > 0 ? report.holders.toLocaleString() : '—',
+      color: 'var(--fd-white)',
+      sub: report.topHolderPct > 0 ? `top wallet ${report.topHolderPct.toFixed(1)}%` : undefined,
+    },
+    {
+      label: 'Pair Age',
+      value: report.pairAgeDays != null ? `${report.pairAgeDays}d` : '—',
+      color: report.pairAgeDays == null ? 'var(--text-muted)'
+           : report.pairAgeDays < 14 ? 'var(--amber)' : 'var(--fd-green)',
+    },
+  ] : []
 
   return (
     <div className="step-panel">
@@ -356,91 +413,113 @@ export function SecurityScanner() {
 
       {/* ── Results ── */}
       {report && phase === 'done' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-          {/* Hero */}
-          <div className="card" style={{
-            background: 'linear-gradient(135deg,#0a1929,#071525)',
-            border: `1px solid ${vColor}44`,
-            display: 'flex', alignItems: 'center', gap: 26, flexWrap: 'wrap',
+          {/* ── Hero ── */}
+          <header className="scan-hero" style={{
+            ['--scan-color' as any]: vColor,
+            ['--scan-tint'  as any]: `${vRaw}1A`,
+            ['--scan-edge'  as any]: `${vRaw}55`,
+            ['--scan-glow'  as any]: `${vRaw}1F`,
           }}>
             <ScoreRing score={report.score} color={vColor} />
-            <div style={{ flex: 1, minWidth: 210 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, marginBottom: 5, flexWrap: 'wrap' }}>
-                <span style={{ fontWeight: 800, fontSize: 22 }}>{report.name}</span>
-                <span style={{
-                  fontFamily: 'var(--fd-font-mono)', fontSize: 12, color: 'var(--fd-cyan)',
-                  padding: '2px 9px', background: 'var(--fd-cyan-ghost)', borderRadius: 6,
-                }}>{report.symbol}</span>
+            <div style={{ minWidth: 0 }}>
+              <div className="scan-hero__name">
+                <h2>{report.name}</h2>
+                <span className="scan-ticker">{report.symbol}</span>
               </div>
 
-              <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: 7, marginBottom: 12,
-                padding: '5px 13px', borderRadius: 20,
-                background: `${vColor}1A`, border: `1px solid ${vColor}55`,
-              }}>
-                <span style={{ width: 7, height: 7, borderRadius: '50%', background: vColor }} />
-                <span style={{ fontWeight: 800, fontSize: 13, color: vColor, letterSpacing: '0.06em' }}>
-                  {report.verdict}
-                </span>
+              <div className="scan-verdict">
+                <span className="scan-verdict__dot" />
+                {report.verdict}
               </div>
 
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
-                Weighted across {report.pillars.length} pillars · {report.coverage}% coverage<br />
-                {CHAIN_NAME[report.chainId]} · {report.holders.toLocaleString()} holders
-                {report.pairAgeDays != null && ` · ${report.pairAgeDays}d old`}
-              </div>
+              <p className="scan-meta">
+                <strong>{CHAIN_NAME[report.chainId]}</strong> · {report.holders.toLocaleString()} holders
+                {report.pairAgeDays != null && <> · {report.pairAgeDays}d old</>}
+                <br />
+                Weighted across {report.pillars.length} pillars · {report.coverage}% coverage
+              </p>
 
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {[
-                  { l: 'Buy',  v: `${report.buyTax.toFixed(1)}%` },
-                  { l: 'Sell', v: `${report.sellTax.toFixed(1)}%` },
-                  { l: 'Liq',  v: report.liquidityUsd > 0 ? `$${Math.round(report.liquidityUsd).toLocaleString()}` : '—' },
-                  { l: 'Owner', v: report.ownerRenounced ? 'Renounced' : 'Active' },
-                ].map(s => (
-                  <div key={s.l} style={{
-                    padding: '5px 11px', borderRadius: 20,
-                    background: 'rgba(255,255,255,0.04)', border: '0.5px solid var(--border)',
-                    fontSize: 11,
-                  }}>
-                    <span style={{ color: 'var(--text-muted)' }}>{s.l}: </span>
-                    <span style={{ fontFamily: 'var(--fd-font-mono)', fontWeight: 700 }}>{s.v}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div style={{ marginTop: 12, fontFamily: 'var(--fd-font-mono)', fontSize: 10.5, color: 'var(--text-muted)', wordBreak: 'break-all' }}>
+              <div className="scan-addr">
                 {report.address}
                 {explorer && (
-                  <a href={`${explorer}/token/${report.address}`} target="_blank" rel="noopener"
-                    style={{ color: 'var(--fd-cyan)', marginLeft: 8, textDecoration: 'none' }}>
+                  <a href={`${explorer}/token/${report.address}`} target="_blank" rel="noopener">
                     explorer ↗
                   </a>
                 )}
               </div>
             </div>
-          </div>
+          </header>
+
+          {/* ── Key risks — surfaced before the pillars so nothing important
+                 is hidden behind an accordion ── */}
+          {topRisks.length > 0 && (
+            <section className="scan-risks" style={{
+              ['--scan-color' as any]: riskColor,
+              ['--scan-tint'  as any]: `${riskRaw}12`,
+              ['--scan-edge'  as any]: `${riskRaw}40`,
+            }}>
+              <h3 className="scan-risks__head" style={{ margin: 0 }}>
+                <Icon name="alert" size={16} />
+                {failCount > 0
+                  ? `${failCount} critical issue${failCount > 1 ? 's' : ''} found`
+                  : `${topRisks.length} thing${topRisks.length > 1 ? 's' : ''} to check`}
+              </h3>
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                {topRisks.map((f, i) => (
+                  <li key={i} className="scan-risk">
+                    <span style={{ color: STATE_COLOR[f.state], marginTop: 1, flexShrink: 0 }}>
+                      <Icon name={STATE_ICON[f.state]} size={14} />
+                    </span>
+                    <div style={{ minWidth: 0 }}>
+                      <div className="scan-risk__label">{f.label}</div>
+                      {f.detail && <div className="scan-risk__detail">{f.detail}</div>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {/* ── At a glance ── */}
+          <section>
+            <div className="scan-section-label">At a glance</div>
+            <div className="scan-stats">
+              {stats.map(st => (
+                <div key={st.label} className="scan-stat">
+                  <div className="scan-stat__label">{st.label}</div>
+                  <div className="scan-stat__value" style={{ color: st.color }}>{st.value}</div>
+                  {st.sub && <div className="scan-stat__sub">{st.sub}</div>}
+                </div>
+              ))}
+            </div>
+          </section>
 
           {/* Coverage caveat */}
           {report.coverage < 100 && (
             <div style={{
               padding: '10px 14px', borderRadius: 8, fontSize: 12, lineHeight: 1.6,
-              background: 'rgba(255,176,32,0.06)', border: '0.5px solid rgba(255,176,32,0.22)',
+              background: 'rgba(255,176,32,0.06)', border: '1px solid rgba(255,176,32,0.22)',
               color: 'rgba(255,255,255,0.72)', display: 'flex', gap: 9,
             }}>
               <Icon name="info" size={15} style={{ color: 'var(--amber)', marginTop: 1 }} />
               <span>
                 Only <strong>{report.coverage}%</strong> of the scoring weight could be assessed on this
                 network — pillars marked <em>not assessed</em> were excluded rather than assumed safe.
-                Treat this score as less complete than a 100%-coverage scan.
               </span>
             </div>
           )}
 
-          {/* Pillars */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {report.pillars.map(p => <PillarCard key={p.key} p={p} />)}
-          </div>
+          {/* ── Pillars — worst first ── */}
+          <section>
+            <div className="scan-section-label">Full breakdown</div>
+            <div className="scan-pillars">
+              {orderedPillars.map(p => (
+                <PillarCard key={p.key} p={p} defaultOpen={p.covered && p.score < 80} />
+              ))}
+            </div>
+          </section>
 
           {/* Share */}
           <div className="card" style={{ background: 'linear-gradient(135deg,#0a1929,#071525)' }}>

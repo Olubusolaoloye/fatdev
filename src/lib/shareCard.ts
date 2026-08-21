@@ -55,8 +55,6 @@ export type ShareCardData = {
   highlights: { label: string; ok: boolean }[]
   /** Contract address, shown bottom-left in mono */
   contract: string
-  /** e.g. "GoPlus Security · Honeypot.is" */
-  sources: string
 }
 
 function toneColor(t: Tone | undefined): string {
@@ -338,11 +336,6 @@ export async function renderShareCard(d: ShareCardData): Promise<Blob> {
     ctx.font = `400 13px ${MONO}`
     ctx.fillStyle = 'rgba(138,155,194,0.8)'
     ctx.fillText(d.contract, PAD, 600)
-  }
-  if (d.sources) {
-    ctx.font = `400 12px ${DISPLAY}`
-    ctx.fillStyle = 'rgba(138,155,194,0.55)'
-    ctx.fillText(`Data: ${d.sources}`, PAD, 624)
   }
 
   ctx.textAlign = 'right'

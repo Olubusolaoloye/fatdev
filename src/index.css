@@ -460,3 +460,187 @@ html, body { max-width: 100vw; overflow-x: hidden; }
    Wide tables and code blocks must scroll inside their own container rather
    than pushing the page sideways. */
 html, body { overflow-x: hidden; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Security Scanner — results
+   Classed components rather than inline styles so spacing, colour and state
+   stay consistent across the hero, stat grid, risk callout and pillar cards.
+   Density follows the dashboard scale (8 / 12 / 16 / 24 / 32px).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.scan-section-label {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--fd-ghost);
+  font-family: var(--fd-font-mono);
+  margin: 4px 0 12px;
+}
+.scan-section-label::after {
+  content: ''; flex: 1; height: 1px; background: var(--fd-border);
+}
+
+/* --- Hero ---------------------------------------------------------------- */
+.scan-hero {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 28px;
+  align-items: center;
+  padding: 24px;
+  border-radius: var(--fd-radius-lg, 14px);
+  background:
+    radial-gradient(120% 140% at 12% 50%, var(--scan-glow, transparent) 0%, transparent 60%),
+    linear-gradient(135deg, #0A1929 0%, #071525 100%);
+  border: 1px solid var(--scan-edge, var(--fd-border));
+}
+@media (max-width: 640px) {
+  .scan-hero { grid-template-columns: 1fr; justify-items: center; text-align: center; gap: 20px; }
+}
+
+.scan-hero__name {
+  display: flex; align-items: baseline; gap: 10px;
+  flex-wrap: wrap; margin-bottom: 8px;
+}
+.scan-hero__name h2 {
+  font-size: clamp(19px, 3vw, 24px); font-weight: 800; margin: 0;
+  font-family: var(--fd-font-display); color: var(--fd-white);
+}
+.scan-ticker {
+  font-family: var(--fd-font-mono); font-size: 12px;
+  color: var(--fd-cyan); background: var(--fd-cyan-ghost);
+  border: 1px solid var(--fd-border-cyan);
+  padding: 2px 9px; border-radius: 6px;
+}
+
+.scan-verdict {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 14px; border-radius: 999px;
+  background: var(--scan-tint); border: 1px solid var(--scan-edge);
+  font-weight: 800; font-size: 13px; letter-spacing: 0.06em;
+  color: var(--scan-color);
+  margin-bottom: 14px;
+}
+.scan-verdict__dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--scan-color); flex-shrink: 0;
+}
+
+.scan-meta {
+  font-size: 12px; color: var(--fd-ghost); line-height: 1.7; margin-bottom: 0;
+}
+.scan-meta strong { color: var(--fd-white); font-weight: 600; }
+
+.scan-addr {
+  margin-top: 14px; font-family: var(--fd-font-mono);
+  font-size: 10.5px; color: var(--fd-ghost); word-break: break-all;
+}
+.scan-addr a { color: var(--fd-cyan); text-decoration: none; margin-left: 8px; }
+.scan-addr a:hover { text-decoration: underline; }
+
+/* --- Stat grid ----------------------------------------------------------- */
+.scan-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  gap: 10px;
+}
+.scan-stat {
+  background: var(--fd-surface);
+  border: 1px solid var(--fd-border);
+  border-radius: var(--fd-radius, 10px);
+  padding: 12px 14px;
+  transition: border-color 180ms ease;
+}
+.scan-stat:hover { border-color: var(--fd-border-cyan); }
+.scan-stat__label {
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--fd-ghost);
+  font-family: var(--fd-font-mono); margin-bottom: 6px;
+}
+.scan-stat__value {
+  font-size: 17px; font-weight: 800;
+  font-family: var(--fd-font-display); line-height: 1.15;
+  word-break: break-word;
+}
+.scan-stat__sub {
+  font-size: 10.5px; color: var(--fd-ghost); margin-top: 3px;
+}
+
+/* --- Risk callout -------------------------------------------------------- */
+.scan-risks {
+  border-radius: var(--fd-radius-lg, 14px);
+  border: 1px solid var(--scan-edge);
+  background: var(--scan-tint);
+  padding: 16px 18px;
+}
+.scan-risks__head {
+  display: flex; align-items: center; gap: 9px;
+  font-weight: 800; font-size: 13.5px; color: var(--scan-color);
+  margin-bottom: 12px;
+}
+.scan-risk {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 8px 0;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.scan-risk:first-of-type { border-top: none; padding-top: 0; }
+.scan-risk__label { font-size: 12.5px; font-weight: 600; color: var(--fd-white); }
+.scan-risk__detail { font-size: 11.5px; color: var(--fd-ghost); line-height: 1.55; margin-top: 2px; }
+
+/* --- Pillars ------------------------------------------------------------- */
+.scan-pillars {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.scan-pillar {
+  background: var(--fd-surface);
+  border: 1px solid var(--fd-border);
+  border-left: 3px solid var(--pillar-color, var(--fd-border));
+  border-radius: var(--fd-radius, 10px);
+  overflow: hidden;
+  transition: border-color 180ms ease;
+}
+.scan-pillar:hover { border-color: var(--fd-border-cyan); border-left-color: var(--pillar-color); }
+
+.scan-pillar__head {
+  width: 100%; background: none; border: none;
+  padding: 13px 15px; color: inherit; text-align: left;
+  display: flex; align-items: center; gap: 12px;
+}
+.scan-pillar__title {
+  font-weight: 700; font-size: 13.5px; color: var(--fd-white);
+  font-family: var(--fd-font-display);
+}
+.scan-pillar__weight {
+  font-size: 9.5px; font-family: var(--fd-font-mono);
+  color: var(--fd-ghost); border: 1px solid var(--fd-border);
+  border-radius: 999px; padding: 1px 7px; white-space: nowrap;
+}
+.scan-pillar__score {
+  font-family: var(--fd-font-mono); font-size: 15px; font-weight: 800;
+  color: var(--pillar-color); min-width: 30px; text-align: right;
+}
+.scan-pillar__track {
+  width: 100%; height: 4px; border-radius: 2px;
+  background: rgba(255,255,255,0.07); margin-top: 8px; overflow: hidden;
+}
+.scan-pillar__fill {
+  height: 100%; border-radius: 2px;
+  background: var(--pillar-color); transition: width 700ms ease;
+}
+.scan-pillar__body {
+  padding: 0 15px 14px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+.scan-finding { display: flex; gap: 9px; align-items: flex-start; }
+.scan-finding__label { font-size: 12.5px; font-weight: 600; color: var(--fd-white); }
+.scan-finding__label--muted { color: var(--fd-ghost); }
+.scan-finding__detail { font-size: 11.5px; color: var(--fd-ghost); line-height: 1.55; margin-top: 2px; }
+
+.scan-badge-muted {
+  font-size: 9.5px; font-family: var(--fd-font-mono); color: var(--fd-ghost);
+  background: rgba(255,255,255,0.05); border-radius: 999px;
+  padding: 1px 7px; white-space: nowrap;
+}
