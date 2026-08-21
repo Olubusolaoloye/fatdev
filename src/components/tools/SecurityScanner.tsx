@@ -1,568 +1,466 @@
 import { useState } from 'react'
 import { downloadShareCard, copyShareCard, type ShareCardData, type Tone } from '../../lib/shareCard'
-import { SUPPORTED_CHAINS } from '../../lib/wagmi'
+import { CHAIN_NAME, CHAIN_EXPLORERS, SUPPORTED_CHAINS } from '../../lib/wagmi'
+import { detectChains, fetchDexPairs, type ChainCandidate } from '../../lib/chainDetect'
+import { buildScanReport, type ScanReport, type Pillar, type FindingState } from '../../lib/scanEngine'
 import Icon from '../ui-kit/Icon'
 
-// ── Chain config ──────────────────────────────────────────────────────────────
-// Every chain the app supports is offered. Security-API coverage varies by chain
-// and changes over time, so rather than hardcode a coverage list that silently
-// goes stale, an uncovered chain is detected at scan time and reported plainly.
-const CHAINS = SUPPORTED_CHAINS
-  .filter(c => !c.testnet)
-  .map(c => ({ id: String(c.id), label: c.label, short: c.short }))
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-type Flag = { label: string; ok: boolean; value?: string; critical?: boolean }
-type ScanResult = {
-  name: string
-  symbol: string
-  score: number          // 0–100
-  flags: Flag[]
-  buyTax: number
-  sellTax: number
-  holders: number
-  lpLocked: boolean
-  lpPercent: number
-  ownerAddress: string
-  ownerRenounced: boolean
-  totalSupply: string
-  isHoneypot: boolean
-  honeypotReason?: string
-  raw: any
-}
-
-// ── GoPlus API ────────────────────────────────────────────────────────────────
-async function fetchGoPlus(address: string, chainId: string): Promise<any> {
+// ── APIs ──────────────────────────────────────────────────────────────────────
+async function fetchGoPlus(address: string, chainId: number): Promise<any> {
   const url = `https://api.gopluslabs.io/api/v1/token_security/${chainId}?contract_addresses=${address.toLowerCase()}`
   const res = await fetch(url)
   const json = await res.json()
   if (json.code !== 1) throw new Error(json.message || 'GoPlus API error')
-  return Object.values(json.result)[0]
+  const entry = Object.values(json.result ?? {})[0]
+  if (!entry) throw new Error('No GoPlus record')
+  return entry
 }
 
-// ── Honeypot.is API ───────────────────────────────────────────────────────────
-async function fetchHoneypot(address: string, chainId: string): Promise<any> {
+async function fetchHoneypot(address: string, chainId: number): Promise<any> {
   const res = await fetch(`https://api.honeypot.is/v2/IsHoneypot?address=${address}&chainID=${chainId}`)
   if (!res.ok) throw new Error(`Honeypot.is returned ${res.status}`)
   return res.json()
 }
 
-// ── Build result from raw data ────────────────────────────────────────────────
-function buildResult(gp: any, hp: any): ScanResult {
-  const pct = (v: any) => v ? Math.round(parseFloat(v) * 100) : 0
-  const bool = (v: any) => v === '1' || v === 1 || v === true
-
-  const buyTax  = hp?.simulationResult?.buyTax  ?? pct(gp?.buy_tax)
-  const sellTax = hp?.simulationResult?.sellTax ?? pct(gp?.sell_tax)
-  const isHoneypot = hp?.honeypotResult?.isHoneypot ?? false
-
-  // LP analysis
-  const lpHolders: any[] = gp?.lp_holders ?? []
-  const totalLp = lpHolders.reduce((s: number, h: any) => s + parseFloat(h.percent || '0'), 0)
-  const lockedLp = lpHolders
-    .filter((h: any) => bool(h.is_locked) || h.tag?.toLowerCase().includes('lock'))
-    .reduce((s: number, h: any) => s + parseFloat(h.percent || '0'), 0)
-  const lpPercent = totalLp > 0 ? Math.round((lockedLp / totalLp) * 100) : 0
-  const lpLocked  = lpPercent >= 80
-
-  // Ownership
-  const ownerAddress   = gp?.owner_address ?? gp?.creator_address ?? '—'
-  const ownerRenounced = bool(gp?.owner_address === '0x0000000000000000000000000000000000000000') ||
-    bool(gp?.owner_change_balance === '0') && ownerAddress.toLowerCase().includes('dead') ||
-    ownerAddress === '0x0000000000000000000000000000000000000000'
-
-  // Flags
-  const flags: Flag[] = [
-    { label: 'Honeypot',         ok: !isHoneypot,              critical: true                       },
-    { label: 'Mintable',         ok: !bool(gp?.is_mintable),   critical: true                       },
-    { label: 'Proxy Contract',   ok: !bool(gp?.is_proxy),      critical: true                       },
-    { label: 'Blacklist',        ok: !bool(gp?.is_blacklisted) && !bool(gp?.is_whitelisted), critical: true },
-    { label: 'Self Destruct',    ok: !bool(gp?.selfdestruct)                                         },
-    { label: 'External Call',    ok: !bool(gp?.external_call)                                        },
-    { label: 'Trading Pausable', ok: !bool(gp?.transfer_pausable)                                    },
-    { label: 'Tax Modifiable',   ok: !bool(gp?.slippage_modifiable)                                  },
-    { label: 'Ownership Safe',   ok: ownerRenounced || bool(gp?.owner_change_balance === '0')        },
-    { label: 'LP Locked',        ok: lpLocked,                  value: lpPercent > 0 ? `${lpPercent}%` : '?' },
-    { label: 'Open Source',      ok: bool(gp?.is_open_source)                                        },
-    { label: 'Honeypot Same Creator', ok: !bool(gp?.honeypot_with_same_creator)                      },
-  ]
-
-  // Score: start 100, deduct per bad flag
-  const weights: Record<string, number> = {
-    'Honeypot': 40, 'Mintable': 15, 'Proxy Contract': 15, 'Blacklist': 10,
-    'Self Destruct': 8, 'External Call': 5, 'Trading Pausable': 5,
-    'Tax Modifiable': 3, 'Ownership Safe': 5, 'LP Locked': 5,
-    'Open Source': 5, 'Honeypot Same Creator': 4,
-  }
-  const deduction = flags.reduce((d, f) => d + (f.ok ? 0 : (weights[f.label] ?? 3)), 0)
-  const score = Math.max(0, Math.min(100, 100 - deduction))
-
-  return {
-    name:  gp?.token_name    ?? 'Unknown',
-    symbol: gp?.token_symbol ?? '???',
-    score,
-    flags,
-    buyTax,
-    sellTax,
-    holders:  parseInt(gp?.holder_count ?? '0'),
-    lpLocked,
-    lpPercent,
-    ownerAddress,
-    ownerRenounced,
-    totalSupply: gp?.total_supply ?? '—',
-    isHoneypot,
-    honeypotReason: hp?.honeypotResult?.honeypotReason,
-    raw: { gp, hp },
-  }
+// ── Small presentational pieces ───────────────────────────────────────────────
+const STATE_COLOR: Record<FindingState, string> = {
+  pass: 'var(--fd-green)', warn: 'var(--amber)', fail: 'var(--red)', unknown: 'var(--text-muted)',
+}
+const STATE_ICON: Record<FindingState, 'check' | 'alert' | 'x' | 'info'> = {
+  pass: 'check', warn: 'alert', fail: 'x', unknown: 'info',
 }
 
-// ── Score ring SVG ────────────────────────────────────────────────────────────
-function ScoreRing({ score }: { score: number }) {
-  const R = 54
-  const circ = 2 * Math.PI * R
-  const dash = (score / 100) * circ
-  const color = score >= 80 ? 'var(--green)' : score >= 55 ? 'var(--fd-cyan)' : 'var(--red)'
-  const label = score >= 80 ? 'SAFE' : score >= 55 ? 'CAUTION' : 'DANGER'
+function verdictTone(v: ScanReport['verdict']): Tone {
+  return v === 'LOW RISK' ? 'good' : v === 'CAUTION' ? 'warn' : 'bad'
+}
+function verdictColor(v: ScanReport['verdict']): string {
+  return v === 'LOW RISK' ? 'var(--fd-green)' : v === 'CAUTION' ? 'var(--amber)' : 'var(--red)'
+}
 
+function ScoreRing({ score, color }: { score: number; color: string }) {
+  const R = 58, circ = 2 * Math.PI * R
+  const dash = (Math.max(0, Math.min(100, score)) / 100) * circ
   return (
-    <div style={{ position: 'relative', width: 140, height: 140, flexShrink: 0 }}>
-      <svg width={140} height={140} viewBox="0 0 140 140">
-        {/* Track */}
-        <circle cx={70} cy={70} r={R} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={10} />
-        {/* Progress */}
-        <circle cx={70} cy={70} r={R} fill="none"
-          stroke={color} strokeWidth={10}
-          strokeDasharray={`${dash} ${circ}`}
-          strokeDashoffset={circ * 0.25}
-          strokeLinecap="round"
-          style={{ filter: `drop-shadow(0 0 8px ${color})`, transition: 'stroke-dasharray 1s ease' }}
-        />
-        {/* Glow dots */}
-        <circle cx={70} cy={70} r={38} fill="rgba(255,215,0,0.03)" />
-        <circle cx={70} cy={70} r={26} fill="rgba(0,0,0,0.4)" />
+    <div style={{ position: 'relative', width: 148, height: 148, flexShrink: 0 }}>
+      <svg width={148} height={148} viewBox="0 0 148 148" style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={74} cy={74} r={R} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={11} />
+        <circle cx={74} cy={74} r={R} fill="none" stroke={color} strokeWidth={11}
+          strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+          style={{ filter: `drop-shadow(0 0 9px ${color})`, transition: 'stroke-dasharray 900ms ease' }} />
       </svg>
-      {/* Center text */}
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 28, fontWeight: 700,
-          color, lineHeight: 1 }}>{score}</span>
-        <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.1em',
-          color, marginTop: 2 }}>{label}</span>
+      <div style={{
+        position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+      }}>
+        <span style={{ fontFamily: 'var(--fd-font-mono)', fontSize: 38, fontWeight: 800, color, lineHeight: 1 }}>
+          {score}
+        </span>
+        <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--fd-font-mono)', marginTop: 3 }}>
+          / 100
+        </span>
       </div>
     </div>
   )
 }
 
-// ── Scanning animation ────────────────────────────────────────────────────────
-function ScanAnimation() {
+function PillarCard({ p }: { p: Pillar }) {
+  const [open, setOpen] = useState(true)
+  const barColor = p.score >= 80 ? 'var(--fd-green)' : p.score >= 50 ? 'var(--amber)' : 'var(--red)'
   return (
-    <div style={{ textAlign: 'center', padding: '3rem 0' }}>
-      <div style={{ position: 'relative', width: 120, height: 120, margin: '0 auto 24px' }}>
-        <svg width={120} height={120} viewBox="0 0 120 120">
-          <circle cx={60} cy={60} r={50} fill="none" stroke="rgba(255,215,0,0.08)" strokeWidth={1} />
-          <circle cx={60} cy={60} r={36} fill="none" stroke="rgba(255,215,0,0.12)" strokeWidth={1} />
-          <circle cx={60} cy={60} r={22} fill="none" stroke="rgba(255,215,0,0.18)" strokeWidth={1} />
-          {/* Rotating sweep */}
-          <g style={{ transformOrigin: '60px 60px', animation: 'spin 1.5s linear infinite' }}>
-            <line x1={60} y1={60} x2={60} y2={12} stroke="var(--fd-cyan)" strokeWidth={2}
-              strokeLinecap="round" style={{ filter: 'drop-shadow(0 0 4px var(--fd-cyan))' }} />
-            <circle cx={60} cy={12} r={3} fill="var(--fd-cyan)"
-              style={{ filter: 'drop-shadow(0 0 6px var(--fd-cyan))' }} />
-          </g>
-          <circle cx={60} cy={60} r={4} fill="var(--fd-cyan)"
-            style={{ filter: 'drop-shadow(0 0 8px var(--fd-cyan))' }} />
-        </svg>
-      </div>
-      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>Scanning contract…</div>
-      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-        Querying GoPlus + Honeypot.is security APIs
-      </div>
-    </div>
-  )
-}
-
-// ── Flag row ─────────────────────────────────────────────────────────────────
-function FlagRow({ flag }: { flag: Flag }) {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '9px 14px', borderRadius: 8,
-      background: flag.ok
-        ? 'rgba(0,230,118,0.04)'
-        : flag.critical
-          ? 'rgba(255,82,82,0.08)'
-          : 'rgba(255,215,0,0.05)',
-      border: `0.5px solid ${flag.ok
-        ? 'rgba(0,230,118,0.15)'
-        : flag.critical
-          ? 'rgba(255,82,82,0.25)'
-          : 'rgba(255,215,0,0.15)'}`,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span style={{
-          width: 18, height: 18, borderRadius: '50%', display: 'flex',
-          alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800,
-          background: flag.ok ? 'rgba(0,230,118,0.2)' : flag.critical ? 'rgba(255,82,82,0.2)' : 'rgba(255,215,0,0.15)',
-          color: flag.ok ? 'var(--green)' : flag.critical ? 'var(--red)' : 'var(--fd-cyan)',
-          flexShrink: 0,
+    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+        style={{
+          width: '100%', background: 'none', border: 'none', padding: '14px 16px',
+          display: 'flex', alignItems: 'center', gap: 12, color: '#fff', textAlign: 'left',
         }}>
-          <Icon name={flag.ok ? 'check' : 'x'} size={13} />
-        </span>
-        <span style={{ fontSize: 13, fontWeight: 500 }}>{flag.label}</span>
-        {!flag.ok && flag.critical && (
-          <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 20, background: 'rgba(255,82,82,0.2)',
-            color: 'var(--red)', fontWeight: 700, letterSpacing: '.06em' }}>CRITICAL</span>
-        )}
-      </div>
-      {flag.value && (
-        <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 11, color: flag.ok ? 'var(--green)' : 'var(--fd-cyan)' }}>
-          {flag.value}
-        </span>
+        <Icon name={open ? 'eye' : 'eye'} size={0} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 700, fontSize: 14 }}>{p.title}</span>
+            <span style={{
+              fontSize: 10, fontFamily: 'var(--fd-font-mono)', color: 'var(--text-muted)',
+              border: '0.5px solid var(--border)', borderRadius: 20, padding: '1px 7px',
+            }}>weight {Math.round(p.weight * 100)}%</span>
+            {!p.covered && (
+              <span style={{
+                fontSize: 10, fontFamily: 'var(--fd-font-mono)', color: 'var(--text-muted)',
+                background: 'rgba(255,255,255,0.05)', borderRadius: 20, padding: '1px 7px',
+              }}>NOT ASSESSED</span>
+            )}
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          <div style={{ width: 70, height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.08)' }}>
+            <div style={{
+              width: `${p.covered ? p.score : 0}%`, height: '100%', borderRadius: 3,
+              background: barColor, transition: 'width 700ms ease',
+            }} />
+          </div>
+          <span style={{
+            fontFamily: 'var(--fd-font-mono)', fontSize: 13, fontWeight: 700,
+            color: p.covered ? barColor : 'var(--text-muted)', minWidth: 28, textAlign: 'right',
+          }}>{p.covered ? p.score : '—'}</span>
+          <Icon name="arrowRight" size={14}
+            style={{ color: 'var(--text-muted)', transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 180ms ease' }} />
+        </div>
+      </button>
+
+      {open && (
+        <div style={{ padding: '0 16px 14px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+          {p.findings.map((f, i) => (
+            <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
+              <span style={{ color: STATE_COLOR[f.state], marginTop: 1, flexShrink: 0 }}>
+                <Icon name={STATE_ICON[f.state]} size={14} />
+              </span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: f.state === 'unknown' ? 'var(--text-muted)' : '#fff' }}>
+                  {f.label}
+                </div>
+                {f.detail && (
+                  <div style={{ fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.5, marginTop: 2 }}>
+                    {f.detail}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   )
 }
 
-// ── Tax bar ───────────────────────────────────────────────────────────────────
-function TaxMeter({ label, pct }: { label: string; pct: number }) {
-  const color = pct <= 5 ? 'var(--green)' : pct <= 15 ? 'var(--fd-cyan)' : 'var(--red)'
-  return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-        <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>{label}</span>
-        <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 13, color, fontWeight: 700 }}>
-          {pct.toFixed(1)}%
-        </span>
-      </div>
-      <div style={{ height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
-        <div style={{
-          height: '100%', borderRadius: 3, background: color,
-          width: `${Math.min(100, pct * 4)}%`,
-          boxShadow: `0 0 8px ${color}`,
-          transition: 'width 0.8s ease',
-        }} />
-      </div>
-    </div>
-  )
-}
+// ── Main ──────────────────────────────────────────────────────────────────────
+type Phase = 'idle' | 'detecting' | 'scanning' | 'done'
 
-// ── Main component ────────────────────────────────────────────────────────────
 export function SecurityScanner() {
-  const [address,  setAddress]  = useState('')
-  const [chainId,  setChainId]  = useState('56')
-  const [scanning, setScanning] = useState(false)
-  const [result,   setResult]   = useState<ScanResult | null>(null)
-  const [error,    setError]    = useState('')
+  const [address, setAddress] = useState('')
+  const [phase,   setPhase]   = useState<Phase>('idle')
+  const [status,  setStatus]  = useState('')
+  const [error,   setError]   = useState('')
+  const [report,  setReport]  = useState<ScanReport | null>(null)
 
-  async function scan() {
-    const addr = address.trim()
-    if (!addr.startsWith('0x') || addr.length !== 42) {
-      setError('Enter a valid contract address (0x…)')
-      return
-    }
-    setScanning(true); setError(''); setResult(null)
-    try {
-      const [gp, hp] = await Promise.allSettled([
-        fetchGoPlus(addr, chainId),
-        fetchHoneypot(addr, chainId),
-      ])
-      const gpData = gp.status === 'fulfilled' ? gp.value : null
-      const hpData = hp.status === 'fulfilled' ? hp.value : null
-      if (!gpData && !hpData) {
-        const name = CHAINS.find(c => c.id === chainId)?.label ?? `chain ${chainId}`
-        throw new Error(
-          `No security data available for ${name}. The GoPlus and Honeypot.is APIs ` +
-          `do not currently cover this network — verify the address is correct, or ` +
-          `scan this token on a network they support.`
-        )
-      }
-      setResult(buildResult(gpData ?? {}, hpData ?? {}))
-    } catch (e: any) {
-      setError(e.message || 'Scan failed')
-    }
-    setScanning(false)
-  }
+  const [candidates, setCandidates] = useState<ChainCandidate[]>([])
+  const [activeChain, setActiveChain] = useState<number | null>(null)
 
-  const score = result?.score ?? 0
-  const scoreColor = score >= 80 ? 'var(--green)' : score >= 55 ? 'var(--fd-cyan)' : 'var(--red)'
-
-  // ── Share card ──────────────────────────────────────────────────────────────
   const [cardBusy,   setCardBusy]   = useState<'png' | 'copy' | null>(null)
   const [cardNotice, setCardNotice] = useState('')
 
-  function buildCard(r: ScanResult): ShareCardData {
+  const valid = /^0x[0-9a-fA-F]{40}$/.test(address.trim())
+
+  // ── Scan one chain ──────────────────────────────────────────────────────────
+  async function scanOn(addr: string, chainId: number) {
+    setPhase('scanning')
+    setStatus(`Auditing on ${CHAIN_NAME[chainId] ?? `chain ${chainId}`}…`)
+    setActiveChain(chainId)
+
+    const [gpRes, hpRes, pairs] = await Promise.all([
+      Promise.allSettled([fetchGoPlus(addr, chainId)]).then(r => r[0]),
+      Promise.allSettled([fetchHoneypot(addr, chainId)]).then(r => r[0]),
+      fetchDexPairs(addr, chainId),
+    ])
+
+    const goPlus   = gpRes.status === 'fulfilled' ? gpRes.value : null
+    const honeypot = hpRes.status === 'fulfilled' ? hpRes.value : null
+
+    if (!goPlus && !honeypot && pairs.length === 0) {
+      throw new Error(
+        `No security data available for ${CHAIN_NAME[chainId] ?? `chain ${chainId}`}. ` +
+        `The GoPlus and Honeypot.is APIs do not currently cover this network.`
+      )
+    }
+
+    setReport(buildScanReport({ address: addr, chainId, goPlus, honeypot, dexPairs: pairs }))
+    setPhase('done')
+  }
+
+  // ── Detect then scan ────────────────────────────────────────────────────────
+  async function run() {
+    const addr = address.trim()
+    if (!valid) { setError('Enter a valid contract address (0x…)'); return }
+
+    setError(''); setReport(null); setCandidates([]); setCardNotice('')
+    setPhase('detecting')
+    setStatus('Finding which network this contract is on…')
+
+    try {
+      const det = await detectChains(addr)
+      setCandidates(det.candidates)
+
+      if (!det.best) {
+        throw new Error(
+          'No contract found at this address on any supported network. ' +
+          'Check the address, or the token may be on a chain FatDev does not cover yet.'
+        )
+      }
+      await scanOn(addr, det.best.chainId)
+    } catch (e: any) {
+      setError(e.message ?? 'Scan failed')
+      setPhase('idle')
+    }
+  }
+
+  async function switchChain(chainId: number) {
+    setError('')
+    try { await scanOn(address.trim(), chainId) }
+    catch (e: any) { setError(e.message ?? 'Scan failed'); setPhase('done') }
+  }
+
+  // ── Share card ──────────────────────────────────────────────────────────────
+  function buildCard(r: ScanReport): ShareCardData {
     const taxTone = (t: number): Tone => t > 25 ? 'bad' : t > 10 ? 'warn' : 'good'
-    const verdictTone: Tone = r.isHoneypot ? 'bad'
-      : r.score >= 80 ? 'good' : r.score >= 55 ? 'warn' : 'bad'
-    const verdict = r.isHoneypot ? 'HONEYPOT'
-      : r.score >= 80 ? 'SAFE' : r.score >= 55 ? 'CAUTION' : 'DANGER'
-
-    const failed = r.flags.filter(f => !f.ok)
-    const verdictNote = r.isHoneypot
-      ? (r.honeypotReason || 'Simulation shows this token cannot be sold.')
-      : failed.length === 0
-        ? 'All security checks passed. No critical risks detected.'
-        : `${failed.length} risk${failed.length > 1 ? 's' : ''} flagged: ${failed.slice(0, 3).map(f => f.label).join(', ')}${failed.length > 3 ? '…' : ''}`
-
-    // Lead with the checks a buyer actually asks about
-    const priority = ['Honeypot', 'Mintable', 'Blacklist', 'Proxy Contract', 'Open Source', 'LP Locked']
-    const highlights = priority
-      .map(p => r.flags.find(f => f.label === p))
-      .filter((f): f is Flag => !!f)
-      .map(f => ({ label: f.label, ok: f.ok }))
+    const failed = r.pillars.flatMap(p => p.findings).filter(f => f.state === 'fail')
 
     return {
       kicker:   'Token Security Scan',
       title:    r.name,
       symbol:   r.symbol,
-      subtitle: `${CHAINS.find(c => c.id === chainId)?.label ?? 'Unknown chain'} · ${parseInt(r.holders as any).toLocaleString()} holders`,
+      subtitle: `${CHAIN_NAME[r.chainId] ?? `Chain ${r.chainId}`} · ${r.holders.toLocaleString()} holders · ${r.coverage}% coverage`,
       score:    r.score,
-      verdict,
-      verdictTone,
-      verdictNote,
+      verdict:  r.verdict,
+      verdictTone: verdictTone(r.verdict),
+      verdictNote: r.isHoneypot
+        ? (r.honeypotReason || 'Sell simulation failed — this token cannot be sold.')
+        : failed.length === 0
+          ? 'No critical risks found across 8 weighted security pillars.'
+          : `${failed.length} critical issue${failed.length > 1 ? 's' : ''}: ${failed.slice(0, 2).map(f => f.label).join(', ')}${failed.length > 2 ? '…' : ''}`,
       stats: [
-        { label: 'Buy Tax',   value: `${r.buyTax}%`,  tone: taxTone(r.buyTax)  },
-        { label: 'Sell Tax',  value: `${r.sellTax}%`, tone: taxTone(r.sellTax) },
-        { label: 'LP Locked', value: r.lpPercent > 0 ? `${r.lpPercent}%` : 'Unknown',
-          tone: r.lpLocked ? 'good' : r.lpPercent > 0 ? 'warn' : 'neutral' },
+        { label: 'Buy Tax',   value: `${r.buyTax.toFixed(1)}%`,  tone: taxTone(r.buyTax) },
+        { label: 'Sell Tax',  value: `${r.sellTax.toFixed(1)}%`, tone: taxTone(r.sellTax) },
+        { label: 'Liquidity', value: r.liquidityUsd > 0 ? `$${Math.round(r.liquidityUsd).toLocaleString()}` : 'None',
+          tone: r.liquidityUsd > 25_000 ? 'good' : r.liquidityUsd > 0 ? 'warn' : 'bad' },
         { label: 'Ownership', value: r.ownerRenounced ? 'Renounced' : 'Active',
           tone: r.ownerRenounced ? 'good' : 'warn' },
       ],
-      highlights,
-      contract: address.trim(),
-      sources:  'GoPlus Security · Honeypot.is',
+      highlights: r.pillars.map(p => ({
+        label: p.title.replace(' & ', ' + '),
+        ok: p.covered && p.score >= 70,
+      })),
+      contract: r.address,
+      sources:  'GoPlus · Honeypot.is · DexScreener',
     }
   }
 
   async function saveCard() {
-    if (!result) return
+    if (!report) return
     setCardBusy('png'); setCardNotice('')
     try {
-      const slug = (result.symbol || 'token').replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'token'
-      await downloadShareCard(buildCard(result), `fatdev-scan-${slug}.png`)
-    } catch (e: any) {
-      setCardNotice(`Image export failed: ${e.message ?? e}`)
-    }
+      const slug = (report.symbol || 'token').replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'token'
+      await downloadShareCard(buildCard(report), `fatdev-scan-${slug}.png`)
+    } catch (e: any) { setCardNotice(`Image export failed: ${e.message ?? e}`) }
     setCardBusy(null)
   }
-
   async function clipCard() {
-    if (!result) return
+    if (!report) return
     setCardBusy('copy'); setCardNotice('')
-    const ok = await copyShareCard(buildCard(result))
+    const ok = await copyShareCard(buildCard(report))
     setCardNotice(ok
       ? 'Image copied — paste it straight into Telegram, X, or Discord.'
       : 'Your browser blocks image copy. Use Download PNG instead.')
     setCardBusy(null)
   }
 
+  const busy = phase === 'detecting' || phase === 'scanning'
+  const vColor = report ? verdictColor(report.verdict) : 'var(--fd-cyan)'
+  const explorer = report ? CHAIN_EXPLORERS[report.chainId] : ''
+
   return (
     <div className="step-panel">
 
-      {/* ── Input card ── */}
-      <div className="card" style={{ marginBottom: 20, background: 'linear-gradient(135deg, #0a1929 0%, #071525 100%)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,215,0,0.1)',
-            border: '0.5px solid rgba(255,215,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="shield" size={17} style={{ color: 'var(--fd-cyan)' }} />
-          </div>
+      {/* ── Input ── */}
+      <div className="card" style={{ marginBottom: 20, background: 'linear-gradient(135deg,#0a1929,#071525)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: 8, background: 'var(--fd-cyan-ghost)',
+            border: '0.5px solid var(--fd-border-cyan)', display: 'flex',
+            alignItems: 'center', justifyContent: 'center', color: 'var(--fd-cyan)',
+          }}><Icon name="shield" size={17} /></div>
           <div>
             <div style={{ fontWeight: 800, fontSize: 15 }}>Token Security Scanner</div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-              Powered by GoPlus Security + Honeypot.is
+              Paste an address — the network is detected automatically
             </div>
           </div>
         </div>
 
-        {/* Chain selector */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-          {CHAINS.map(c => (
-            <button key={c.id} onClick={() => setChainId(c.id)}
-              style={{
-                padding: '5px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700,
-                border: `0.5px solid ${chainId === c.id ? 'var(--fd-cyan)' : 'var(--border)'}`,
-                background: chainId === c.id ? 'rgba(255,215,0,0.15)' : 'transparent',
-                color: chainId === c.id ? 'var(--fd-cyan)' : 'var(--text-muted)',
-                cursor: 'pointer', transition: 'all 0.2s',
-              }}>
-              {c.short}
-            </button>
-          ))}
-        </div>
-
-        {/* Address input */}
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <input
             className="field-input"
+            style={{ flex: 1, minWidth: 240, fontFamily: 'var(--fd-font-mono)', fontSize: 13 }}
             placeholder="0x… contract address"
             value={address}
             onChange={e => { setAddress(e.target.value); setError('') }}
-            onKeyDown={e => e.key === 'Enter' && !scanning && scan()}
-            style={{ flex: 1, fontFamily: "'Space Mono',monospace", fontSize: 13 }}
+            onKeyDown={e => e.key === 'Enter' && !busy && run()}
+            aria-label="Token contract address"
           />
-          <button className="btn-primary" onClick={scan} disabled={scanning}
+          <button className="btn-primary" onClick={run} disabled={busy || !valid}
             style={{
-              padding: '10px 20px', whiteSpace: 'nowrap', minWidth: 100,
+              padding: '10px 20px', whiteSpace: 'nowrap', minWidth: 108,
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+              opacity: busy || !valid ? 0.55 : 1,
             }}>
-            {scanning ? 'Scanning…' : <><Icon name="search" size={15} />Scan</>}
+            {busy ? 'Working…' : <><Icon name="search" size={15} />Scan</>}
           </button>
         </div>
+
+        {busy && (
+          <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 9, fontSize: 12.5, color: 'var(--fd-cyan)' }}>
+            <span className="spinner" />{status}
+          </div>
+        )}
+
         {error && (
-          <div style={{ marginTop: 10, fontSize: 12, color: 'var(--red)',
-            background: 'rgba(255,82,82,0.08)', border: '0.5px solid rgba(255,82,82,0.25)',
-            padding: '8px 12px', borderRadius: 8 }}>
-            {error}
+          <div style={{
+            marginTop: 12, padding: '10px 13px', borderRadius: 8, fontSize: 12.5, lineHeight: 1.6,
+            background: 'rgba(255,82,82,0.07)', border: '0.5px solid rgba(255,82,82,0.25)',
+            color: 'var(--red)', display: 'flex', gap: 9,
+          }}>
+            <Icon name="alert" size={15} style={{ marginTop: 1 }} />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {/* Multi-chain notice */}
+        {candidates.length > 1 && phase === 'done' && (
+          <div style={{ marginTop: 14, paddingTop: 12, borderTop: '0.5px solid var(--border)' }}>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>
+              This address exists on {candidates.length} networks — showing the one with the most liquidity.
+            </div>
+            <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+              {candidates.map(c => {
+                const on = activeChain === c.chainId
+                return (
+                  <button key={c.chainId} onClick={() => !on && switchChain(c.chainId)} disabled={busy}
+                    style={{
+                      padding: '5px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+                      border: `0.5px solid ${on ? 'var(--fd-cyan)' : 'var(--border)'}`,
+                      background: on ? 'var(--fd-cyan-ghost)' : 'transparent',
+                      color: on ? 'var(--fd-cyan)' : 'var(--text-muted)',
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                    }}>
+                    {SUPPORTED_CHAINS.find(s => s.id === c.chainId)?.short ?? c.chainId}
+                    {c.hasLiquidity && c.liquidityUsd > 0 && (
+                      <span style={{ fontFamily: 'var(--fd-font-mono)', opacity: 0.75 }}>
+                        ${Math.round(c.liquidityUsd).toLocaleString()}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         )}
       </div>
 
-      {/* ── Scanning animation ── */}
-      {scanning && (
-        <div className="card" style={{ background: 'linear-gradient(135deg, #0a1929 0%, #071525 100%)' }}>
-          <ScanAnimation />
-        </div>
-      )}
-
       {/* ── Results ── */}
-      {result && !scanning && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {report && phase === 'done' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-          {/* Honeypot alert */}
-          {result.isHoneypot && (
-            <div style={{
-              padding: '14px 18px', borderRadius: 10,
-              background: 'rgba(255,82,82,0.12)',
-              border: '1px solid rgba(255,82,82,0.4)',
-              display: 'flex', alignItems: 'center', gap: 12,
-            }}>
-              <span style={{ fontSize: 24 }}>☠️</span>
-              <div>
-                <div style={{ fontWeight: 800, color: 'var(--red)', marginBottom: 2 }}>
-                  HONEYPOT DETECTED
-                </div>
-                <div style={{ fontSize: 12, color: 'rgba(255,82,82,0.8)' }}>
-                  {result.honeypotReason ?? 'Sell transactions will fail. Do not buy.'}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Score + identity */}
+          {/* Hero */}
           <div className="card" style={{
-            background: 'linear-gradient(135deg, #0a1929 0%, #071525 100%)',
-            display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap',
+            background: 'linear-gradient(135deg,#0a1929,#071525)',
+            border: `1px solid ${vColor}44`,
+            display: 'flex', alignItems: 'center', gap: 26, flexWrap: 'wrap',
           }}>
-            <ScoreRing score={result.score} />
-            <div style={{ flex: 1, minWidth: 180 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
-                <span style={{ fontWeight: 800, fontSize: 22 }}>{result.name}</span>
-                <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 13,
-                  color: 'var(--fd-cyan)', padding: '1px 8px', background: 'rgba(255,215,0,0.1)',
-                  borderRadius: 6 }}>{result.symbol}</span>
+            <ScoreRing score={report.score} color={vColor} />
+            <div style={{ flex: 1, minWidth: 210 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, marginBottom: 5, flexWrap: 'wrap' }}>
+                <span style={{ fontWeight: 800, fontSize: 22 }}>{report.name}</span>
+                <span style={{
+                  fontFamily: 'var(--fd-font-mono)', fontSize: 12, color: 'var(--fd-cyan)',
+                  padding: '2px 9px', background: 'var(--fd-cyan-ghost)', borderRadius: 6,
+                }}>{report.symbol}</span>
               </div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
-                {CHAINS.find(c => c.id === chainId)?.label} ·{' '}
-                {parseInt(result.holders as any).toLocaleString()} holders
+
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 7, marginBottom: 12,
+                padding: '5px 13px', borderRadius: 20,
+                background: `${vColor}1A`, border: `1px solid ${vColor}55`,
+              }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: vColor }} />
+                <span style={{ fontWeight: 800, fontSize: 13, color: vColor, letterSpacing: '0.06em' }}>
+                  {report.verdict}
+                </span>
               </div>
-              {/* Mini stat row */}
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
+                Weighted across {report.pillars.length} pillars · {report.coverage}% coverage<br />
+                {CHAIN_NAME[report.chainId]} · {report.holders.toLocaleString()} holders
+                {report.pairAgeDays != null && ` · ${report.pairAgeDays}d old`}
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {[
-                  { label: 'Score', val: `${result.score}/100`, color: scoreColor },
-                  { label: 'Owner', val: result.ownerRenounced ? 'Renounced' : 'Active',
-                    color: result.ownerRenounced ? 'var(--green)' : 'var(--fd-cyan)' },
-                  { label: 'LP Lock', val: result.lpPercent > 0 ? `${result.lpPercent}%` : 'Unknown',
-                    color: result.lpLocked ? 'var(--green)' : 'var(--red)' },
+                  { l: 'Buy',  v: `${report.buyTax.toFixed(1)}%` },
+                  { l: 'Sell', v: `${report.sellTax.toFixed(1)}%` },
+                  { l: 'Liq',  v: report.liquidityUsd > 0 ? `$${Math.round(report.liquidityUsd).toLocaleString()}` : '—' },
+                  { l: 'Owner', v: report.ownerRenounced ? 'Renounced' : 'Active' },
                 ].map(s => (
-                  <div key={s.label} style={{
-                    padding: '5px 12px', borderRadius: 20,
+                  <div key={s.l} style={{
+                    padding: '5px 11px', borderRadius: 20,
                     background: 'rgba(255,255,255,0.04)', border: '0.5px solid var(--border)',
+                    fontSize: 11,
                   }}>
-                    <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{s.label}: </span>
-                    <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 11,
-                      color: s.color, fontWeight: 700 }}>{s.val}</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{s.l}: </span>
+                    <span style={{ fontFamily: 'var(--fd-font-mono)', fontWeight: 700 }}>{s.v}</span>
                   </div>
                 ))}
               </div>
-            </div>
-          </div>
 
-          {/* Tax simulation */}
-          <div className="card" style={{ background: 'linear-gradient(135deg, #0a1929 0%, #071525 100%)' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase',
-              color: 'var(--text-muted)', marginBottom: 14 }}>Tax Simulation</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <TaxMeter label="Buy Tax" pct={result.buyTax} />
-              <TaxMeter label="Sell Tax" pct={result.sellTax} />
-            </div>
-            <div style={{ marginTop: 14, fontSize: 11, color: 'var(--text-muted)',
-              display: 'flex', gap: 6 }}>
-              {result.buyTax > 25 || result.sellTax > 25
-                ? <span style={{ color: 'var(--red)', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Icon name="alert" size={13} />High tax — likely scam or rugged</span>
-                : result.buyTax > 10 || result.sellTax > 10
-                  ? <span style={{ color: 'var(--fd-cyan)', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Icon name="alert" size={13} />Elevated tax — trade carefully</span>
-                  : <span style={{ color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Icon name="check" size={13} />Tax within normal range</span>
-              }
-            </div>
-          </div>
-
-          {/* Security flags */}
-          <div className="card" style={{ background: 'linear-gradient(135deg, #0a1929 0%, #071525 100%)' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase',
-              color: 'var(--text-muted)', marginBottom: 14 }}>Security Flags</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {result.flags.map(f => <FlagRow key={f.label} flag={f} />)}
-            </div>
-          </div>
-
-          {/* Owner + contract info */}
-          <div className="card" style={{ background: 'linear-gradient(135deg, #0a1929 0%, #071525 100%)' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase',
-              color: 'var(--text-muted)', marginBottom: 14 }}>Contract Info</div>
-            {[
-              { label: 'Owner',        val: result.ownerAddress,    mono: true  },
-              { label: 'Total Supply', val: result.totalSupply,     mono: true  },
-              { label: 'Holders',      val: parseInt(result.holders as any).toLocaleString(), mono: false },
-              { label: 'LP Locked',    val: result.lpPercent > 0 ? `${result.lpPercent}% locked` : 'Unknown', mono: false },
-            ].map(row => (
-              <div key={row.label} style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-                padding: '8px 0', borderBottom: '0.5px solid var(--border)',
-              }}>
-                <span style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0, minWidth: 100 }}>{row.label}</span>
-                <span style={{
-                  fontSize: 11, textAlign: 'right', wordBreak: 'break-all',
-                  fontFamily: row.mono ? "'Space Mono',monospace" : 'inherit',
-                  color: '#fff',
-                }}>
-                  {row.val}
-                </span>
+              <div style={{ marginTop: 12, fontFamily: 'var(--fd-font-mono)', fontSize: 10.5, color: 'var(--text-muted)', wordBreak: 'break-all' }}>
+                {report.address}
+                {explorer && (
+                  <a href={`${explorer}/token/${report.address}`} target="_blank" rel="noopener"
+                    style={{ color: 'var(--fd-cyan)', marginLeft: 8, textDecoration: 'none' }}>
+                    explorer ↗
+                  </a>
+                )}
               </div>
-            ))}
+            </div>
           </div>
 
-          {/* Share card export */}
-          <div className="card" style={{ background: 'linear-gradient(135deg, #0a1929 0%, #071525 100%)' }}>
+          {/* Coverage caveat */}
+          {report.coverage < 100 && (
+            <div style={{
+              padding: '10px 14px', borderRadius: 8, fontSize: 12, lineHeight: 1.6,
+              background: 'rgba(255,176,32,0.06)', border: '0.5px solid rgba(255,176,32,0.22)',
+              color: 'rgba(255,255,255,0.72)', display: 'flex', gap: 9,
+            }}>
+              <Icon name="info" size={15} style={{ color: 'var(--amber)', marginTop: 1 }} />
+              <span>
+                Only <strong>{report.coverage}%</strong> of the scoring weight could be assessed on this
+                network — pillars marked <em>not assessed</em> were excluded rather than assumed safe.
+                Treat this score as less complete than a 100%-coverage scan.
+              </span>
+            </div>
+          )}
+
+          {/* Pillars */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {report.pillars.map(p => <PillarCard key={p.key} p={p} />)}
+          </div>
+
+          {/* Share */}
+          <div className="card" style={{ background: 'linear-gradient(135deg,#0a1929,#071525)' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: 200 }}>
-                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4,
-                  display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Icon name="image" size={16} style={{ color: 'var(--fd-cyan)' }} />Share this scan
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                  Generates a branded 1200×675 image — the score, verdict, taxes, LP lock,
-                  and security flags. Sized for X, Telegram, and Discord previews.
+                  Branded 1200×675 image with the score, verdict, taxes, liquidity and every pillar.
+                  Sized for X, Telegram and Discord previews.
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button className="btn-primary" onClick={saveCard} disabled={cardBusy !== null}
-                  style={{ fontSize: 13, padding: '8px 16px', display: 'inline-flex',
-                    alignItems: 'center', gap: 7 }}>
+                  style={{ fontSize: 13, padding: '8px 16px', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
                   {cardBusy === 'png' ? 'Rendering…' : <><Icon name="download" size={15} />Download PNG</>}
                 </button>
                 <button className="btn-ghost" onClick={clipCard} disabled={cardBusy !== null}
-                  style={{ fontSize: 13, padding: '8px 16px', display: 'inline-flex',
-                    alignItems: 'center', gap: 7 }}>
+                  style={{ fontSize: 13, padding: '8px 16px', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
                   {cardBusy === 'copy' ? 'Copying…' : <><Icon name="copy" size={15} />Copy image</>}
                 </button>
               </div>
@@ -570,51 +468,52 @@ export function SecurityScanner() {
             {cardNotice && (
               <div style={{
                 marginTop: 12, fontSize: 12, lineHeight: 1.6,
-                color: cardNotice.includes('failed') || cardNotice.includes('blocks')
-                  ? 'var(--fd-cyan)' : 'var(--fd-green)',
-              }}>
-                {cardNotice}
-              </div>
+                color: /failed|blocks/.test(cardNotice) ? 'var(--amber)' : 'var(--fd-green)',
+              }}>{cardNotice}</div>
             )}
-            {result.score < 55 && (
+            {report.score < 55 && (
               <div style={{
                 marginTop: 12, padding: '9px 13px', borderRadius: 8, fontSize: 11.5, lineHeight: 1.6,
                 background: 'rgba(255,82,82,0.07)', border: '0.5px solid rgba(255,82,82,0.22)',
                 color: 'rgba(255,255,255,0.7)',
               }}>
-                This token scored <strong style={{ color: '#FF5252' }}>{result.score}/100</strong> — the
+                This token scored <strong style={{ color: 'var(--red)' }}>{report.score}/100</strong> — the
                 image will show the risks it failed. Useful as a warning, not a promotion.
               </div>
             )}
           </div>
 
-          {/* Data sources */}
+          {/* Sources */}
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-            {['GoPlus Security', 'Honeypot.is'].map(src => (
-              <span key={src} style={{
+            {['GoPlus Security', 'Honeypot.is', 'DexScreener'].map(s => (
+              <span key={s} style={{
                 fontSize: 10, color: 'var(--text-muted)', padding: '3px 10px',
                 border: '0.5px solid var(--border)', borderRadius: 20,
+                display: 'inline-flex', alignItems: 'center', gap: 5,
               }}>
-                ⚡ {src}
+                <Icon name="zap" size={10} />{s}
               </span>
             ))}
-            <button onClick={() => setResult(null)} style={{
-              fontSize: 10, color: 'var(--text-muted)', padding: '3px 10px',
-              border: '0.5px solid var(--border)', borderRadius: 20,
-              background: 'transparent', cursor: 'pointer',
-            }}>
-              ✕ Clear
+            <button onClick={() => { setReport(null); setPhase('idle'); setCandidates([]) }}
+              style={{
+                fontSize: 10, color: 'var(--text-muted)', padding: '3px 10px',
+                border: '0.5px solid var(--border)', borderRadius: 20,
+                background: 'transparent', display: 'inline-flex', alignItems: 'center', gap: 5,
+              }}>
+              <Icon name="x" size={10} />Clear
             </button>
           </div>
         </div>
       )}
 
       {/* Empty state */}
-      {!scanning && !result && !error && (
+      {phase === 'idle' && !report && !error && (
         <div style={{ textAlign: 'center', padding: '2.5rem 0', color: 'var(--text-muted)' }}>
           <Icon name="shield" size={40} style={{ margin: '0 auto 12px', opacity: 0.35 }} />
-          <div style={{ fontSize: 13 }}>Enter any token contract address above to run a full security scan.</div>
-          <div style={{ fontSize: 11, marginTop: 6 }}>Works across all {CHAINS.length} supported networks</div>
+          <div style={{ fontSize: 13 }}>Paste any token contract address to run a full security audit.</div>
+          <div style={{ fontSize: 11, marginTop: 6 }}>
+            The network is detected automatically across all {SUPPORTED_CHAINS.filter(c => !c.testnet).length} supported chains.
+          </div>
         </div>
       )}
     </div>

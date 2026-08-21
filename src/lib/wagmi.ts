@@ -86,6 +86,61 @@ export const config = getDefaultConfig({
   },
 })
 
+/**
+ * Plain RPC URL per chain — used for lightweight `eth_getCode` probes during
+ * chain auto-detection, where spinning up 20 viem clients would be wasteful.
+ */
+export const CHAIN_RPC: Record<number, string> = {
+  56:    'https://bsc-dataseed.binance.org',
+  1:     'https://eth.llamarpc.com',
+  42161: 'https://arb1.arbitrum.io/rpc',
+  8453:  'https://mainnet.base.org',
+  137:   'https://polygon-rpc.com',
+  10:    'https://mainnet.optimism.io',
+  43114: 'https://api.avax.network/ext/bc/C/rpc',
+  59144: linea.rpcUrls.default.http[0],
+  999:   hyperEvm.rpcUrls.default.http[0],
+  146:   sonic.rpcUrls.default.http[0],
+  5000:  mantle.rpcUrls.default.http[0],
+  1329:  sei.rpcUrls.default.http[0],
+  100:   gnosis.rpcUrls.default.http[0],
+  25:    cronos.rpcUrls.default.http[0],
+  4663:  import.meta.env.VITE_ROBINHOOD_RPC_URL ?? 'https://rpc.mainnet.chain.robinhood.com',
+  143:   monad.rpcUrls.default.http[0],
+  369:   pulsechain.rpcUrls.default.http[0],
+  9745:  plasma.rpcUrls.default.http[0],
+  988:   stable.rpcUrls.default.http[0],
+  15551: loop.rpcUrls.default.http[0],
+  97:    'https://bsc-testnet.publicnode.com',
+}
+
+/**
+ * DexScreener's chain slugs, keyed by our chain id. Used both for market data
+ * and as the fast path for chain detection. Chains absent from this map simply
+ * fall back to the RPC bytecode probe.
+ */
+export const DEXSCREENER_SLUG: Record<number, string> = {
+  1:     'ethereum',
+  56:    'bsc',
+  137:   'polygon',
+  42161: 'arbitrum',
+  8453:  'base',
+  10:    'optimism',
+  43114: 'avalanche',
+  59144: 'linea',
+  5000:  'mantle',
+  146:   'sonic',
+  25:    'cronos',
+  100:   'gnosischain',
+  369:   'pulsechain',
+  1329:  'seiv2',
+  999:   'hyperliquid',
+}
+
+export const CHAIN_ID_BY_DEX_SLUG: Record<string, number> = Object.fromEntries(
+  Object.entries(DEXSCREENER_SLUG).map(([id, slug]) => [slug, Number(id)])
+)
+
 // ── Display metadata ──────────────────────────────────────────────────────────
 export type ChainMeta = { id: number; label: string; short: string; testnet?: boolean }
 
