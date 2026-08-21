@@ -4,6 +4,8 @@ import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
 import { Badge, Btn } from '../components/ui-kit'
 import { useAppConfig } from '../hooks/useAppConfig'
+import Icon from '../components/ui-kit/Icon'
+import { SERVICES, feeHeadline, feeSubline } from '../lib/services'
 
 const TIERS = {
   starter: {
@@ -124,7 +126,10 @@ function TierCard({
 }
 
 export function PricingPage() {
-  const { prices } = useAppConfig()
+  const { prices, features } = useAppConfig()
+
+  // A tool switched off in admin stops being advertised and billed for
+  const visibleServices = SERVICES.filter(s => !s.feature || features[s.feature])
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--fd-void)', display: 'flex', flexDirection: 'column' }}>
@@ -189,35 +194,52 @@ export function PricingPage() {
         }}>
           <h2 style={{
             fontFamily: 'var(--fd-font-display)', fontWeight: 700,
-            fontSize: 20, color: 'var(--fd-white)', marginBottom: 24,
+            fontSize: 20, color: 'var(--fd-white)', marginBottom: 6,
           }}>
-            All plans include
+            Services &amp; fees
           </h2>
-          <div style={{
-            display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)',
-            gap: 14,
-          }} className="pricing-features-grid">
-            {[
-              ['Security Scanner', 'Full honeypot + tax sim audit with 0–100 trust score'],
-              ['Audit Score',      'Config scoring with a downloadable branded PDF report'],
-              ['Social Tools',     'Widget embed code, Telegram/Twitter post templates'],
-              ['Cross-Chain Bridge', 'Move tokens between BSC, Ethereum, and Arbitrum'],
-              ['Airdrop Tool',     'CSV import, multi-send, progress tracking'],
-              ['LP Launch Wizard', 'Step-by-step add liquidity, startLP(), launch()'],
-              ['Param Export',     'Copy or download full constructor params for Remix'],
-              ['Deploy Dashboard', 'Every token you have deployed, with live on-chain status'],
-            ].map(([title, desc]) => (
-              <div key={title} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                <span style={{ color: 'var(--fd-green)', flexShrink: 0, marginTop: 2 }}>✓</span>
-                <div>
-                  <div style={{
-                    fontSize: 14, fontWeight: 600, color: 'var(--fd-white)',
-                    fontFamily: 'var(--fd-font-display)',
-                  }}>{title}</div>
-                  <div style={{ fontSize: 12, color: 'var(--fd-ghost)', marginTop: 2 }}>{desc}</div>
+          <p style={{ fontSize: 13.5, color: 'var(--fd-ghost)', margin: '0 0 22px', lineHeight: 1.6 }}>
+            Every tool with its fee shown up front — no subscriptions, no hidden charges.
+            USD prices are converted to the connected chain's native coin at the live rate,
+            so a fee costs the same wherever you deploy.
+          </p>
+
+          <div className="svc-grid">
+            {visibleServices.map(s => {
+              const free = s.fee.kind === 'free'
+              const sub  = feeSubline(s.fee)
+              return (
+                <div key={s.key} className="svc">
+                  <div className="svc__head">
+                    <span className="svc__icon"><Icon name={s.icon} size={18} /></span>
+                    <h3 className="svc__title">{s.title}</h3>
+                  </div>
+
+                  <div className="svc__price" style={{ color: free ? 'var(--fd-green)' : 'var(--fd-white)' }}>
+                    {feeHeadline(s.fee)}
+                  </div>
+                  {sub && <div className="svc__sub">{sub}</div>}
+
+                  <p className="svc__desc">{s.desc}</p>
+
+                  <Link to={s.href} className="svc__cta">
+                    {s.cta}
+                    <Icon name="arrowRight" size={13} />
+                  </Link>
                 </div>
-              </div>
-            ))}
+              )
+            })}
+          </div>
+
+          <div style={{
+            marginTop: 18, padding: '12px 16px', borderRadius: 'var(--fd-radius)',
+            background: 'rgba(255,255,255,0.03)', border: '1px solid var(--fd-border)',
+            fontSize: 12, color: 'var(--fd-ghost)', lineHeight: 1.7,
+          }}>
+            <strong style={{ color: 'var(--fd-white)' }}>How fees work.</strong>{' '}
+            Prices are set in USD and converted to the native coin of whichever chain you are
+            connected to, using a live rate fetched at the moment you pay — so $30 is $30 on
+            every network. Free tools charge no service fee; you still pay that chain's gas.
           </div>
         </div>
 

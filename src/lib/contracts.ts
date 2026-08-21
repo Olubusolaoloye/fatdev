@@ -132,7 +132,7 @@ export async function payWithNative(
     to: TREASURY,
     value: nativeAmount,
     account,
-    chain: walletClient.chain!,
+    chain: null,
   })
 
   onStatus('Waiting for confirmation…')
@@ -359,7 +359,7 @@ export async function deployToken(
     data: bytecode,
     account,
     gas: deployGas * 13n / 10n, // 30% buffer to avoid edge-case OOG
-    chain: walletClient.chain!,
+    chain: null,
   })
 
   onStatus('Step 1 of 2 — Waiting for deployment confirmation…')
@@ -391,7 +391,7 @@ export async function deployToken(
     args:    initArgs as any,
     account,
     gas:   initGas * 13n / 10n,
-    chain: walletClient.chain!,
+    chain: null,
   })
 
   onStatus('Step 2 of 2 — Waiting for initialization confirmation…')

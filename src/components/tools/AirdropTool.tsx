@@ -9,6 +9,8 @@ import {
   executeBatchAirdrop,
   getSavedAirdropContract,
   FATDEV_MULTISENDER,
+  chargeAirdropFee,
+  airdropFeeUsd,
 } from '../../lib/airdrop'
 import { StatusBox, Spinner } from '../ui-kit'
 import Icon from '../ui-kit/Icon'
@@ -17,7 +19,7 @@ const CHUNK_SIZE = 150
 const WARN_SIZE  = 100
 
 type Row = { address: string; amount: string; valid: boolean; error?: string }
-type Phase = 'idle' | 'deploying' | 'approving' | 'sending' | 'done'
+type Phase = 'idle' | 'fee' | 'deploying' | 'approving' | 'sending' | 'done'
 type ChunkResult = { approveTx: string; airdropTx: string; recipients: number; total: string }
 
 function parseCSV(raw: string): Row[] {
@@ -101,6 +103,18 @@ export function AirdropTool() {
     setError(''); setResults([])
 
     try {
+      // Service fee first — the user is never asked to approve token spend for
+      // a run that has not been paid for, and a failure here costs only gas.
+      setPhase('fee')
+      setChunkLabel('')
+      await chargeAirdropFee({
+        recipientCount: validRows.length,
+        chainId,
+        walletClient: walletClient as any,
+        publicClient: publicClient as any,
+        onStatus: setStatus,
+      })
+
       let airdropContract = getSavedAirdropContract(chainId)
       if (!airdropContract) {
         setPhase('deploying')
@@ -173,6 +187,7 @@ export function AirdropTool() {
 
   const phaseLabel: Record<Phase, string> = {
     idle:      '',
+    fee:       'Paying the service fee…',
     deploying: 'Deploying batch contract (one-time per chain)…',
     approving: 'Approving token spend…',
     sending:   'Sending batch transaction…',
@@ -351,7 +366,8 @@ export function AirdropTool() {
               { label: 'Recipients',    value: validRows.length },
               { label: 'Total to send', value: `${totalAmt.toLocaleString()} ${tokenInfo.symbol}` },
               { label: 'Batches',       value: chunkCount },
-              { label: 'Signatures',    value: chunkCount * 2 },
+              { label: 'Service fee',   value: `$${airdropFeeUsd(validRows.length).toFixed(2)}` },
+              { label: 'Signatures',    value: chunkCount * 2 + 1 },
             ].map(({ label, value }) => (
               <div key={label} style={{ background: 'rgba(255,215,0,0.06)', borderRadius: 8,
                 padding: '10px 14px', border: '0.5px solid var(--border-strong)' }}>
@@ -366,6 +382,20 @@ export function AirdropTool() {
         {tokenInfo && validRows.length === 0 && <StatusBox msg="Add recipients in step 2." type="info" />}
         {tokenInfo && !hasEnough && validRows.length > 0 && (
           <StatusBox msg={`Insufficient balance. Need ${totalAmt.toLocaleString()} but wallet holds ${Number(formatUnits(tokenInfo.balance, tokenInfo.decimals)).toLocaleString()} ${tokenInfo?.symbol}.`} type="err" />
+        )}
+
+        {tokenInfo && validRows.length > 0 && (
+          <div style={{
+            marginBottom: 12, padding: '10px 14px', borderRadius: 8, fontSize: 12,
+            background: 'rgba(0,207,255,0.06)', border: '1px solid rgba(0,207,255,0.22)',
+            color: 'rgba(255,255,255,0.72)', lineHeight: 1.65,
+          }}>
+            <strong style={{ color: 'var(--fd-cyan)' }}>
+              Service fee ${airdropFeeUsd(validRows.length).toFixed(2)}
+            </strong>{' '}
+            — $3.00 base + $0.03 per recipient ({validRows.length}). Charged once in this
+            chain's native coin at the live USD rate, before any token approval.
+          </div>
         )}
 
         {tokenInfo && hasEnough && validRows.length > 0 && phase === 'idle' && (

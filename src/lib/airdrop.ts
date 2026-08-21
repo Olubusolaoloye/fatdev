@@ -1,4 +1,8 @@
 import type { WalletClient, PublicClient } from 'viem'
+import { parseEther } from 'viem'
+import { TREASURY } from './contracts'
+import { quoteNative, roundNative, formatQuote } from './priceOracle'
+import { SERVICES, meteredTotalUsd } from './services'
 
 // ── FatAirdrop contract ───────────────────────────────────────────────────────
 // Compiled from src/contracts/FatAirdrop.sol
@@ -172,4 +176,58 @@ export async function executeBatchAirdrop(opts: {
   await publicClient.waitForTransactionReceipt({ hash: airdropHash })
 
   return { approveTx: approveHash, airdropTx: airdropHash }
+}
+
+
+// ── Service fee ───────────────────────────────────────────────────────────────
+/**
+ * Charge the airdrop service fee, quoted in USD and converted to the connected
+ * chain's native coin at the live rate.
+ *
+ * Sent as its own transaction before the token approvals so the user is never
+ * asked to approve spend against a run that has not been paid for, and so a
+ * failure here costs nothing but gas.
+ */
+export async function chargeAirdropFee(opts: {
+  recipientCount: number
+  chainId: number
+  walletClient: WalletClient
+  publicClient: PublicClient
+  onStatus: (s: string) => void
+}): Promise<{ txHash: string; usd: number; native: string }> {
+  const { recipientCount, chainId, walletClient, publicClient, onStatus } = opts
+
+  const service = SERVICES.find(s => s.key === 'airdrop')
+  if (!service) throw new Error('Airdrop service pricing is not configured')
+
+  const usd = meteredTotalUsd(service.fee, recipientCount)
+  if (usd <= 0) return { txHash: '', usd: 0, native: '0' }
+
+  // Quote at the moment of charging so the rate is never stale
+  const quote  = await quoteNative(chainId, usd)
+  const amount = parseEther(String(roundNative(quote.nativeAmount)))
+
+  onStatus(
+    `Service fee: $${usd.toFixed(2)} (${formatQuote(quote)}) for ${recipientCount} recipients. ` +
+    `Confirm in wallet…`
+  )
+
+  const [account] = await walletClient.getAddresses()
+  const txHash = await walletClient.sendTransaction({
+    to: TREASURY,
+    value: amount,
+    account,
+    chain: null,
+  })
+
+  onStatus('Waiting for fee confirmation…')
+  await publicClient.waitForTransactionReceipt({ hash: txHash })
+
+  return { txHash, usd, native: formatQuote(quote) }
+}
+
+/** What the airdrop will cost in USD for a given recipient count. */
+export function airdropFeeUsd(recipientCount: number): number {
+  const service = SERVICES.find(s => s.key === 'airdrop')
+  return service ? meteredTotalUsd(service.fee, recipientCount) : 0
 }

@@ -230,7 +230,7 @@ export function LiquidityLaunch({
         const appHash = await walletClient.writeContract({
           address: token, abi: ERC20_ABI, functionName: 'approve',
           args: [router, maxUint256],
-          account: acct, chain: walletClient.chain!,
+          account: acct, chain: null,
           gas: appGas * 12n / 10n,
         })
         upd(setApprove, 'pending', 'Waiting for approval confirmation…', appHash)
@@ -258,7 +258,7 @@ export function LiquidityLaunch({
         address: router, abi: ROUTER_ABI, functionName: 'addLiquidityETH',
         args: [token, tokenAmtWei, 0n, 0n, acct, deadline],
         value: nativeAmtWei,
-        account: acct, chain: walletClient.chain!,
+        account: acct, chain: null,
         gas: (liqGas * 13n / 10n),
       })
       upd(setAddLiq, 'pending', 'Waiting for liquidity confirmation…', liqHash)
@@ -646,7 +646,7 @@ export function LiquidityLaunch({
                       const pairHash = await walletClient.writeContract({
                         address: token, abi: FAT_TAX_ABI, functionName: 'setDexPair',
                         args: [pair, true],
-                        account: acct, chain: walletClient.chain!,
+                        account: acct, chain: null,
                         gas: pairGas * 12n / 10n,
                       })
                       setPairStatus({ state: 'pending', msg: 'Confirming…', txUrl: `${explorer}/tx/${pairHash}` })

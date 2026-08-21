@@ -741,3 +741,53 @@ html, body { overflow-x: hidden; }
   font-family: var(--fd-font-mono); font-size: 11px; color: var(--fd-ghost);
 }
 .preview__count--over { color: #FF5252; font-weight: 700; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Services & fees cards (pricing page)
+   ═══════════════════════════════════════════════════════════════════════════ */
+.svc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(238px, 1fr));
+  gap: 14px;
+}
+.svc {
+  display: flex; flex-direction: column;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid var(--fd-border);
+  border-radius: var(--fd-radius, 10px);
+  padding: 16px 17px 15px;
+  transition: border-color 180ms ease, background 180ms ease;
+}
+.svc:hover { border-color: var(--fd-border-cyan); background: rgba(0,207,255,0.04); }
+
+.svc__head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.svc__icon {
+  width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
+  background: var(--fd-cyan-ghost); border: 1px solid var(--fd-border-cyan);
+  color: var(--fd-cyan);
+  display: flex; align-items: center; justify-content: center;
+}
+.svc__title {
+  font-size: 14px; font-weight: 700; margin: 0;
+  color: var(--fd-white); font-family: var(--fd-font-display);
+}
+
+.svc__price {
+  font-size: 26px; font-weight: 800; line-height: 1.1;
+  font-family: var(--fd-font-display);
+}
+.svc__sub {
+  font-size: 11.5px; color: var(--fd-ghost);
+  font-family: var(--fd-font-mono); margin-top: 3px;
+}
+.svc__desc {
+  font-size: 12.5px; color: var(--fd-ghost);
+  line-height: 1.6; margin: 11px 0 0; flex: 1;
+}
+.svc__cta {
+  display: inline-flex; align-items: center; gap: 6;
+  gap: 6px; margin-top: 14px;
+  font-size: 12.5px; font-weight: 700; color: var(--fd-cyan);
+  text-decoration: none; font-family: var(--fd-font-display);
+}
+.svc__cta:hover { text-decoration: underline; }
