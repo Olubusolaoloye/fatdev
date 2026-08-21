@@ -4,7 +4,7 @@ import { useAccount, useWalletClient, usePublicClient, useChainId } from 'wagmi'
 import { useStore } from '../../lib/store'
 import { deployToken, generateParams } from '../../lib/contracts'
 import { verifyContract } from '../../lib/verify'
-import { CHAIN_EXPLORERS } from '../../lib/wagmi'
+import { CHAIN_EXPLORERS, CHAIN_NAME } from '../../lib/wagmi'
 import { StatusBox, Spinner, SumTile, Btn } from '../ui-kit'
 import Logo from '../ui-kit/Logo'
 import { LiquidityLaunch } from './LiquidityLaunch'
@@ -31,7 +31,7 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
   const canDeploy   = deploysLeft > 0 && !!walletClient
 
   const chainInfo = CHAIN_EXPLORERS[chainId]
-  const chainName = { 56: 'BNB Chain', 1: 'Ethereum', 42161: 'Arbitrum One', 97: 'BSC Testnet', 4663: 'Robinhood Chain' }[chainId] ?? `Chain ${chainId}`
+  const chainName = CHAIN_NAME[chainId] ?? `Chain ${chainId}`
 
   async function doDeploy() {
     if (!walletClient || !publicClient || !address) return

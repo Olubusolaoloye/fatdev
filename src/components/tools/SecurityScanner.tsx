@@ -1,14 +1,15 @@
 import { useState } from 'react'
 import { downloadShareCard, copyShareCard, type ShareCardData, type Tone } from '../../lib/shareCard'
+import { SUPPORTED_CHAINS } from '../../lib/wagmi'
+import Icon from '../ui-kit/Icon'
 
 // ── Chain config ──────────────────────────────────────────────────────────────
-const CHAINS = [
-  { id: '56',    label: 'BNB Chain',    short: 'BSC'  },
-  { id: '1',     label: 'Ethereum',     short: 'ETH'  },
-  { id: '42161', label: 'Arbitrum One', short: 'ARB'  },
-  { id: '8453',  label: 'Base',         short: 'BASE' },
-  { id: '137',   label: 'Polygon',      short: 'MATIC'},
-]
+// Every chain the app supports is offered. Security-API coverage varies by chain
+// and changes over time, so rather than hardcode a coverage list that silently
+// goes stale, an uncovered chain is detected at scan time and reported plainly.
+const CHAINS = SUPPORTED_CHAINS
+  .filter(c => !c.testnet)
+  .map(c => ({ id: String(c.id), label: c.label, short: c.short }))
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Flag = { label: string; ok: boolean; value?: string; critical?: boolean }
@@ -41,9 +42,8 @@ async function fetchGoPlus(address: string, chainId: string): Promise<any> {
 
 // ── Honeypot.is API ───────────────────────────────────────────────────────────
 async function fetchHoneypot(address: string, chainId: string): Promise<any> {
-  const chainMap: Record<string, string> = { '56': '56', '1': '1', '137': '137', '8453': '8453', '42161': '42161' }
-  const cid = chainMap[chainId] || chainId
-  const res = await fetch(`https://api.honeypot.is/v2/IsHoneypot?address=${address}&chainID=${cid}`)
+  const res = await fetch(`https://api.honeypot.is/v2/IsHoneypot?address=${address}&chainID=${chainId}`)
+  if (!res.ok) throw new Error(`Honeypot.is returned ${res.status}`)
   return res.json()
 }
 
@@ -206,7 +206,7 @@ function FlagRow({ flag }: { flag: Flag }) {
           color: flag.ok ? 'var(--green)' : flag.critical ? 'var(--red)' : 'var(--fd-cyan)',
           flexShrink: 0,
         }}>
-          {flag.ok ? '✓' : '✗'}
+          <Icon name={flag.ok ? 'check' : 'x'} size={13} />
         </span>
         <span style={{ fontSize: 13, fontWeight: 500 }}>{flag.label}</span>
         {!flag.ok && flag.critical && (
@@ -268,7 +268,14 @@ export function SecurityScanner() {
       ])
       const gpData = gp.status === 'fulfilled' ? gp.value : null
       const hpData = hp.status === 'fulfilled' ? hp.value : null
-      if (!gpData && !hpData) throw new Error('Both APIs failed. Check address and chain.')
+      if (!gpData && !hpData) {
+        const name = CHAINS.find(c => c.id === chainId)?.label ?? `chain ${chainId}`
+        throw new Error(
+          `No security data available for ${name}. The GoPlus and Honeypot.is APIs ` +
+          `do not currently cover this network — verify the address is correct, or ` +
+          `scan this token on a network they support.`
+        )
+      }
       setResult(buildResult(gpData ?? {}, hpData ?? {}))
     } catch (e: any) {
       setError(e.message || 'Scan failed')
@@ -357,7 +364,7 @@ export function SecurityScanner() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
           <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,215,0,0.1)',
             border: '0.5px solid rgba(255,215,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontSize: 16 }}>🛡️</span>
+            <Icon name="shield" size={17} style={{ color: 'var(--fd-cyan)' }} />
           </div>
           <div>
             <div style={{ fontWeight: 800, fontSize: 15 }}>Token Security Scanner</div>
@@ -394,8 +401,11 @@ export function SecurityScanner() {
             style={{ flex: 1, fontFamily: "'Space Mono',monospace", fontSize: 13 }}
           />
           <button className="btn-primary" onClick={scan} disabled={scanning}
-            style={{ padding: '10px 20px', whiteSpace: 'nowrap', minWidth: 100 }}>
-            {scanning ? 'Scanning…' : '⚡ Scan'}
+            style={{
+              padding: '10px 20px', whiteSpace: 'nowrap', minWidth: 100,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+            }}>
+            {scanning ? 'Scanning…' : <><Icon name="search" size={15} />Scan</>}
           </button>
         </div>
         {error && (
@@ -488,10 +498,10 @@ export function SecurityScanner() {
             <div style={{ marginTop: 14, fontSize: 11, color: 'var(--text-muted)',
               display: 'flex', gap: 6 }}>
               {result.buyTax > 25 || result.sellTax > 25
-                ? <span style={{ color: 'var(--red)' }}>⚠ High tax — likely scam or rugged</span>
+                ? <span style={{ color: 'var(--red)', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Icon name="alert" size={13} />High tax — likely scam or rugged</span>
                 : result.buyTax > 10 || result.sellTax > 10
-                  ? <span style={{ color: 'var(--fd-cyan)' }}>⚠ Elevated tax — trade carefully</span>
-                  : <span style={{ color: 'var(--green)' }}>✓ Tax within normal range</span>
+                  ? <span style={{ color: 'var(--fd-cyan)', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Icon name="alert" size={13} />Elevated tax — trade carefully</span>
+                  : <span style={{ color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Icon name="check" size={13} />Tax within normal range</span>
               }
             </div>
           </div>
@@ -535,8 +545,9 @@ export function SecurityScanner() {
           <div className="card" style={{ background: 'linear-gradient(135deg, #0a1929 0%, #071525 100%)' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: 200 }}>
-                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
-                  📸 Share this scan
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4,
+                  display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Icon name="image" size={16} style={{ color: 'var(--fd-cyan)' }} />Share this scan
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
                   Generates a branded 1200×675 image — the score, verdict, taxes, LP lock,
@@ -544,13 +555,15 @@ export function SecurityScanner() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button className="btn-primary" style={{ fontSize: 13, padding: '8px 16px' }}
-                  onClick={saveCard} disabled={cardBusy !== null}>
-                  {cardBusy === 'png' ? 'Rendering…' : '↓ Download PNG'}
+                <button className="btn-primary" onClick={saveCard} disabled={cardBusy !== null}
+                  style={{ fontSize: 13, padding: '8px 16px', display: 'inline-flex',
+                    alignItems: 'center', gap: 7 }}>
+                  {cardBusy === 'png' ? 'Rendering…' : <><Icon name="download" size={15} />Download PNG</>}
                 </button>
-                <button className="btn-ghost" style={{ fontSize: 13, padding: '8px 16px' }}
-                  onClick={clipCard} disabled={cardBusy !== null}>
-                  {cardBusy === 'copy' ? 'Copying…' : '⎘ Copy image'}
+                <button className="btn-ghost" onClick={clipCard} disabled={cardBusy !== null}
+                  style={{ fontSize: 13, padding: '8px 16px', display: 'inline-flex',
+                    alignItems: 'center', gap: 7 }}>
+                  {cardBusy === 'copy' ? 'Copying…' : <><Icon name="copy" size={15} />Copy image</>}
                 </button>
               </div>
             </div>
@@ -599,9 +612,9 @@ export function SecurityScanner() {
       {/* Empty state */}
       {!scanning && !result && !error && (
         <div style={{ textAlign: 'center', padding: '2.5rem 0', color: 'var(--text-muted)' }}>
-          <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.4 }}>🛡️</div>
+          <Icon name="shield" size={40} style={{ margin: '0 auto 12px', opacity: 0.35 }} />
           <div style={{ fontSize: 13 }}>Enter any token contract address above to run a full security scan.</div>
-          <div style={{ fontSize: 11, marginTop: 6 }}>Works on BSC, Ethereum, Arbitrum, Base, Polygon</div>
+          <div style={{ fontSize: 11, marginTop: 6 }}>Works across all {CHAINS.length} supported networks</div>
         </div>
       )}
     </div>

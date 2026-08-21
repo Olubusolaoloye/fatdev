@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../../lib/store'
 import { useAccount, usePublicClient, useChainId } from 'wagmi'
-import { CHAIN_EXPLORERS } from '../../lib/wagmi'
+import { CHAIN_EXPLORERS, CHAIN_NAME as CHAIN_NAMES } from '../../lib/wagmi'
 import { ERC20_APPROVE_ABI } from '../../lib/airdrop'
 import { Spinner } from '../ui-kit'
 
@@ -16,9 +16,6 @@ type TokenInfo = {
   contractAddr: string; chainId: number
 }
 
-const CHAIN_NAMES: Record<number, string> = {
-  56: 'BNB Chain (BSC)', 1: 'Ethereum', 42161: 'Arbitrum One', 97: 'BSC Testnet',
-}
 
 // ── Template builders ─────────────────────────────────────────────────────────
 function buildAnnouncement(platform: Platform, t: TokenInfo) {

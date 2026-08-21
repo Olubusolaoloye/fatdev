@@ -6,6 +6,7 @@
  * The AdminDashboard "Features" tab writes them; the public site reads them.
  * Anything toggled off disappears from the site entirely (card, route, and nav).
  */
+import type { IconName } from '../components/ui-kit/Icon'
 
 export type FeatureKey =
   | 'scanner'
@@ -20,7 +21,7 @@ export type FeatureFlags = Record<FeatureKey, boolean>
 
 export type FeatureMeta = {
   key: FeatureKey
-  icon: string
+  icon: IconName
   title: string
   desc: string
   /** 'tool' entries render as cards on /tools; 'section' entries are whole routes */
@@ -37,36 +38,36 @@ export type FeatureMeta = {
  */
 export const FEATURE_REGISTRY: FeatureMeta[] = [
   {
-    key: 'scanner', kind: 'tool', icon: '🔍', title: 'Security Scanner', free: true,
+    key: 'scanner', kind: 'tool', icon: 'scan', title: 'Security Scanner', free: true,
     desc: 'Full on-chain audit — honeypot, blacklist, tax sim, LP lock, and a live 0–100 trust score.',
     badge: 'Free',
   },
   {
-    key: 'social', kind: 'tool', icon: '📢', title: 'Social & Community', free: true,
+    key: 'social', kind: 'tool', icon: 'megaphone', title: 'Social & Community', free: true,
     desc: 'Announcement templates for Telegram, X, and Discord. Pre-filled with your tokenomics.',
     badge: 'Free',
   },
   {
-    key: 'analytics', kind: 'tool', icon: '📊', title: 'Holder Analytics', free: true,
+    key: 'analytics', kind: 'tool', icon: 'chart', title: 'Holder Analytics', free: true,
     desc: 'Top holders, large buys/sells, bot detection by wallet age, LP reward history.',
     badge: 'Free',
   },
   {
-    key: 'audit', kind: 'tool', icon: '🛡️', title: 'Audit Score',
+    key: 'audit', kind: 'tool', icon: 'shield', title: 'Audit Score',
     desc: 'Auto-score your token config: taxes, security flags, verification, ownership. Downloadable PDF report.',
     badge: 'PDF Report',
   },
   {
-    key: 'airdrop', kind: 'tool', icon: '🪂', title: 'Airdrop Tool',
+    key: 'airdrop', kind: 'tool', icon: 'send', title: 'Airdrop Tool',
     desc: 'Batch-send tokens to hundreds of wallets from a CSV. One approve + one disperse transaction.',
   },
   {
-    key: 'migrate', kind: 'section', icon: '🔄', title: 'Migrate',
+    key: 'migrate', kind: 'section', icon: 'refresh', title: 'Migrate',
     desc: 'Token V1 → V2 migration vaults with holder self-serve swap pages.',
     comingSoon: true,
   },
   {
-    key: 'bridge', kind: 'section', icon: '🌉', title: 'Bridge',
+    key: 'bridge', kind: 'section', icon: 'bridge', title: 'Bridge',
     desc: 'Cross-chain token bridging powered by LI.FI.',
   },
 ]

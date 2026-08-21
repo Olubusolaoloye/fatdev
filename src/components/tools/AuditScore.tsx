@@ -1,15 +1,11 @@
 import { useState, useRef } from 'react'
 import { useAccount, usePublicClient, useChainId } from 'wagmi'
 import { useStore } from '../../lib/store'
-import { CHAIN_EXPLORERS } from '../../lib/wagmi'
+import { CHAIN_EXPLORERS, CHAIN_NAME as CHAIN_NAMES } from '../../lib/wagmi'
 import { ERC20_APPROVE_ABI } from '../../lib/airdrop'
 import { generateAuditPdf } from '../../lib/auditPdf'
 import { Spinner } from '../ui-kit'
 
-const CHAIN_NAMES: Record<number, string> = {
-  1: 'Ethereum', 56: 'BNB Chain', 42161: 'Arbitrum One',
-  97: 'BSC Testnet', 4663: 'Robinhood Chain',
-}
 
 // ── Scoring helpers ───────────────────────────────────────────────────────────
 

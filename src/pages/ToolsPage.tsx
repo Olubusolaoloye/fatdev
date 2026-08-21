@@ -6,6 +6,7 @@ import { HolderAnalytics } from '../components/tools/HolderAnalytics'
 import { AuditScore }      from '../components/tools/AuditScore'
 import { SocialTools }     from '../components/tools/SocialTools'
 import { SecurityScanner } from '../components/tools/SecurityScanner'
+import Icon from '../components/ui-kit/Icon'
 import { TOOL_FEATURES, type FeatureKey, type FeatureMeta } from '../lib/tools'
 import { useAppConfig }    from '../hooks/useAppConfig'
 
@@ -60,9 +61,10 @@ export function ToolsPage() {
             }}>
               <div style={{
                 width: 56, height: 56, borderRadius: 16, flexShrink: 0,
-                background: 'var(--fd-surface)', border: '1px solid var(--fd-border)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28,
-              }}>{tool.icon}</div>
+                background: 'var(--fd-cyan-ghost)', border: '1px solid var(--fd-border-cyan)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'var(--fd-cyan)',
+              }}><Icon name={tool.icon} size={26} /></div>
               <div style={{ flex: 1, minWidth: 200 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
                   <h1 style={{
@@ -230,7 +232,14 @@ function ToolCard({ tool, onOpen }: { tool: FeatureMeta; onOpen: () => void }) {
         }}>{tool.badge}</span>
       )}
 
-      <div style={{ fontSize: 34, marginBottom: 14, lineHeight: 1 }}>{tool.icon}</div>
+      <div style={{
+        width: 44, height: 44, borderRadius: 12, marginBottom: 16,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: hovered ? 'var(--fd-cyan-ghost)' : 'rgba(255,255,255,0.04)',
+        border: `1px solid ${hovered ? 'var(--fd-border-cyan)' : 'var(--fd-border)'}`,
+        color: hovered ? 'var(--fd-cyan)' : 'var(--fd-ghost)',
+        transition: 'background 180ms ease, border-color 180ms ease, color 180ms ease',
+      }}><Icon name={tool.icon} size={22} /></div>
       <div style={{
         fontWeight: 700, fontSize: 16, marginBottom: 8,
         fontFamily: 'var(--fd-font-display)', color: 'var(--fd-white)',

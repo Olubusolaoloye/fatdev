@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useChainId } from 'wagmi'
 import { useAccount } from 'wagmi'
 import { useStore } from '../../lib/store'
-import { CHAIN_EXPLORERS } from '../../lib/wagmi'
+import { CHAIN_EXPLORERS, CHAIN_NAME } from '../../lib/wagmi'
 import {
   getTokenHolders, getTokenTransfers, getAccountFirstTx,
   formatTokenAmount, pct, shortAddr, relTime,
@@ -10,9 +10,6 @@ import {
 } from '../../lib/explorer'
 import { Spinner } from '../ui-kit'
 
-const CHAIN_NAME: Record<number, string> = {
-  56: 'BNB Chain', 1: 'Ethereum', 42161: 'Arbitrum', 97: 'BSC Testnet',
-}
 
 type WalletAge = { address: string; firstSeen: string | null; loading: boolean }
 type Tab = 'holders' | 'transfers' | 'rewards'

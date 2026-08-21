@@ -11,16 +11,14 @@ import {
   FEATURE_REGISTRY, DEFAULT_FEATURE_FLAGS, normalizeFlags,
   type FeatureFlags,
 } from '../../lib/tools'
-import { CHAIN_EXPLORERS } from '../../lib/wagmi'
+import { CHAIN_EXPLORERS, CHAIN_NAME } from '../../lib/wagmi'
 import { Spinner } from '../ui-kit'
+import Icon, { type IconName } from '../ui-kit/Icon'
 
 const ADMIN_PASSWORD = 'fatadmin2025'
 
 const TIER_COLOR: Record<string, string> = {
   free: 'var(--text-muted)', starter: 'var(--blue)', pro: 'var(--fd-cyan)', elite: 'var(--green)',
-}
-const CHAIN_NAME: Record<number, string> = {
-  56: 'BNB Chain', 1: 'Ethereum', 42161: 'Arbitrum', 97: 'BSC Testnet',
 }
 
 function fmt(n: number) {
@@ -150,13 +148,13 @@ function DashboardContent() {
   const activeUsers = users.filter(u => u.deploys_used > 0).length
 
   // ── Nav tabs ─────────────────────────────────────────────────────────────────
-  const tabs: { id: Tab; label: string; count?: number }[] = [
-    { id: 'overview',  label: '📊 Overview'  },
-    { id: 'users',     label: '👛 Users',     count: users.length   },
-    { id: 'deploys',   label: '🚀 Deploys',   count: deploys.length  },
-    { id: 'payments',  label: '💸 Payments',  count: payments.length },
-    { id: 'features',  label: '🎛️ Features'  },
-    { id: 'settings',  label: '⚙️ Settings'  },
+  const tabs: { id: Tab; label: string; icon: IconName; count?: number }[] = [
+    { id: 'overview',  label: 'Overview',  icon: 'chart'    },
+    { id: 'users',     label: 'Users',     icon: 'wallet',   count: users.length    },
+    { id: 'deploys',   label: 'Deploys',   icon: 'rocket',   count: deploys.length  },
+    { id: 'payments',  label: 'Payments',  icon: 'coins',    count: payments.length },
+    { id: 'features',  label: 'Features',  icon: 'sliders'  },
+    { id: 'settings',  label: 'Settings',  icon: 'settings' },
   ]
 
   return (
@@ -176,12 +174,16 @@ function DashboardContent() {
             <div style={{ display: 'flex', gap: 4 }}>
               {tabs.map(t => (
                 <button key={t.id} onClick={() => setTab(t.id)}
+                  aria-current={tab === t.id ? 'page' : undefined}
                   style={{
-                    padding: '5px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                    background:  tab === t.id ? 'rgba(255,215,0,0.12)' : 'transparent',
+                    display: 'inline-flex', alignItems: 'center', gap: 7,
+                    padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    background:  tab === t.id ? 'var(--fd-cyan-ghost)' : 'transparent',
                     border:     `0.5px solid ${tab === t.id ? 'var(--fd-cyan)' : 'transparent'}`,
                     color:       tab === t.id ? 'var(--fd-cyan)' : 'var(--text-secondary)',
+                    transition: 'background 180ms ease, color 180ms ease, border-color 180ms ease',
                   }}>
+                  <Icon name={t.icon} size={15} />
                   {t.label}
                   {t.count !== undefined && (
                     <span style={{ marginLeft: 6, fontSize: 10, background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: 4 }}>
@@ -344,11 +346,13 @@ function FeaturesTab() {
         borderBottom: '0.5px solid rgba(255,255,255,0.05)',
       }}>
         <div style={{
-          width: 40, height: 40, borderRadius: 10, flexShrink: 0, fontSize: 20,
-          background: 'rgba(255,255,255,0.04)', border: '0.5px solid var(--border)',
+          width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+          background: on ? 'rgba(0,229,122,0.08)' : 'rgba(255,255,255,0.04)',
+          border: `0.5px solid ${on ? 'rgba(0,229,122,0.25)' : 'var(--border)'}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          opacity: on ? 1 : 0.4,
-        }}>{f.icon}</div>
+          color: on ? 'var(--fd-green)' : 'var(--text-muted)',
+          transition: 'background 180ms ease, border-color 180ms ease, color 180ms ease',
+        }}><Icon name={f.icon} size={20} /></div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3, flexWrap: 'wrap' }}>

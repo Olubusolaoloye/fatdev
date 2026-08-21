@@ -380,3 +380,83 @@ html, body { max-width: 100vw; overflow-x: hidden; }
   .grid-4 { grid-template-columns: 1fr !important; }
   h1 { font-size: 22px !important; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Accessibility & interaction baseline
+   Added during the UI standards pass. These rules apply app-wide so individual
+   components don't each have to remember them.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* --- Legacy colour aliases -------------------------------------------------
+   Several components referenced --green / --red / --blue, which were never
+   defined — they silently resolved to nothing, so those pills, bars and
+   countdown digits rendered transparent or inherited. Aliased to the real
+   design tokens rather than rewritten at ~40 call sites. */
+:root {
+  --green: var(--fd-green);
+  --red:   #FF5252;
+  --amber: #FFB020;
+  --blue:  #4A90E2;
+  --fd-amber: #FFB020;
+}
+
+/* --- Focus visibility ------------------------------------------------------
+   Keyboard users must be able to see where they are. Uses :focus-visible so
+   the ring appears for keyboard nav but not on mouse click. */
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--fd-cyan);
+  outline-offset: 2px;
+  border-radius: var(--fd-radius-sm, 6px);
+}
+
+/* Never remove focus outlines without replacing them */
+:where(a, button, input, textarea, select):focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* --- Pointer affordance ---------------------------------------------------- */
+:where(button, [role="button"], a[href], summary, label[for]) {
+  cursor: pointer;
+}
+:where(button, [role="button"]):disabled {
+  cursor: not-allowed;
+}
+
+/* --- Touch targets ---------------------------------------------------------
+   Coarse pointers (touch) need a minimum 44×44 hit area. Applied only on
+   touch devices so dense desktop layouts keep their compact controls. */
+@media (pointer: coarse) {
+  :where(button, [role="button"], a.btn-primary, a.btn-ghost) {
+    min-height: 44px;
+  }
+}
+
+/* --- Motion ----------------------------------------------------------------
+   Respect users who have asked their OS to reduce motion. Animations are
+   collapsed rather than removed so state changes still register. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* --- Screen-reader-only utility -------------------------------------------- */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- Overflow guard --------------------------------------------------------
+   Wide tables and code blocks must scroll inside their own container rather
+   than pushing the page sideways. */
+html, body { overflow-x: hidden; }

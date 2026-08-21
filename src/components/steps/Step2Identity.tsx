@@ -4,16 +4,9 @@ import { useStore } from '../../lib/store'
 import type { TokenType } from '../../lib/store'
 import { TOKEN_TYPE_PRESETS } from '../../lib/store'
 import { FieldGroup, Badge } from '../ui-kit'
-import { bsc, mainnet, arbitrum, bscTestnet } from 'wagmi/chains'
-import { robinhoodChain } from '../../chains/robinhoodChain'
+import { SUPPORTED_CHAINS, hasVerifiedRouter, DEX_NAMES } from '../../lib/wagmi'
 
-const CHAINS = [
-  { id: bsc.id,              name: 'BNB Chain'        },
-  { id: mainnet.id,          name: 'Ethereum'         },
-  { id: arbitrum.id,         name: 'Arbitrum One'     },
-  { id: bscTestnet.id,       name: 'BSC Testnet'      },
-  { id: robinhoodChain.id,   name: 'Robinhood Chain'  },
-]
+const CHAINS = SUPPORTED_CHAINS.map(c => ({ id: c.id, name: c.label, testnet: c.testnet }))
 
 const TOKEN_TYPES: { type: TokenType; label: string; icon: string; desc: string }[] = [
   { type: 'standard',     icon: '⬡', label: 'Standard',     desc: 'Basic ERC-20/BEP-20, no taxes' },
@@ -250,22 +243,52 @@ export function Step2Identity() {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {CHAINS.map(c => {
             const active = chainId === c.id
+            const routed = hasVerifiedRouter(c.id)
             return (
-              <div key={c.id} style={{
-                padding: '7px 14px',
-                borderRadius: 'var(--fd-radius)',
-                fontSize: 13, fontWeight: 500,
-                fontFamily: 'var(--fd-font-display)',
-                background: active ? 'var(--fd-cyan-ghost)' : 'var(--fd-slate)',
-                border: `1px solid ${active ? 'var(--fd-border-cyan)' : 'var(--fd-border)'}`,
-                color: active ? 'var(--fd-cyan)' : 'var(--fd-ghost)',
-                transition: 'all 150ms ease',
-              }}>
-                {c.name}{active ? ' ✓' : ''}
+              <div key={c.id} title={routed
+                ? `Auto-pairs on ${DEX_NAMES[c.id]}`
+                : 'No default DEX router — you supply one at the deploy step'}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '7px 14px',
+                  borderRadius: 'var(--fd-radius)',
+                  fontSize: 13, fontWeight: 500,
+                  fontFamily: 'var(--fd-font-display)',
+                  background: active ? 'var(--fd-cyan-ghost)' : 'var(--fd-slate)',
+                  border: `1px solid ${active ? 'var(--fd-border-cyan)' : 'var(--fd-border)'}`,
+                  color: active ? 'var(--fd-cyan)' : 'var(--fd-ghost)',
+                  transition: 'all 150ms ease',
+                }}>
+                {c.name}
+                {!routed && (
+                  <span aria-label="No default router" style={{
+                    width: 5, height: 5, borderRadius: '50%',
+                    background: 'var(--fd-amber, #FFB020)', flexShrink: 0,
+                  }} />
+                )}
+                {c.testnet && (
+                  <span style={{
+                    fontSize: 9, fontFamily: 'var(--fd-font-mono)', opacity: 0.7,
+                    letterSpacing: '0.06em',
+                  }}>TEST</span>
+                )}
               </div>
             )
           })}
         </div>
+
+        {/* Router coverage note — only when the active chain lacks a default */}
+        {!hasVerifiedRouter(chainId) && (
+          <div style={{
+            marginTop: 10, padding: '9px 13px', borderRadius: 'var(--fd-radius)',
+            background: 'rgba(255,176,32,0.07)', border: '1px solid rgba(255,176,32,0.22)',
+            fontSize: 12, color: 'var(--fd-ghost)', lineHeight: 1.6,
+          }}>
+            FatDev has no verified DEX router for this network yet, so you'll be asked
+            to supply one before deploying. Everything else — scanning, transfers,
+            and batch sends — works normally here.
+          </div>
+        )}
       </div>
 
       {/* ── Live preview ── */}
