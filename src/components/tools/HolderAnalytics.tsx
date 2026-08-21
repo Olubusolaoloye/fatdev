@@ -9,6 +9,7 @@ import {
   type TokenHolder, type TokenTransfer,
 } from '../../lib/explorer'
 import { Spinner } from '../ui-kit'
+import Icon from '../ui-kit/Icon'
 
 
 type WalletAge = { address: string; firstSeen: string | null; loading: boolean }
@@ -165,7 +166,12 @@ export function HolderAnalytics() {
           </div>
         </div>
 
-        {error && <div style={{ marginTop: 8, color: 'var(--red)', fontSize: 12 }}>✗ {error}</div>}
+        {error && (
+          <div style={{ marginTop: 8, color: 'var(--red)', fontSize: 12,
+            display: 'flex', alignItems: 'center', gap: 7 }}>
+            <Icon name="alert" size={14} />{error}
+          </div>
+        )}
         {loading && <div style={{ marginTop: 10 }}><Spinner /></div>}
       </div>
 
@@ -246,7 +252,7 @@ export function HolderAnalytics() {
                               ? <span style={{ color: 'var(--text-muted)' }}>…</span>
                               : age?.firstSeen
                                 ? <span style={{ color: isBot ? 'var(--red)' : 'var(--green)' }}>
-                                    {isBot ? '🤖 ' : '✓ '}
+                                    <Icon name={isBot ? 'alert' : 'check'} size={12} style={{ verticalAlign: '-2px', marginRight: 4 }} />
                                     {relTime(age.firstSeen)}
                                     {isBot && <span style={{ fontSize: 10, marginLeft: 4, color: 'var(--red)' }}>new wallet</span>}
                                   </span>

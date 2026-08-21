@@ -11,6 +11,7 @@ import {
   FATDEV_MULTISENDER,
 } from '../../lib/airdrop'
 import { StatusBox, Spinner } from '../ui-kit'
+import Icon from '../ui-kit/Icon'
 
 const CHUNK_SIZE = 150
 const WARN_SIZE  = 100
@@ -186,8 +187,9 @@ export function AirdropTool() {
         <div style={{ padding: '14px 16px', borderRadius: 10,
           background: 'rgba(0,230,118,0.06)', border: '0.5px solid rgba(0,230,118,0.25)',
           fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-          <div style={{ fontWeight: 700, color: 'var(--green)', marginBottom: 6 }}>
-            ✓ FatDev Multi-Sender Contract
+          <div style={{ fontWeight: 700, color: 'var(--fd-green)', marginBottom: 6,
+            display: 'flex', alignItems: 'center', gap: 7 }}>
+            <Icon name="check" size={15} />FatDev Multi-Sender Contract
           </div>
           <div style={{ marginBottom: 8 }}>
             This shared contract handles batch sending for all users on this chain.
@@ -280,8 +282,10 @@ export function AirdropTool() {
           value={csvText} onChange={e => handleText(e.target.value)}
         />
         <div style={{ display: 'flex', gap: 10, marginTop: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <button className="btn-ghost" style={{ fontSize: 12, padding: '5px 12px' }}
-            onClick={() => fileRef.current?.click()}>📁 Upload CSV</button>
+          <button className="btn-ghost"
+            onClick={() => fileRef.current?.click()}
+            style={{ fontSize: 12, padding: '5px 12px', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Icon name="upload" size={13} />Upload CSV</button>
           <input ref={fileRef} type="file" accept=".csv,.txt" style={{ display: 'none' }} onChange={handleFile} />
           {rows.length > 0 && (
             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
@@ -311,7 +315,7 @@ export function AirdropTool() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
-                  {['#', 'Address', 'Amount', '✓'].map((h, i) => (
+                  {['#', 'Address', 'Amount', 'OK'].map((h, i) => (
                     <th key={h} style={{ padding: '5px 10px', fontWeight: 600,
                       color: 'var(--text-muted)', textAlign: i === 2 ? 'right' : i === 3 ? 'center' : 'left' }}>{h}</th>
                   ))}
@@ -325,8 +329,8 @@ export function AirdropTool() {
                     <td style={{ padding: '4px 10px', textAlign: 'right' }}>{row.amount}</td>
                     <td style={{ padding: '4px 10px', textAlign: 'center' }}>
                       {row.valid
-                        ? <span style={{ color: 'var(--green)' }}>✓</span>
-                        : <span style={{ color: 'var(--red)', fontSize: 10 }} title={row.error}>✗</span>}
+                        ? <Icon name="check" size={13} style={{ color: 'var(--fd-green)', margin: '0 auto' }} />
+                        : <Icon name="x" size={13} title={row.error} style={{ color: 'var(--red)', margin: '0 auto' }} />}
                     </td>
                   </tr>
                 ))}
@@ -393,8 +397,9 @@ export function AirdropTool() {
         {results.length > 0 && phase === 'done' && (
           <div style={{ borderRadius: 12, border: '0.5px solid rgba(0,230,118,0.3)',
             background: 'rgba(0,230,118,0.06)', padding: 20 }}>
-            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--green)', marginBottom: 14 }}>
-              ✓ Airdrop complete!
+            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--fd-green)', marginBottom: 14,
+              display: 'flex', alignItems: 'center', gap: 9 }}>
+              <Icon name="check" size={19} />Airdrop complete!
             </div>
             {results.map((r, i) => (
               <div key={i} style={{ marginBottom: i < results.length - 1 ? 16 : 0 }}>
