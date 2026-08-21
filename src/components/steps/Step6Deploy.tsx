@@ -5,6 +5,7 @@ import { useStore } from '../../lib/store'
 import { deployToken, generateParams } from '../../lib/contracts'
 import { verifyContract } from '../../lib/verify'
 import { CHAIN_EXPLORERS, CHAIN_NAME } from '../../lib/wagmi'
+import Icon from '../ui-kit/Icon'
 import { StatusBox, Spinner, SumTile, Btn } from '../ui-kit'
 import Logo from '../ui-kit/Logo'
 import { LiquidityLaunch } from './LiquidityLaunch'
@@ -214,7 +215,7 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
           fontSize: 13, color: 'var(--fd-ghost)', lineHeight: 1.6,
           display: 'flex', alignItems: 'flex-start', gap: 12,
         }}>
-          <span style={{ fontSize: 20, flexShrink: 0 }}>⛽</span>
+          <Icon name="zap" size={19} style={{ flexShrink: 0, color: 'var(--amber)' }} />
           <div>
             <span style={{ color: 'var(--fd-cyan)', fontWeight: 600 }}>Robinhood Chain uses ETH for gas.</span>{' '}
             Make sure your wallet has ETH on this chain before deploying.{' '}

@@ -22,7 +22,7 @@ export function MigrateRouter() {
   if (!enabled) {
     return (
       <ComingSoon
-        icon="🔄"
+        icon="refresh"
         title="Migrate"
         blurb="Token V1 → V2 migration vaults are in final testing. We're making sure every vault is funded, audited, and battle-tested before holders trust it with their bags."
         bullets={[

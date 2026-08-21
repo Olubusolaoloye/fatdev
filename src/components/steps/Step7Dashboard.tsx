@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Icon from '../ui-kit/Icon'
 import { useAccount, useChainId } from 'wagmi'
 import { useStore } from '../../lib/store'
 import { CHAIN_EXPLORERS } from '../../lib/wagmi'
@@ -145,7 +146,9 @@ export function Step7Dashboard() {
                   variant={expandedLaunch === d.id ? 'primary' : 'secondary'}
                   onClick={() => setExpandedLaunch(expandedLaunch === d.id ? null : d.id)}
                   style={{ fontSize: 12, padding: '6px 14px' }}>
-                  {expandedLaunch === d.id ? '▲ Close' : '💧 Launch'}
+                  {expandedLaunch === d.id
+                      ? <><Icon name="x" size={13} />Close</>
+                      : <><Icon name="droplet" size={13} />Launch</>}
                 </Btn>
               )}
 
@@ -182,7 +185,7 @@ export function Step7Dashboard() {
             Upgrade plan →
           </Btn>
         )}
-        <Btn variant="ghost" onClick={() => setStep(8)}>🛠 Tools</Btn>
+        <Btn variant="ghost" onClick={() => setStep(8)}>Tools</Btn>
       </div>
     </div>
   )

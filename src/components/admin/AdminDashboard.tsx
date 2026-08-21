@@ -208,7 +208,7 @@ function DashboardContent() {
       {/* Supabase status banner */}
       {!supabaseReady && (
         <div style={{ background: 'rgba(255,82,82,0.1)', borderBottom: '0.5px solid rgba(255,82,82,0.3)', padding: '10px 2rem', fontSize: 12, color: 'var(--red)' }}>
-          ⚠️  <strong>Supabase not connected.</strong> Add <code>VITE_SUPABASE_URL</code>, <code>VITE_SUPABASE_ANON_KEY</code>, <code>VITE_SUPABASE_SERVICE_KEY</code> to your <code>.env</code> file and restart the dev server.
+          <Icon name="alert" size={14} style={{ verticalAlign: '-2px', marginRight: 6 }} /><strong>Supabase not connected.</strong> Add <code>VITE_SUPABASE_URL</code>, <code>VITE_SUPABASE_ANON_KEY</code>, <code>VITE_SUPABASE_SERVICE_KEY</code> to your <code>.env</code> file and restart the dev server.
         </div>
       )}
 
@@ -806,7 +806,8 @@ function SettingsTab() {
 
       {/* ── Maintenance mode ── */}
       <div className="card" style={{ marginBottom: 20 }}>
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>🔧 Maintenance Mode</div>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Icon name="wrench" size={16} />Maintenance Mode</div>
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
           When enabled, all users see a maintenance page instead of the app.
           Admins can still access the app via <code style={{ color: 'var(--fd-cyan)' }}>/?bypass=fatadmin</code>.
@@ -821,7 +822,11 @@ function SettingsTab() {
               position: 'absolute', top: 3, left: maintenance ? 27 : 3, transition: 'left 0.2s' }} />
           </div>
           <div>
-            <div style={{ fontWeight: 600, fontSize: 13 }}>{maintenance ? '🔴 Maintenance ON' : '🟢 Maintenance OFF'}</div>
+            <div style={{ fontWeight: 600, fontSize: 13 }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%',
+                      background: maintenance ? '#FF5252' : 'var(--fd-green)' }} />
+                    {maintenance ? 'Maintenance ON' : 'Maintenance OFF'}
+                  </span></div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
               {maintenance ? 'App is currently down for all users' : 'App is live and accessible'}
             </div>
@@ -839,7 +844,8 @@ function SettingsTab() {
 
       {/* ── Tier price editor ── */}
       <div className="card">
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>💰 Tier Prices</div>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Icon name="coins" size={16} />Tier Prices</div>
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 20 }}>
           Update pricing for each plan. Changes reflect immediately on the Plan step for all users.
         </div>
@@ -881,7 +887,8 @@ function SettingsTab() {
 
         {!supabaseReady && (
           <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(255,82,82,0.1)', fontSize: 12, color: 'var(--red)', marginBottom: 14 }}>
-            ⚠️ Supabase not connected — changes will not persist. Configure env vars first.
+            <Icon name="alert" size={14} style={{ verticalAlign: '-2px', marginRight: 6 }} />
+            Supabase not connected — changes will not persist. Configure env vars first.
           </div>
         )}
 

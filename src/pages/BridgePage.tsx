@@ -14,7 +14,7 @@ export function BridgePage() {
   if (!enabled) {
     return (
       <ComingSoon
-        icon="🌉"
+        icon="bridge"
         title="Bridge"
         blurb="Cross-chain bridging is temporarily unavailable while we upgrade routing and confirmation tracking."
       />

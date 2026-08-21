@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom'
 import Navbar from './Navbar'
 import Footer from './Footer'
+import Icon, { type IconName } from './ui-kit/Icon'
 
 type Props = {
-  icon?: string
+  icon?: IconName
   title: string
   blurb?: string
   /** Bullet list of what the section will do when it ships */
@@ -11,7 +12,7 @@ type Props = {
 }
 
 export default function ComingSoon({
-  icon = '🚧',
+  icon = 'construction',
   title,
   blurb = 'This section is being finalised and will be available shortly.',
   bullets = [],
@@ -29,8 +30,9 @@ export default function ComingSoon({
           <div style={{
             width: 88, height: 88, borderRadius: 24, margin: '0 auto 28px',
             background: 'var(--fd-surface)', border: '1px solid var(--fd-border)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 42,
-          }}>{icon}</div>
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'var(--fd-cyan)',
+          }}><Icon name={icon} size={40} /></div>
 
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 8,

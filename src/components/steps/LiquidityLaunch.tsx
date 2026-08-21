@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useWalletClient, usePublicClient, useChainId, useAccount } from 'wagmi'
 import { parseEther, parseUnits, formatUnits, maxUint256 } from 'viem'
 import { ROUTERS, WETH, DEX_FACTORIES, DEX_NAMES, CHAIN_EXPLORERS } from '../../lib/wagmi'
+import Icon from '../ui-kit/Icon'
 import { Spinner } from '../ui-kit'
 
 // ── ABIs ──────────────────────────────────────────────────────────────────────
@@ -319,7 +320,7 @@ export function LiquidityLaunch({
           background: 'rgba(0,207,255,0.12)',
           border: '1px solid rgba(0,207,255,0.25)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
-        }}>💧</div>
+        }}><Icon name="droplet" size={22} /></div>
         <div>
           <div style={{ fontWeight: 700, fontSize: 15 }}>Add Liquidity &amp; Launch</div>
           <div style={{ fontSize: 11, color: 'var(--fd-ghost)', marginTop: 1 }}>
@@ -533,7 +534,7 @@ export function LiquidityLaunch({
               background: 'rgba(0,230,118,0.1)', border: '1px solid rgba(0,230,118,0.3)',
               textAlign: 'center',
             }}>
-              <div style={{ fontSize: 20, marginBottom: 4 }}>🚀</div>
+              <Icon name="rocket" size={21} style={{ margin: '0 auto 4px' }} />
               <div style={{ fontWeight: 700, color: 'var(--green)', fontSize: 15 }}>
                 {tokenSymbol} is live on {dexName}!
               </div>
@@ -579,7 +580,7 @@ export function LiquidityLaunch({
               border: '1px solid rgba(255,215,0,0.2)',
             }}>
               <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--gold)', marginBottom: 6 }}>
-                ⚡ Activate Tax Collection (optional)
+                <Icon name="zap" size={14} style={{ verticalAlign: '-2px', marginRight: 6 }} />Activate Tax Collection (optional)
               </div>
               <div style={{ fontSize: 12, color: 'var(--fd-ghost)', marginBottom: 12, lineHeight: 1.6 }}>
                 Register the LP pair in your token contract so buy/sell taxes are collected.

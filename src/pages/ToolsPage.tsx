@@ -171,7 +171,7 @@ export function ToolsPage() {
                 background: 'var(--fd-surface)', border: '1px solid var(--fd-border)',
                 borderRadius: 'var(--fd-radius-lg)',
               }}>
-                <div style={{ fontSize: 40, marginBottom: 14 }}>🔧</div>
+                <Icon name="wrench" size={38} style={{ margin: '0 auto 14px', color: 'var(--fd-ghost)', opacity: 0.6 }} />
                 <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8, color: 'var(--fd-white)' }}>
                   Tools are being updated
                 </div>

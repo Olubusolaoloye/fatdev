@@ -4,6 +4,7 @@ import { useAccount } from 'wagmi'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
 import { useAppConfig } from '../hooks/useAppConfig'
+import Icon, { type IconName } from '../components/ui-kit/Icon'
 
 // ── Intersection observer for scroll-reveal ───────────────────────────────────
 function useReveal() {
@@ -217,7 +218,7 @@ function ScanCard() {
 
 // ── Feature card ──────────────────────────────────────────────────────────────
 function FCard({ icon, title, desc, tag, to }: {
-  icon: string; title: string; desc: string; tag?: string; to: string
+  icon: IconName; title: string; desc: string; tag?: string; to: string
 }) {
   return (
     <Reveal>
@@ -252,7 +253,12 @@ function FCard({ icon, title, desc, tag, to }: {
               textTransform: 'uppercase', letterSpacing: '.08em',
             }}>{tag}</span>
           )}
-          <div style={{ fontSize: 32, marginBottom: 16 }}>{icon}</div>
+          <div style={{
+            width: 46, height: 46, borderRadius: 12, marginBottom: 16,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'var(--fd-cyan-ghost)', border: '1px solid var(--fd-border-cyan)',
+            color: 'var(--fd-cyan)',
+          }}><Icon name={icon} size={23} /></div>
           <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 16,
             marginBottom: 8 }}>{title}</div>
           <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.65 }}>{desc}</div>
@@ -501,7 +507,7 @@ export function LandingPage() {
               fontFamily: "'Space Grotesk', sans-serif",
               display: 'inline-flex', alignItems: 'center', gap: 8,
             }}>
-              ⚡ {isConnected ? 'Go to Wizard' : 'Start Building'}
+              <Icon name="zap" size={16} />{isConnected ? 'Go to Wizard' : 'Start Building'}
             </Link>
             <Link to="/tools" className="hero-cta-ghost" style={{
               padding: '14px 32px',
@@ -646,30 +652,30 @@ export function LandingPage() {
           gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
           gap: 14,
         }}>
-          <FCard to="/app"    icon="⚡" title="Token Deploy Wizard"
+          <FCard to="/app"    icon="zap" title="Token Deploy Wizard"
             desc="8-step no-code wizard. Configure name, supply, taxes, anti-bot, and deploy directly on-chain. BSC, ETH, Arbitrum." tag="Live" />
           {features.scanner && (
-            <FCard to="/tools"  icon="🔍" title="Security Scanner"
+            <FCard to="/tools"  icon="scan" title="Security Scanner"
               desc="Full on-chain audit — honeypot, blacklist, tax sim, LP lock, owner analysis. Free, no wallet needed." tag="Free" />
           )}
           {features.migrate && (
-            <FCard to="/migrate" icon="🔄" title="Migration Protocol"
+            <FCard to="/migrate" icon="refresh" title="Migration Protocol"
               desc="Move holders from V1 to V2 with snapshot-based vaults. Automatic oracle, airdrop batching, on-chain verification." />
           )}
           {features.audit && (
-            <FCard to="/tools"  icon="🛡️" title="Audit Score"
+            <FCard to="/tools"  icon="shield" title="Audit Score"
               desc="Score any token on taxes, security flags, verification, and ownership. Download a branded PDF report to share." tag="PDF" />
           )}
           {features.bridge && (
-            <FCard to="/bridge" icon="🌉" title="Cross-Chain Bridge"
+            <FCard to="/bridge" icon="bridge" title="Cross-Chain Bridge"
               desc="Move tokens between BSC, Ethereum, and Arbitrum with live routing and confirmation tracking." />
           )}
           {features.airdrop && (
-            <FCard to="/tools"  icon="🪂" title="Airdrop Tool"
+            <FCard to="/tools"  icon="send" title="Airdrop Tool"
               desc="Batch-send tokens to hundreds of wallets from a CSV. One approve + one disperse. Fast and gas-efficient." />
           )}
           {features.social && (
-            <FCard to="/tools"  icon="📢" title="Social & Community"
+            <FCard to="/tools"  icon="megaphone" title="Social & Community"
               desc="One-click announcement templates for Telegram, X, and Discord pre-filled with your tokenomics." />
           )}
         </div>
@@ -718,10 +724,11 @@ export function LandingPage() {
                   padding: 'clamp(12px,1.5vw,15px) clamp(28px,3vw,40px)',
                   borderRadius: 12, fontSize: 'clamp(14px,1.3vw,16px)', fontWeight: 800,
                   background: 'var(--fd-cyan)', color: 'var(--fd-void)', textDecoration: 'none',
-                  boxShadow: '0 0 28px rgba(255,215,0,0.3)',
+                  boxShadow: '0 0 28px rgba(0,207,255,0.3)',
                   fontFamily: "'Syne',sans-serif",
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
                 }}>
-                  {isConnected ? '⚡ Go to Wizard' : '⚡ Start Deploying'}
+                  <Icon name="zap" size={16} />{isConnected ? 'Go to Wizard' : 'Start Deploying'}
                 </Link>
                 <Link to="/tools" style={{
                   padding: 'clamp(12px,1.5vw,15px) clamp(28px,3vw,32px)',
