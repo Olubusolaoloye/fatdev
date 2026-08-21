@@ -105,7 +105,7 @@ export function AirdropTool() {
       if (!airdropContract) {
         setPhase('deploying')
         setChunkLabel('')
-        airdropContract = await deployAirdropContract(walletClient as any, publicClient as any, setStatus)
+        airdropContract = await deployAirdropContract(walletClient as any, publicClient as any, chainId, setStatus)
       }
 
       const chunks: Row[][] = []
