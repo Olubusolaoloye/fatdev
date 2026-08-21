@@ -4,6 +4,7 @@ import { CHAIN_NAME, CHAIN_EXPLORERS, SUPPORTED_CHAINS } from '../../lib/wagmi'
 import { detectChains, fetchDexPairs, type ChainCandidate } from '../../lib/chainDetect'
 import { buildScanReport, type ScanReport, type Pillar, type Finding as FindingType, type FindingState } from '../../lib/scanEngine'
 import Icon from '../ui-kit/Icon'
+import ChainIcon from '../ui-kit/ChainIcon'
 
 // ── APIs ──────────────────────────────────────────────────────────────────────
 async function fetchGoPlus(address: string, chainId: number): Promise<any> {
@@ -398,6 +399,7 @@ export function SecurityScanner() {
                       color: on ? 'var(--fd-cyan)' : 'var(--text-muted)',
                       display: 'inline-flex', alignItems: 'center', gap: 6,
                     }}>
+                    <ChainIcon chainId={c.chainId} size={14} />
                     {SUPPORTED_CHAINS.find(s => s.id === c.chainId)?.short ?? c.chainId}
                     {c.hasLiquidity && c.liquidityUsd > 0 && (
                       <span style={{ fontFamily: 'var(--fd-font-mono)', opacity: 0.75 }}>
@@ -436,6 +438,7 @@ export function SecurityScanner() {
               </div>
 
               <p className="scan-meta">
+                <ChainIcon chainId={report.chainId} size={14} style={{ verticalAlign: '-2px', marginRight: 5 }} />
                 <strong>{CHAIN_NAME[report.chainId]}</strong> · {report.holders.toLocaleString()} holders
                 {report.pairAgeDays != null && <> · {report.pairAgeDays}d old</>}
                 <br />

@@ -4,15 +4,17 @@ import { useStore } from '../../lib/store'
 import type { TokenType } from '../../lib/store'
 import { TOKEN_TYPE_PRESETS } from '../../lib/store'
 import { FieldGroup, Badge } from '../ui-kit'
+import ChainIcon from '../ui-kit/ChainIcon'
+import Icon, { type IconName } from '../ui-kit/Icon'
 import { SUPPORTED_CHAINS, hasVerifiedRouter, DEX_NAMES } from '../../lib/wagmi'
 
 const CHAINS = SUPPORTED_CHAINS.map(c => ({ id: c.id, name: c.label, testnet: c.testnet }))
 
-const TOKEN_TYPES: { type: TokenType; label: string; icon: string; desc: string }[] = [
-  { type: 'standard',     icon: '⬡', label: 'Standard',     desc: 'Basic ERC-20/BEP-20, no taxes' },
-  { type: 'tax',          icon: '◈', label: 'Tax',           desc: 'Marketing, LP & burn fees on buy/sell' },
-  { type: 'deflationary', icon: '🔥', label: 'Deflationary', desc: 'Auto-burn reduces supply over time' },
-  { type: 'reflection',   icon: '♻', label: 'Reflection',    desc: 'Holders auto-earn rewards each tx' },
+const TOKEN_TYPES: { type: TokenType; label: string; icon: IconName; desc: string }[] = [
+  { type: 'standard',     icon: 'hexagon', label: 'Standard',     desc: 'Basic ERC-20/BEP-20, no taxes' },
+  { type: 'tax',          icon: 'coins',   label: 'Tax',          desc: 'Marketing, LP & burn fees on buy/sell' },
+  { type: 'deflationary', icon: 'flame',   label: 'Deflationary', desc: 'Auto-burn reduces supply over time' },
+  { type: 'reflection',   icon: 'recycle', label: 'Reflection',   desc: 'Holders auto-earn rewards each tx' },
 ]
 
 const inputStyle: React.CSSProperties = {
@@ -86,7 +88,10 @@ export function Step2Identity() {
                   display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
                 }}
               >
-                <span style={{ fontSize: 22 }}>{icon}</span>
+                <Icon name={icon} size={22} style={{
+                  color: active ? 'var(--fd-cyan)' : 'var(--fd-ghost)',
+                  transition: 'color 150ms ease',
+                }} />
                 <span style={{
                   fontSize: 13, fontWeight: 600,
                   color: active ? 'var(--fd-cyan)' : 'var(--fd-white)',
@@ -100,7 +105,7 @@ export function Step2Identity() {
                   <span style={{
                     fontSize: 10, fontFamily: 'var(--fd-font-mono)',
                     color: 'var(--fd-cyan)', letterSpacing: '0.06em',
-                  }}>SELECTED ✓</span>
+                  }}>SELECTED</span>
                 )}
               </button>
             )
@@ -259,6 +264,7 @@ export function Step2Identity() {
                   color: active ? 'var(--fd-cyan)' : 'var(--fd-ghost)',
                   transition: 'all 150ms ease',
                 }}>
+                <ChainIcon chainId={c.id} size={15} />
                 {c.name}
                 {!routed && (
                   <span aria-label="No default router" style={{
