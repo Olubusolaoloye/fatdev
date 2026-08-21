@@ -2,19 +2,21 @@
  * chainDetect.ts — works out which chain(s) a pasted contract address lives on,
  * so users never have to pick a network manually.
  *
- * Two-stage strategy:
+ * Two-stage strategy, second stage only when the first comes up empty:
  *
  *   1. DexScreener — one request returns every chain the token actually trades
- *      on, plus liquidity. Authoritative and fast for anything with a pair, and
- *      it also tells us which deployment is the *real* one when an address
+ *      on, plus liquidity. Authoritative for anything with a pair, and it also
+ *      identifies which deployment is the *real* one when the same address
  *      exists on several chains (common with CREATE2 / vanity deploys).
  *
  *   2. Bytecode probe — parallel `eth_getCode` across every supported chain.
- *      Catches tokens with no liquidity yet (pre-launch, freshly deployed),
- *      which DexScreener has never heard of.
+ *      Only reached when stage 1 finds nothing, i.e. pre-launch tokens with no
+ *      pair yet.
  *
- * Stage 2 always runs so a pre-launch token is still found; stage 1 results are
- * ranked above it because trading activity is much stronger evidence.
+ * Running stage 2 unconditionally cost ~6s on every lookup — it fans out to 20
+ * public RPCs and is bounded by the slowest, while stage 1 answers in ~10ms.
+ * Since a token with a live pair is by definition deployed on that chain, the
+ * probe adds nothing in the common case and is now skipped there.
  */
 import { SUPPORTED_CHAINS, CHAIN_RPC, DEXSCREENER_SLUG, CHAIN_ID_BY_DEX_SLUG } from './wagmi'
 
@@ -38,7 +40,14 @@ export type DetectResult = {
   dexPairs: any[]
 }
 
-const DETECT_TIMEOUT_MS = 6000
+/** DexScreener is a single fast CDN-backed request. */
+const DEX_TIMEOUT_MS = 4000
+/**
+ * Per-RPC timeout for the bytecode probe. Kept tight because this path fans out
+ * to 20 public endpoints at once and a couple of them are routinely slow or
+ * unreachable — waiting on the slowest would hold the whole scan hostage.
+ */
+const RPC_TIMEOUT_MS = 2500
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | null> {
   return Promise.race([
@@ -57,7 +66,7 @@ async function fromDexScreener(address: string): Promise<{
 
   const res = await withTimeout(
     fetch(`https://api.dexscreener.com/latest/dex/tokens/${address}`).then(r => r.json()),
-    DETECT_TIMEOUT_MS
+    DEX_TIMEOUT_MS
   )
   const pairs: any[] = res?.pairs ?? []
 
@@ -99,7 +108,7 @@ async function hasBytecode(address: string, chainId: number): Promise<boolean> {
       headers: { 'Content-Type': 'application/json' },
       body,
     }).then(r => r.json()),
-    DETECT_TIMEOUT_MS
+    RPC_TIMEOUT_MS
   )
   const code = json?.result
   return typeof code === 'string' && code !== '0x' && code.length > 2
@@ -107,41 +116,43 @@ async function hasBytecode(address: string, chainId: number): Promise<boolean> {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 export async function detectChains(address: string): Promise<DetectResult> {
+  // ── Fast path ──────────────────────────────────────────────────────────────
+  // DexScreener answers in tens of milliseconds and knows every chain a token
+  // actually trades on. When it returns anything, that IS the answer — a token
+  // with a live pair is definitionally deployed there — so the 20-way RPC fan-out
+  // is skipped entirely. This is the overwhelming majority of real lookups.
+  const dex = await fromDexScreener(address)
+
+  if (dex.byChain.size > 0) {
+    const candidates = [...dex.byChain.values()].sort(rankCandidates)
+    const best = candidates[0]
+    return { candidates, best, dexPairs: dex.pairsByChain.get(best.chainId) ?? [] }
+  }
+
+  // ── Slow path ──────────────────────────────────────────────────────────────
+  // No trading pair anywhere. The token may be pre-launch, so fall back to
+  // probing bytecode across every supported chain in parallel.
   const probeChains = SUPPORTED_CHAINS.filter(c => !c.testnet).map(c => c.id)
+  const codeHits = await Promise.all(
+    probeChains.map(async id => ({ id, has: await hasBytecode(address, id) }))
+  )
 
-  const [dex, codeHits] = await Promise.all([
-    fromDexScreener(address),
-    Promise.all(
-      probeChains.map(async id => ({ id, has: await hasBytecode(address, id) }))
-    ),
-  ])
+  const candidates = codeHits
+    .filter(h => h.has)
+    .map(h => ({
+      chainId: h.id, hasLiquidity: false,
+      liquidityUsd: 0, volume24h: 0, pairCreatedAt: null,
+    }))
+    .sort(rankCandidates)
 
-  const byChain = new Map(dex.byChain)
+  return { candidates, best: candidates[0] ?? null, dexPairs: [] }
+}
 
-  // Fold in chains that have code but no DexScreener pair
-  for (const { id, has } of codeHits) {
-    if (has && !byChain.has(id)) {
-      byChain.set(id, {
-        chainId: id, hasLiquidity: false,
-        liquidityUsd: 0, volume24h: 0, pairCreatedAt: null,
-      })
-    }
-  }
-
-  const candidates = [...byChain.values()].sort((a, b) => {
-    // Traded deployments first, then by liquidity, then by volume
-    if (a.hasLiquidity !== b.hasLiquidity) return a.hasLiquidity ? -1 : 1
-    if (b.liquidityUsd !== a.liquidityUsd) return b.liquidityUsd - a.liquidityUsd
-    return b.volume24h - a.volume24h
-  })
-
-  const best = candidates[0] ?? null
-
-  return {
-    candidates,
-    best,
-    dexPairs: best ? (dex.pairsByChain.get(best.chainId) ?? []) : [],
-  }
+/** Traded deployments first, then by liquidity, then by 24h volume. */
+function rankCandidates(a: ChainCandidate, b: ChainCandidate): number {
+  if (a.hasLiquidity !== b.hasLiquidity) return a.hasLiquidity ? -1 : 1
+  if (b.liquidityUsd !== a.liquidityUsd) return b.liquidityUsd - a.liquidityUsd
+  return b.volume24h - a.volume24h
 }
 
 /** Market data for a token on one chain — reused by the scanner's pillars. */
@@ -150,7 +161,7 @@ export async function fetchDexPairs(address: string, chainId: number): Promise<a
   if (!slug) return []
   const res = await withTimeout(
     fetch(`https://api.dexscreener.com/latest/dex/tokens/${address}`).then(r => r.json()),
-    DETECT_TIMEOUT_MS
+    DEX_TIMEOUT_MS
   )
   return (res?.pairs ?? []).filter((p: any) => p.chainId === slug)
 }

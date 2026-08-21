@@ -141,7 +141,7 @@ export function SecurityScanner() {
   const valid = /^0x[0-9a-fA-F]{40}$/.test(address.trim())
 
   // ── Scan one chain ──────────────────────────────────────────────────────────
-  async function scanOn(addr: string, chainId: number) {
+  async function scanOn(addr: string, chainId: number, knownPairs?: any[]) {
     setPhase('scanning')
     setStatus(`Auditing on ${CHAIN_NAME[chainId] ?? `chain ${chainId}`}…`)
     setActiveChain(chainId)
@@ -149,7 +149,7 @@ export function SecurityScanner() {
     const [gpRes, hpRes, pairs] = await Promise.all([
       Promise.allSettled([fetchGoPlus(addr, chainId)]).then(r => r[0]),
       Promise.allSettled([fetchHoneypot(addr, chainId)]).then(r => r[0]),
-      fetchDexPairs(addr, chainId),
+      knownPairs ?? fetchDexPairs(addr, chainId),
     ])
 
     const goPlus   = gpRes.status === 'fulfilled' ? gpRes.value : null
@@ -185,7 +185,8 @@ export function SecurityScanner() {
           'Check the address, or the token may be on a chain FatDev does not cover yet.'
         )
       }
-      await scanOn(addr, det.best.chainId)
+      // Reuse the pairs detection already fetched rather than asking again
+      await scanOn(addr, det.best.chainId, det.dexPairs)
     } catch (e: any) {
       setError(e.message ?? 'Scan failed')
       setPhase('idle')
