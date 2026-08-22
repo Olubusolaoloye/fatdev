@@ -51,6 +51,16 @@ export function detectEcosystem(input: string): Ecosystem | null {
 export const ADDRESS_HINT =
   'Paste an EVM address (0x…40 hex), a Solana mint (base58), or a Sui coin type (0x…::module::TYPE).'
 
+/**
+ * Solana RPCs, in preference order.
+ * api.mainnet-beta.solana.com returns 403 to browsers and Ankr requires a key,
+ * so publicnode leads.
+ */
+export const SOLANA_RPC_LIST = [
+  'https://solana-rpc.publicnode.com',
+  'https://api.mainnet-beta.solana.com',
+]
+
 /** DexScreener slugs for the non-EVM chains. */
 export const NON_EVM_DEX_SLUG: Record<number, string> = {
   [SOLANA_CHAIN_ID]: 'solana',

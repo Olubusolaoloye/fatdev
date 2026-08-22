@@ -39,12 +39,12 @@ export type FeatureMeta = {
 export const FEATURE_REGISTRY: FeatureMeta[] = [
   {
     key: 'scanner', kind: 'tool', icon: 'scan', title: 'Security Scanner', free: true,
-    desc: 'Full on-chain audit — honeypot, blacklist, tax sim, LP lock, and a live 0–100 trust score.',
+    desc: 'Full on-chain audit across EVM, Solana and Sui — honeypot sim, authorities, LP lock, and a live 0–100 score.',
     badge: 'Free',
   },
   {
     key: 'social', kind: 'tool', icon: 'megaphone', title: 'Social & Community', free: true,
-    desc: 'Announcement templates for Telegram, X, and Discord. Pre-filled with your tokenomics.',
+    desc: 'Launch, teaser, how-to-buy and safety posts for Telegram, X and Discord — EVM, Solana and Sui.',
     badge: 'Free',
   },
   {
@@ -54,7 +54,7 @@ export const FEATURE_REGISTRY: FeatureMeta[] = [
   },
   {
     key: 'audit', kind: 'tool', icon: 'shield', title: 'Audit Score',
-    desc: 'Auto-score your token config: taxes, security flags, verification, ownership. Downloadable PDF report.',
+    desc: 'Score any token on EVM, Solana or Sui against its own chain’s risk model. Downloadable PDF report.',
     badge: 'PDF Report',
   },
   {

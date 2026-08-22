@@ -11,6 +11,7 @@
  * placeholder the user has to hunt down and fill in.
  */
 import { CHAIN_EXPLORERS, CHAIN_NAME } from './wagmi'
+import { ecosystemOf, nonEvmTokenUrl, SOLANA_CHAIN_ID, SUI_CHAIN_ID } from './ecosystems'
 
 export type Platform = 'telegram' | 'twitter' | 'discord'
 export type Tone     = 'professional' | 'hype' | 'degen'
@@ -67,8 +68,31 @@ function usd(n?: number): string | null {
 }
 
 function explorerUrl(t: TokenFacts): string {
+  if (!t.contractAddr) return ''
+  if (t.chainId === SOLANA_CHAIN_ID || t.chainId === SUI_CHAIN_ID) {
+    return nonEvmTokenUrl(t.chainId, t.contractAddr)
+  }
   const base = CHAIN_EXPLORERS[t.chainId]
-  return base && t.contractAddr ? `${base}/token/${t.contractAddr}` : ''
+  return base ? `${base}/token/${t.contractAddr}` : ''
+}
+
+/** Solana calls it a mint, Sui a coin type, EVM a contract. Use their words. */
+function addressLabel(t: TokenFacts): string {
+  if (t.chainId === SOLANA_CHAIN_ID) return 'Mint'
+  if (t.chainId === SUI_CHAIN_ID)    return 'Coin type'
+  return 'Contract'
+}
+
+/** Wallets that actually work on the token's chain. */
+function walletsFor(t: TokenFacts): string {
+  if (t.chainId === SOLANA_CHAIN_ID) return 'Phantom or Solflare'
+  if (t.chainId === SUI_CHAIN_ID)    return 'Slush or Suiet'
+  return 'MetaMask or Trust Wallet'
+}
+
+/** Transfer taxes are an EVM-token concept — omit the line elsewhere. */
+function hasTaxModel(t: TokenFacts): boolean {
+  return ecosystemOf(t.chainId) === 'evm'
 }
 
 function chain(t: TokenFacts): string {
@@ -161,10 +185,10 @@ function bodyLines(kind: PostKind, t: TokenFacts): string[] {
       return [
         `Chain: ${chain(t)}`,
         `Supply: ${t.totalSupply.toLocaleString()} ${t.symbol}`,
-        `Tax: ${t.buyTax.toFixed(1)}% buy / ${t.sellTax.toFixed(1)}% sell`,
+        hasTaxModel(t) ? `Tax: ${t.buyTax.toFixed(1)}% buy / ${t.sellTax.toFixed(1)}% sell` : null,
         liq ? `Liquidity: ${liq}` : null,
         '',
-        `Contract: ${ca}`,
+        `${addressLabel(t)}: ${ca}`,
       ].filter(l => l !== null) as string[]
 
     case 'teaser':
@@ -172,22 +196,24 @@ function bodyLines(kind: PostKind, t: TokenFacts): string[] {
         `${t.name} is launching on ${chain(t)}.`,
         '',
         `Supply: ${t.totalSupply.toLocaleString()} ${t.symbol}`,
-        `Tax: ${t.buyTax.toFixed(1)}% / ${t.sellTax.toFixed(1)}%`,
+        hasTaxModel(t) ? `Tax: ${t.buyTax.toFixed(1)}% / ${t.sellTax.toFixed(1)}%` : null,
         ...(trust.length ? ['', 'Built in from day one:', ...trust.map(p => `• ${p}`)] : []),
         '',
         'Join the community so you do not miss the open.',
-      ]
+      ].filter(l => l !== null) as string[]
 
     case 'howtobuy':
       return [
-        `1. Get a wallet (MetaMask or Trust Wallet) and fund it on ${chain(t)}.`,
-        `2. Open your DEX of choice and paste the contract below.`,
-        `3. Set slippage to ${Math.max(3, Math.ceil(Math.max(t.buyTax, t.sellTax) + 2))}% to cover tax.`,
+        `1. Get a wallet (${walletsFor(t)}) and fund it on ${chain(t)}.`,
+        `2. Open your DEX of choice and paste the ${addressLabel(t).toLowerCase()} below.`,
+        hasTaxModel(t)
+          ? `3. Set slippage to ${Math.max(3, Math.ceil(Math.max(t.buyTax, t.sellTax) + 2))}% to cover tax.`
+          : `3. Set a small slippage buffer — 1-3% is usually enough.`,
         `4. Confirm the swap — ${t.symbol} lands in your wallet.`,
         '',
-        `Contract: ${ca}`,
+        `${addressLabel(t)}: ${ca}`,
         '',
-        'Always paste the contract from an official channel. Never trust a DM.',
+        `Always paste the ${addressLabel(t).toLowerCase()} from an official channel. Never trust a DM.`,
       ]
 
     case 'safety':
@@ -198,7 +224,7 @@ function bodyLines(kind: PostKind, t: TokenFacts): string[] {
         ...(trust.length ? trust.map(p => `• ${p}`) : ['• Contract verified on the explorer']),
         liq ? `• Liquidity: ${liq}` : null,
         '',
-        `Verify everything yourself — contract: ${ca}`,
+        `Verify everything yourself — ${addressLabel(t).toLowerCase()}: ${ca}`,
       ].filter(l => l !== null) as string[]
 
     case 'milestone':
@@ -208,7 +234,7 @@ function bodyLines(kind: PostKind, t: TokenFacts): string[] {
         '',
         'Thank you to everyone holding and spreading the word.',
         '',
-        `Contract: ${ca}`,
+        `${addressLabel(t)}: ${ca}`,
       ].filter(l => l !== null) as string[]
 
     case 'ama':
@@ -257,7 +283,7 @@ export function generatePost(
   if (platform === 'telegram') {
     // Telegram markdown — *bold*, `code`, [text](url)
     const body = lines
-      .map(l => l.startsWith('Contract: ') ? `📋 \`${ca}\`` : l)
+      .map(l => /^(Contract|Mint|Coin type): /.test(l) ? `📋 \`${ca}\`` : l)
       .join('\n')
     text = [
       `*${head}*`,
@@ -273,7 +299,7 @@ export function generatePost(
     // X — tight. Drop prose, keep facts, append hashtags.
     const compact = lines
       .filter(l => l && !l.startsWith('Always paste') && !l.startsWith('Thank you'))
-      .map(l => l.replace(/^Contract: /, 'CA: '))
+      .map(l => l.replace(/^(Contract|Mint|Coin type): /, 'CA: '))
       .join('\n')
     text = [
       head,
@@ -294,8 +320,10 @@ export function generatePost(
       `| Chain | ${chain(t)} |`,
       `| Supply | ${t.totalSupply.toLocaleString()} ${t.symbol} |`,
       `| Decimals | ${t.decimals} |`,
-      `| Buy tax | ${t.buyTax.toFixed(1)}% |`,
-      `| Sell tax | ${t.sellTax.toFixed(1)}% |`,
+      ...(hasTaxModel(t) ? [
+        `| Buy tax | ${t.buyTax.toFixed(1)}% |`,
+        `| Sell tax | ${t.sellTax.toFixed(1)}% |`,
+      ] : []),
       ...(t.liquidityUsd ? [`| Liquidity | ${usd(t.liquidityUsd)} |`] : []),
     ].join('\n') : ''
 

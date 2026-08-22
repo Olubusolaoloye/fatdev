@@ -7,6 +7,9 @@ import { generateAuditPdf } from '../../lib/auditPdf'
 import { Spinner } from '../ui-kit'
 import Icon, { type IconName } from '../ui-kit/Icon'
 import ChainIcon from '../ui-kit/ChainIcon'
+import { ecosystemOf } from '../../lib/ecosystems'
+import { scanSolana, scanSui } from '../../lib/nonEvmScan'
+import type { ScanReport } from '../../lib/scanEngine'
 
 
 // ── Scoring helpers ───────────────────────────────────────────────────────────
@@ -69,12 +72,18 @@ export function AuditScore() {
   const [onChainData, setOnChainData] = useState<{ verified: boolean; ownerRenounced: boolean; hasLiquidity: boolean } | null>(null)
   const [checkError,  setCheckError]  = useState('')
 
+  /**
+   * Solana and Sui tokens are audited by their own scan engine rather than the
+   * EVM config model. Buy/sell tax, kill-block and anti-SYNC do not exist on
+   * those chains — scoring a Solana mint against them would invent findings.
+   */
+  const [nonEvmReport, setNonEvmReport] = useState<ScanReport | null>(null)
+
   const printRef = useRef<HTMLDivElement>(null)
 
   // ── Load token info from contract address ─────────────────────────────────────
   async function loadContract(addr: string) {
     const clean = addr.trim()
-    if (!/^0x[0-9a-fA-F]{40}$/.test(clean)) { setLoadError('Enter a valid 0x contract address'); return }
     if (!publicClient) return
     setLoadingToken(true); setLoadError(''); setOnChainData(null)
     try {
@@ -85,7 +94,14 @@ export function AuditScore() {
       setDetectedChain(tok.chainId)
       setManual(m => ({ ...m, symbol: tok.symbol, decimals: tok.decimals, name: tok.name || tok.symbol }))
       setUseManual(true)
-      await runOnChainChecks(tok.address, tok.chainId)
+
+      const eco = ecosystemOf(tok.chainId)
+      if (eco === 'solana' || eco === 'sui') {
+        setNonEvmReport(eco === 'solana' ? await scanSolana(tok.address) : await scanSui(tok.address))
+      } else {
+        setNonEvmReport(null)
+        await runOnChainChecks(tok.address, tok.chainId)
+      }
     } catch (e: any) {
       setLoadError(e.shortMessage ?? e.message ?? 'Failed to read contract')
     }
@@ -154,7 +170,31 @@ export function AuditScore() {
     : cfg.fundAddress.toLowerCase() !== cfg.receiveAddress.toLowerCase()
 
   // ── Score sections ────────────────────────────────────────────────────────────
-  const sections: Section[] = [
+  /** Finding state → the audit's pass/warn/score shape. */
+  const FINDING_POINTS = { pass: 10, warn: 5, unknown: 5, fail: 0 } as const
+
+  const nonEvmSections: Section[] | null = nonEvmReport
+    ? nonEvmReport.pillars.map(p => ({
+        title: p.title,
+        icon: (p.key === 'authorities' || p.key === 'capabilities' ? 'lock'
+             : p.key === 'liquidity' ? 'droplet'
+             : p.key === 'holders'   ? 'users'
+             : p.key === 'metadata'  ? 'file'
+             : p.key === 'extensions'? 'settings'
+             : 'trending') as IconName,
+        shareIcon: '🔒',
+        checks: p.findings.map(f => ({
+          label:  f.label,
+          detail: f.detail ?? '',
+          score:  FINDING_POINTS[f.state],
+          max:    10,
+          pass:   f.state === 'pass',
+          warn:   f.state === 'warn' || f.state === 'unknown',
+        })),
+      }))
+    : null
+
+  const evmSections: Section[] = [
     {
       title: 'Tax Configuration', icon: 'coins', shareIcon: '💸',
       checks: [
@@ -233,9 +273,15 @@ export function AuditScore() {
     },
   ]
 
-  const totalScore = sections.flatMap(s => s.checks).reduce((a, c) => a + c.score, 0)
-  const maxScore   = sections.flatMap(s => s.checks).reduce((a, c) => a + c.max,   0)
-  const pct        = Math.round((totalScore / maxScore) * 100)
+  const sections: Section[] = nonEvmSections ?? evmSections
+
+  // For non-EVM the scan engine's weighted score is authoritative — recomputing
+  // it from flat per-finding points would discard the pillar weighting.
+  const rawTotal = sections.flatMap(s => s.checks).reduce((a, c) => a + c.score, 0)
+  const rawMax   = sections.flatMap(s => s.checks).reduce((a, c) => a + c.max,   0)
+  const pct        = nonEvmReport ? nonEvmReport.score : Math.round((rawTotal / rawMax) * 100)
+  const totalScore = nonEvmReport ? nonEvmReport.score : rawTotal
+  const maxScore   = nonEvmReport ? 100 : rawMax
   const grade      = pct >= 85 ? 'A' : pct >= 70 ? 'B' : pct >= 55 ? 'C' : 'D'
   const gradeColor = grade === 'A' ? 'var(--green)' : grade === 'B' ? 'var(--fd-cyan)' : grade === 'C' ? '#FF9800' : 'var(--red)'
 
@@ -290,15 +336,15 @@ export function AuditScore() {
 
       {/* ── Contract address input ── */}
       <div className="card" style={{ marginBottom: 14 }}>
-        <div style={{ fontWeight: 700, marginBottom: 4 }}>Token contract address</div>
+        <div style={{ fontWeight: 700, marginBottom: 4 }}>Token address</div>
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10 }}>
-          Paste any ERC-20 / BEP-20 contract address to audit it, or use the wizard config below.
+          Paste an EVM contract, Solana mint or Sui coin type — the network is detected automatically. Or use the wizard config below.
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <input
             className="field-input"
             style={{ flex: 1, fontFamily: "'Space Mono',monospace", fontSize: 12 }}
-            placeholder="0x… token contract address"
+            placeholder="EVM 0x… · Solana mint · Sui coin type"
             value={contractInput}
             onChange={e => { setContractInput(e.target.value); setLoadError('') }}
             onKeyDown={e => e.key === 'Enter' && loadContract(contractInput)}
@@ -349,7 +395,7 @@ export function AuditScore() {
       </div>
 
       {/* ── Manual config fields (shown when using custom contract) ── */}
-      {useManual && (
+      {useManual && !nonEvmReport && (
         <div className="card" style={{ marginBottom: 14 }}>
           <div style={{ fontWeight: 700, marginBottom: 10 }}>Config for scoring</div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
@@ -432,7 +478,27 @@ export function AuditScore() {
         </div>
       </div>
 
+      {/* ── Non-EVM note ── */}
+      {nonEvmReport && (
+        <div className="card" style={{
+          marginBottom: 14, display: 'flex', gap: 10, alignItems: 'flex-start',
+          background: 'rgba(0,207,255,0.05)', border: '1px solid rgba(0,207,255,0.22)',
+          fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.65,
+        }}>
+          <Icon name="info" size={15} style={{ color: 'var(--fd-cyan)', marginTop: 1 }} />
+          <span>
+            Scored against {CHAIN_NAMES[nonEvmReport.chainId]}'s own risk model —{' '}
+            {nonEvmReport.chainId === 501
+              ? 'mint and freeze authorities, token extensions and metadata mutability'
+              : 'treasury, upgrade and blacklist capabilities'}
+            {' '}— rather than EVM tax and anti-bot settings, which do not exist on this chain.
+            Coverage {nonEvmReport.coverage}%.
+          </span>
+        </div>
+      )}
+
       {/* ── On-chain checks ── */}
+      {!nonEvmReport && (
       <div className="card" style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 200 }}>
           <div style={{ fontWeight: 600, fontSize: 13 }}>On-chain checks</div>
@@ -460,6 +526,7 @@ export function AuditScore() {
         )}
         {checkError && <div style={{ fontSize: 12, color: 'var(--red)', width: '100%' }}>{checkError}</div>}
       </div>
+      )}
 
       {/* ── Score sections grid ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>

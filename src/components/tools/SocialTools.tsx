@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useStore } from '../../lib/store'
 import { useAccount, usePublicClient, useChainId } from 'wagmi'
 import { CHAIN_NAME } from '../../lib/wagmi'
+import { ecosystemOf } from '../../lib/ecosystems'
 import { resolveToken } from '../../lib/chainDetect'
 import {
   generatePost, variantCount, POST_KINDS, TONES,
@@ -98,7 +99,6 @@ export function SocialTools() {
 
   async function loadContract(addr: string) {
     const clean = addr.trim()
-    if (!/^0x[0-9a-fA-F]{40}$/.test(clean)) { setLoadError('Enter a valid 0x contract address'); return }
     if (!publicClient) return
     setLoading(true); setLoadError('')
     try {
@@ -117,6 +117,9 @@ export function SocialTools() {
   }
 
   const variants = variantCount(kind, tone)
+  // Buy/sell tax is an EVM-token concept — offering the fields on a Solana mint
+  // invites users to type numbers that then appear in posts as fact.
+  const hasTax = ecosystemOf(facts.chainId) === 'evm'
 
   return (
     <div className="step-panel" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -161,7 +164,7 @@ export function SocialTools() {
         <div style={{ display: 'flex', gap: 9, marginBottom: 14, flexWrap: 'wrap' }}>
           <input className="field-input"
             style={{ flex: 1, minWidth: 220, fontFamily: 'var(--fd-font-mono)', fontSize: 12.5 }}
-            placeholder="0x… paste a contract — network detected automatically"
+            placeholder="EVM 0x… · Solana mint · Sui coin type — detected automatically"
             value={contractInput}
             onChange={e => { setContractInput(e.target.value); setLoadError('') }}
             onKeyDown={e => e.key === 'Enter' && loadContract(contractInput)} />
@@ -179,9 +182,11 @@ export function SocialTools() {
             ['Name',     facts.name,               (v: string) => setFacts(f => ({ ...f, name: v })),            'text'],
             ['Symbol',   facts.symbol,             (v: string) => setFacts(f => ({ ...f, symbol: v.toUpperCase() })), 'text'],
             ['Supply',   String(facts.totalSupply), (v: string) => setFacts(f => ({ ...f, totalSupply: Number(v) || 0 })), 'number'],
-            ['Buy tax %',  String(facts.buyTax),   (v: string) => setFacts(f => ({ ...f, buyTax: Number(v) || 0 })),  'number'],
-            ['Sell tax %', String(facts.sellTax),  (v: string) => setFacts(f => ({ ...f, sellTax: Number(v) || 0 })), 'number'],
-          ] as const).map(([label, value, onChange, type]) => (
+            ...(hasTax ? [
+              ['Buy tax %',  String(facts.buyTax),   (v: string) => setFacts(f => ({ ...f, buyTax: Number(v) || 0 })),  'number'],
+              ['Sell tax %', String(facts.sellTax),  (v: string) => setFacts(f => ({ ...f, sellTax: Number(v) || 0 })), 'number'],
+            ] as const : []),
+          ] as const).map(([label, value, onChange, type]: any) => (
             <label key={label} style={{ display: 'block' }}>
               <span className="field-label">{label}</span>
               <input className="field-input" type={type} value={value}

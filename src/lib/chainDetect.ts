@@ -19,6 +19,9 @@
  * probe adds nothing in the common case and is now skipped there.
  */
 import { SUPPORTED_CHAINS, CHAIN_RPC_LIST, DEXSCREENER_SLUG, CHAIN_ID_BY_DEX_SLUG } from './wagmi'
+import {
+  detectEcosystem, SOLANA_CHAIN_ID, SUI_CHAIN_ID, SOLANA_RPC_LIST, ADDRESS_HINT,
+} from './ecosystems'
 
 export type ChainCandidate = {
   chainId: number
@@ -285,9 +288,11 @@ export type ResolvedToken = {
  */
 export async function resolveToken(address: string): Promise<ResolvedToken> {
   const clean = address.trim()
-  if (!/^0x[0-9a-fA-F]{40}$/.test(clean)) {
-    throw new Error('Enter a valid contract address (0x followed by 40 hex characters)')
-  }
+  const eco = detectEcosystem(clean)
+
+  if (eco === 'solana') return resolveSolanaToken(clean)
+  if (eco === 'sui')    return resolveSuiToken(clean)
+  if (eco !== 'evm')    throw new Error(ADDRESS_HINT)
 
   const det = await detectChains(clean)
   if (!det.best) {
@@ -317,5 +322,81 @@ export async function resolveToken(address: string): Promise<ResolvedToken> {
       'That address has code but does not respond like an ERC-20 token — ' +
       'no symbol() or decimals(). It may be an NFT, a proxy, or a non-token contract.'
     )
+  }
+}
+
+
+// ── Non-EVM metadata ──────────────────────────────────────────────────────────
+/**
+ * Solana mint metadata.
+ *
+ * Name and symbol come from GoPlus (which reads the Metaplex metadata account);
+ * decimals come from the mint itself via getTokenSupply, since GoPlus does not
+ * return them. DexScreener is the fallback for name/symbol on tokens GoPlus has
+ * no metadata for.
+ */
+async function resolveSolanaToken(mint: string): Promise<ResolvedToken> {
+  const [gp, supply, dex] = await Promise.all([
+    fetch(`https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses=${mint}`)
+      .then(r => r.json()).catch(() => null),
+    solanaTokenSupply(mint),
+    withTimeout(
+      fetch(`https://api.dexscreener.com/latest/dex/tokens/${mint}`).then(r => r.json()),
+      DEX_TIMEOUT_MS
+    ),
+  ])
+
+  const d: any = gp?.code === 1 ? Object.values(gp.result ?? {})[0] : null
+  const pair = (dex?.pairs ?? []).find(
+    (p: any) => p?.baseToken?.address?.toLowerCase() === mint.toLowerCase()
+  )
+
+  const name   = d?.metadata?.name   ?? pair?.baseToken?.name
+  const symbol = d?.metadata?.symbol ?? pair?.baseToken?.symbol
+
+  if (!name && !symbol && supply == null) {
+    throw new Error(
+      'No SPL token found at that mint address. Check it is a token mint rather than a wallet.'
+    )
+  }
+
+  return {
+    address: mint,
+    chainId: SOLANA_CHAIN_ID,
+    symbol: String(symbol ?? '???'),
+    decimals: supply?.decimals ?? 9,
+    name: String(name ?? symbol ?? 'Unknown Token'),
+  }
+}
+
+async function solanaTokenSupply(mint: string): Promise<{ decimals: number; amount: string } | null> {
+  const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getTokenSupply', params: [mint] })
+  for (const url of SOLANA_RPC_LIST) {
+    const json = await withTimeout(
+      fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
+        .then(r => r.json()),
+      RPC_TIMEOUT_MS
+    )
+    const v = json?.result?.value
+    if (v && typeof v.decimals === 'number') return { decimals: v.decimals, amount: String(v.amount) }
+  }
+  return null
+}
+
+/** Sui coin metadata — GoPlus returns name, symbol and decimals directly. */
+async function resolveSuiToken(coinType: string): Promise<ResolvedToken> {
+  const gp = await fetch(
+    `https://api.gopluslabs.io/api/v1/sui/token_security?contract_addresses=${encodeURIComponent(coinType)}`
+  ).then(r => r.json()).catch(() => null)
+
+  const d: any = gp?.code === 1 ? Object.values(gp.result ?? {})[0] : null
+  if (!d) throw new Error('No Sui coin found for that type. Expected 0x…::module::TYPE.')
+
+  return {
+    address: coinType,
+    chainId: SUI_CHAIN_ID,
+    symbol: String(d.symbol ?? '???'),
+    decimals: Number(d.decimals ?? 9),
+    name: String(d.name ?? d.symbol ?? 'Unknown Coin'),
   }
 }
