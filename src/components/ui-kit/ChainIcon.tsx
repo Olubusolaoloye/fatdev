@@ -34,6 +34,8 @@ export const CHAIN_COLOR: Record<number, string> = {
   9745:  '#00D18C', // Plasma
   988:   '#26A17B', // Stable
   15551: '#00B8D9', // LOOP
+  501:   '#14103C', // Solana (mark carries the gradient)
+  784:   '#4DA2FF', // Sui
 }
 
 /** Ink colour for marks drawn on top of the disc. */
@@ -158,6 +160,28 @@ const GLYPH: Record<number, (ink: string) => React.ReactNode> = {
   999: () => (
     <path d="M12 4.2 18.8 8v8L12 19.8 5.2 16V8L12 4.2Z"
       fill="none" stroke="#97FCE4" strokeWidth="1.6" strokeLinejoin="round" />
+  ),
+
+  // Solana — the three slanted bars
+  501: () => (
+    <g>
+      <defs>
+        <linearGradient id="solg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#9945FF" /><stop offset="100%" stopColor="#14F195" />
+        </linearGradient>
+      </defs>
+      <g fill="url(#solg)">
+        <path d="M7.4 8.1a.6.6 0 0 1 .43-.18h9.4c.27 0 .4.32.21.5l-1.84 1.77a.6.6 0 0 1-.43.18H5.77c-.27 0-.4-.32-.21-.5L7.4 8.1Z" />
+        <path d="M7.4 14.1a.6.6 0 0 1 .43-.18h9.4c.27 0 .4.33.21.51l-1.84 1.77a.6.6 0 0 1-.43.18H5.77c-.27 0-.4-.32-.21-.5l1.84-1.78Z" />
+        <path d="M15.4 11.1a.6.6 0 0 0-.43-.18h-9.4c-.27 0-.4.33-.21.51l1.84 1.77a.6.6 0 0 0 .43.18h9.4c.27 0 .4-.32.21-.5L15.4 11.1Z" />
+      </g>
+    </g>
+  ),
+
+  // Sui — the water drop
+  784: ink => (
+    <path d="M12 3.4c3.1 3.9 5.6 6.9 5.6 9.8a5.6 5.6 0 1 1-11.2 0c0-2.9 2.5-5.9 5.6-9.8Zm0 3.6c-1.9 2.4-3.4 4.3-3.4 6.2a3.4 3.4 0 1 0 6.8 0c0-1.9-1.5-3.8-3.4-6.2Z"
+      fill={ink} />
   ),
 
   // Sonic — the speed chevrons

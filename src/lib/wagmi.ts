@@ -169,6 +169,9 @@ export const SUPPORTED_CHAINS: ChainMeta[] = [
   { id: 988,   label: 'Stable',         short: 'USDT0' },
   { id: 15551, label: 'LOOP',           short: 'LOOP'  },
   { id: 97,    label: 'BSC Testnet',    short: 'tBNB', testnet: true },
+  // Non-EVM. Synthetic ids from SLIP-44 coin types — see lib/ecosystems.ts
+  { id: 501,   label: 'Solana',         short: 'SOL'   },
+  { id: 784,   label: 'Sui',            short: 'SUI'   },
 ]
 
 export const CHAIN_NAME: Record<number, string> = Object.fromEntries(
@@ -197,6 +200,8 @@ export const CHAIN_EXPLORERS: Record<number, string> = {
   988:   'https://stablescan.io',
   15551: 'https://explorer.mainnetloop.com',
   97:    'https://testnet.bscscan.com',
+  501:   'https://solscan.io',
+  784:   'https://suivision.xyz',
 }
 
 // Wrapped native token per chain — default reward token when none is specified

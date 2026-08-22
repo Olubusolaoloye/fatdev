@@ -4,6 +4,8 @@ import { CHAIN_NAME, CHAIN_EXPLORERS, SUPPORTED_CHAINS } from '../../lib/wagmi'
 import { detectChains, fetchDexPairs, type ChainCandidate } from '../../lib/chainDetect'
 import { buildScanReport, type ScanReport, type Pillar, type Finding as FindingType, type FindingState } from '../../lib/scanEngine'
 import Icon from '../ui-kit/Icon'
+import { detectEcosystem, ADDRESS_HINT, nonEvmTokenUrl, SOLANA_CHAIN_ID, SUI_CHAIN_ID } from '../../lib/ecosystems'
+import { scanSolana, scanSui } from '../../lib/nonEvmScan'
 import ChainIcon from '../ui-kit/ChainIcon'
 
 // ── APIs ──────────────────────────────────────────────────────────────────────
@@ -139,7 +141,8 @@ export function SecurityScanner() {
   const [cardBusy,   setCardBusy]   = useState<'png' | 'copy' | null>(null)
   const [cardNotice, setCardNotice] = useState('')
 
-  const valid = /^0x[0-9a-fA-F]{40}$/.test(address.trim())
+  const ecosystem = detectEcosystem(address)
+  const valid = ecosystem !== null
 
   // ── Scan one chain ──────────────────────────────────────────────────────────
   async function scanOn(addr: string, chainId: number, knownPairs?: any[]) {
@@ -170,9 +173,27 @@ export function SecurityScanner() {
   // ── Detect then scan ────────────────────────────────────────────────────────
   async function run() {
     const addr = address.trim()
-    if (!valid) { setError('Enter a valid contract address (0x…)'); return }
+    if (!valid) { setError(ADDRESS_HINT); return }
 
     setError(''); setReport(null); setCandidates([]); setCardNotice('')
+
+    // Solana and Sui are identified by address shape alone — no chain detection
+    // needed, and they use their own scan engines with chain-appropriate pillars.
+    if (ecosystem === 'solana' || ecosystem === 'sui') {
+      const chainId = ecosystem === 'solana' ? SOLANA_CHAIN_ID : SUI_CHAIN_ID
+      setPhase('scanning')
+      setActiveChain(chainId)
+      setStatus(`Auditing on ${ecosystem === 'solana' ? 'Solana' : 'Sui'}…`)
+      try {
+        setReport(ecosystem === 'solana' ? await scanSolana(addr) : await scanSui(addr))
+        setPhase('done')
+      } catch (e: any) {
+        setError(e.message ?? 'Scan failed')
+        setPhase('idle')
+      }
+      return
+    }
+
     setPhase('detecting')
     setStatus('Finding which network this contract is on…')
 
@@ -218,7 +239,16 @@ export function SecurityScanner() {
         : failed.length === 0
           ? 'No critical risks found across 8 weighted security pillars.'
           : `${failed.length} critical issue${failed.length > 1 ? 's' : ''}: ${failed.slice(0, 2).map(f => f.label).join(', ')}${failed.length > 2 ? '…' : ''}`,
-      stats: [
+      stats: (r.chainId === SOLANA_CHAIN_ID || r.chainId === SUI_CHAIN_ID) ? [
+        { label: r.chainId === SUI_CHAIN_ID ? 'Treasury Cap' : 'Mint Auth',
+          value: r.isMintable ? 'Live' : 'Revoked', tone: r.isMintable ? 'bad' : 'good' },
+        { label: r.chainId === SUI_CHAIN_ID ? 'Upgradeable' : 'Freeze Auth',
+          value: r.chainId === SUI_CHAIN_ID ? (r.isProxy ? 'Yes' : 'No') : (r.ownerRenounced ? 'Revoked' : 'Live'),
+          tone: (r.chainId === SUI_CHAIN_ID ? r.isProxy : !r.ownerRenounced) ? 'warn' : 'good' },
+        { label: 'Liquidity', value: r.liquidityUsd > 0 ? `$${Math.round(r.liquidityUsd).toLocaleString()}` : 'None',
+          tone: r.liquidityUsd > 25_000 ? 'good' : r.liquidityUsd > 0 ? 'warn' : 'bad' },
+        { label: 'Holders',   value: r.holders > 0 ? r.holders.toLocaleString() : '—', tone: 'neutral' },
+      ] : [
         { label: 'Buy Tax',   value: `${r.buyTax.toFixed(1)}%`,  tone: taxTone(r.buyTax) },
         { label: 'Sell Tax',  value: `${r.sellTax.toFixed(1)}%`, tone: taxTone(r.sellTax) },
         { label: 'Liquidity', value: r.liquidityUsd > 0 ? `$${Math.round(r.liquidityUsd).toLocaleString()}` : 'None',
@@ -287,7 +317,59 @@ export function SecurityScanner() {
 
   const lpSecured = report ? report.lpLockedPct + report.lpBurnedPct : 0
 
-  const stats = report ? [
+  const isNonEvm = report != null &&
+    (report.chainId === SOLANA_CHAIN_ID || report.chainId === SUI_CHAIN_ID)
+
+  // Tiles differ by ecosystem. Buy/sell tax and LP-lock are EVM concepts —
+  // rendering "0.0% / 0.0%" tax for a Solana mint implies a tax model that
+  // chain does not have, and "LP Secured: Unknown" is noise there.
+  const stats = report ? (isNonEvm ? [
+    {
+      label: 'Liquidity',
+      value: report.liquidityUsd > 0 ? `$${Math.round(report.liquidityUsd).toLocaleString()}` : 'None',
+      color: report.liquidityUsd > 25_000 ? 'var(--fd-green)'
+           : report.liquidityUsd > 0      ? 'var(--amber)' : 'var(--red)',
+      sub: report.volume24h > 0 ? `$${Math.round(report.volume24h).toLocaleString()} 24h vol` : undefined,
+    },
+    {
+      label: report.chainId === SUI_CHAIN_ID ? 'Treasury Cap' : 'Mint Authority',
+      value: report.isMintable ? 'Live' : 'Revoked',
+      color: report.isMintable ? 'var(--red)' : 'var(--fd-green)',
+      sub: report.isMintable ? 'supply can grow' : 'supply is fixed',
+    },
+    {
+      label: report.chainId === SUI_CHAIN_ID ? 'Upgradeable' : 'Freeze Authority',
+      value: report.chainId === SUI_CHAIN_ID
+        ? (report.isProxy ? 'Yes' : 'No')
+        : (report.ownerRenounced ? 'Revoked' : 'Live'),
+      color: (report.chainId === SUI_CHAIN_ID ? report.isProxy : !report.ownerRenounced)
+        ? 'var(--amber)' : 'var(--fd-green)',
+    },
+    {
+      label: 'Holders',
+      value: report.holders > 0 ? report.holders.toLocaleString() : '—',
+      color: 'var(--fd-white)',
+      sub: report.topHolderPct > 0 ? `top wallet ${report.topHolderPct.toFixed(1)}%` : undefined,
+    },
+    {
+      label: 'Total Supply',
+      value: (() => {
+        const n = Number(report.totalSupply)
+        if (!Number.isFinite(n) || n <= 0) return '—'
+        if (n >= 1e12) return `${(n / 1e12).toFixed(2)}T`
+        if (n >= 1e9)  return `${(n / 1e9).toFixed(2)}B`
+        if (n >= 1e6)  return `${(n / 1e6).toFixed(2)}M`
+        return n.toLocaleString()
+      })(),
+      color: 'var(--fd-white)',
+    },
+    {
+      label: 'Pair Age',
+      value: report.pairAgeDays != null ? `${report.pairAgeDays}d` : '—',
+      color: report.pairAgeDays == null ? 'var(--text-muted)'
+           : report.pairAgeDays < 14 ? 'var(--amber)' : 'var(--fd-green)',
+    },
+  ] : [
     {
       label: 'Liquidity',
       value: report.liquidityUsd > 0 ? `$${Math.round(report.liquidityUsd).toLocaleString()}` : 'None',
@@ -323,7 +405,7 @@ export function SecurityScanner() {
       color: report.pairAgeDays == null ? 'var(--text-muted)'
            : report.pairAgeDays < 14 ? 'var(--amber)' : 'var(--fd-green)',
     },
-  ] : []
+  ]) : []
 
   return (
     <div className="step-panel">
@@ -339,7 +421,7 @@ export function SecurityScanner() {
           <div>
             <div style={{ fontWeight: 800, fontSize: 15 }}>Token Security Scanner</div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-              Paste an address — the network is detected automatically
+              EVM, Solana and Sui — the network is detected automatically
             </div>
           </div>
         </div>
@@ -348,7 +430,7 @@ export function SecurityScanner() {
           <input
             className="field-input"
             style={{ flex: 1, minWidth: 240, fontFamily: 'var(--fd-font-mono)', fontSize: 13 }}
-            placeholder="0x… contract address"
+            placeholder="EVM 0x… · Solana mint · Sui coin type"
             value={address}
             onChange={e => { setAddress(e.target.value); setError('') }}
             onKeyDown={e => e.key === 'Enter' && !busy && run()}
@@ -447,11 +529,12 @@ export function SecurityScanner() {
 
               <div className="scan-addr">
                 {report.address}
-                {explorer && (
-                  <a href={`${explorer}/token/${report.address}`} target="_blank" rel="noopener">
-                    explorer ↗
-                  </a>
-                )}
+                {(() => {
+                  const url = report.chainId === SOLANA_CHAIN_ID || report.chainId === SUI_CHAIN_ID
+                    ? nonEvmTokenUrl(report.chainId, report.address)
+                    : explorer ? `${explorer}/token/${report.address}` : ''
+                  return url ? <a href={url} target="_blank" rel="noopener">explorer ↗</a> : null
+                })()}
               </div>
             </div>
           </header>
@@ -593,9 +676,9 @@ export function SecurityScanner() {
       {phase === 'idle' && !report && !error && (
         <div style={{ textAlign: 'center', padding: '2.5rem 0', color: 'var(--text-muted)' }}>
           <Icon name="shield" size={40} style={{ margin: '0 auto 12px', opacity: 0.35 }} />
-          <div style={{ fontSize: 13 }}>Paste any token contract address to run a full security audit.</div>
+          <div style={{ fontSize: 13 }}>Paste any token address to run a full security audit.</div>
           <div style={{ fontSize: 11, marginTop: 6 }}>
-            The network is detected automatically across all {SUPPORTED_CHAINS.filter(c => !c.testnet).length} supported chains.
+            EVM chains, Solana mints and Sui coin types — detected automatically from the address.
           </div>
         </div>
       )}
