@@ -791,3 +791,7 @@ html, body { overflow-x: hidden; }
   text-decoration: none; font-family: var(--fd-font-display);
 }
 .svc__cta:hover { text-decoration: underline; }
+
+/* Token artwork sits inline with the name in the scan hero */
+.scan-hero__name { align-items: center; }
+.scan-hero__name h2 { line-height: 1.15; }

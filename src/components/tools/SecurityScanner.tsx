@@ -7,6 +7,7 @@ import Icon from '../ui-kit/Icon'
 import { detectEcosystem, ADDRESS_HINT, nonEvmTokenUrl, SOLANA_CHAIN_ID, SUI_CHAIN_ID } from '../../lib/ecosystems'
 import { scanSolana, scanSui } from '../../lib/nonEvmScan'
 import ChainIcon from '../ui-kit/ChainIcon'
+import TokenAvatar from '../ui-kit/TokenAvatar'
 
 // ── APIs ──────────────────────────────────────────────────────────────────────
 async function fetchGoPlus(address: string, chainId: number): Promise<any> {
@@ -237,7 +238,7 @@ export function SecurityScanner() {
       verdictNote: r.isHoneypot
         ? (r.honeypotReason || 'Sell simulation failed — this token cannot be sold.')
         : failed.length === 0
-          ? 'No critical risks found across 8 weighted security pillars.'
+          ? `No critical risks found across ${r.pillars.length} weighted security pillars.`
           : `${failed.length} critical issue${failed.length > 1 ? 's' : ''}: ${failed.slice(0, 2).map(f => f.label).join(', ')}${failed.length > 2 ? '…' : ''}`,
       stats: (r.chainId === SOLANA_CHAIN_ID || r.chainId === SUI_CHAIN_ID) ? [
         { label: r.chainId === SUI_CHAIN_ID ? 'Treasury Cap' : 'Mint Auth',
@@ -264,6 +265,7 @@ export function SecurityScanner() {
         ok: p.covered && p.score >= 70 && !p.findings.some(f => f.state === 'fail'),
       })),
       contract: r.address,
+      logoUrl:  r.logoUrl,
     }
   }
 
@@ -510,6 +512,13 @@ export function SecurityScanner() {
             <ScoreRing score={report.score} color={vColor} />
             <div style={{ minWidth: 0 }}>
               <div className="scan-hero__name">
+                <TokenAvatar
+                  src={report.logoUrl}
+                  symbol={report.symbol}
+                  name={report.name}
+                  size={38}
+                  ring={`${vRaw}55`}
+                />
                 <h2>{report.name}</h2>
                 <span className="scan-ticker">{report.symbol}</span>
               </div>

@@ -7,6 +7,9 @@ import { generateAuditPdf } from '../../lib/auditPdf'
 import { Spinner } from '../ui-kit'
 import Icon, { type IconName } from '../ui-kit/Icon'
 import ChainIcon from '../ui-kit/ChainIcon'
+import TokenAvatar from '../ui-kit/TokenAvatar'
+import { logoFromPairs } from '../../lib/tokenLogo'
+import { fetchDexPairs } from '../../lib/chainDetect'
 import { ecosystemOf } from '../../lib/ecosystems'
 import { scanSolana, scanSui } from '../../lib/nonEvmScan'
 import type { ScanReport } from '../../lib/scanEngine'
@@ -78,6 +81,7 @@ export function AuditScore() {
    * those chains — scoring a Solana mint against them would invent findings.
    */
   const [nonEvmReport, setNonEvmReport] = useState<ScanReport | null>(null)
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
 
   const printRef = useRef<HTMLDivElement>(null)
 
@@ -97,9 +101,13 @@ export function AuditScore() {
 
       const eco = ecosystemOf(tok.chainId)
       if (eco === 'solana' || eco === 'sui') {
-        setNonEvmReport(eco === 'solana' ? await scanSolana(tok.address) : await scanSui(tok.address))
+        const rep = eco === 'solana' ? await scanSolana(tok.address) : await scanSui(tok.address)
+        setNonEvmReport(rep)
+        setLogoUrl(rep.logoUrl)
       } else {
         setNonEvmReport(null)
+        // EVM tokens have no scan report here, so pull artwork straight from DexScreener
+        setLogoUrl(logoFromPairs(await fetchDexPairs(tok.address, tok.chainId)))
         await runOnChainChecks(tok.address, tok.chainId)
       }
     } catch (e: any) {
@@ -303,10 +311,10 @@ export function AuditScore() {
 
   const [pdfBusy, setPdfBusy] = useState(false)
 
-  function downloadPdf() {
+  async function downloadPdf() {
     setPdfBusy(true)
     try {
-      generateAuditPdf({
+      await generateAuditPdf({
         tokenName:       activeName   || 'Unnamed Token',
         tokenSymbol:     activeSymbol || '',
         contractAddress: contractAddr,
@@ -320,6 +328,7 @@ export function AuditScore() {
           checks: s.checks,
         })),
         onChain: onChainData,
+        logoUrl,
       })
     } catch (e: any) {
       setCheckError(`PDF export failed: ${e.message ?? e}`)
@@ -465,8 +474,20 @@ export function AuditScore() {
         </div>
         <div style={{ fontSize: 64, fontWeight: 900, color: gradeColor, lineHeight: 1, marginBottom: 4 }}>{grade}</div>
         <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 2 }}>{totalScore} / {maxScore}</div>
-        <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>
-          {pct}% — {activeName || 'Token'} ({activeSymbol || '—'})
+        <div style={{
+          fontSize: 14, color: 'var(--text-muted)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9,
+        }}>
+          {(logoUrl || activeSymbol) && (
+            <TokenAvatar
+              src={logoUrl}
+              symbol={activeSymbol || activeName}
+              name={activeName}
+              size={26}
+              ring={`${gradeColor === 'var(--green)' ? 'rgba(0,229,122,0.4)' : 'rgba(255,255,255,0.18)'}`}
+            />
+          )}
+          <span>{pct}% — {activeName || 'Token'} ({activeSymbol || '—'})</span>
         </div>
         {contractAddr && (
           <div style={{ marginTop: 8, fontFamily: "'Space Mono',monospace", fontSize: 11, color: 'var(--text-muted)' }}>

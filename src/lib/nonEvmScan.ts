@@ -16,6 +16,7 @@
  */
 import type { Finding, Pillar, ScanReport } from './scanEngine'
 import { SOLANA_CHAIN_ID, SUI_CHAIN_ID, NON_EVM_DEX_SLUG } from './ecosystems'
+import { logoFromPairs } from './tokenLogo'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const num = (v: any, d = 0): number => {
@@ -293,6 +294,7 @@ export async function scanSolana(address: string): Promise<ScanReport> {
     totalSupply: String(d.total_supply ?? '—'),
     isOpenSource: null, isProxy: null, isMintable: mintable,
     pairAgeDays: market.pairAgeDays,
+    logoUrl: logoFromPairs(market.pairs),
   }
 }
 
@@ -398,5 +400,6 @@ export async function scanSui(coinType: string): Promise<ScanReport> {
     totalSupply: String(d.total_supply ?? '—'),
     isOpenSource: null, isProxy: upgradeable, isMintable: mintable,
     pairAgeDays: market.pairAgeDays,
+    logoUrl: logoFromPairs(market.pairs),
   }
 }

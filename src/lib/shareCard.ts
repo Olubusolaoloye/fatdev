@@ -31,6 +31,8 @@ const HAIR    = 'rgba(255,255,255,0.08)'
 const DISPLAY = '"Space Grotesk", "Syne", system-ui, -apple-system, sans-serif'
 const MONO    = '"JetBrains Mono", "Space Mono", ui-monospace, monospace'
 
+import { loadLogoForPixels, drawTokenAvatar } from './tokenLogo'
+
 export type Tone = 'good' | 'warn' | 'bad' | 'neutral'
 
 export type ShareCardData = {
@@ -55,6 +57,8 @@ export type ShareCardData = {
   highlights: { label: string; ok: boolean }[]
   /** Contract address, shown bottom-left in mono */
   contract: string
+  /** Token artwork. Falls back to a monogram when absent. */
+  logoUrl?: string | null
 }
 
 function toneColor(t: Tone | undefined): string {
@@ -155,6 +159,11 @@ export async function renderShareCard(d: ShareCardData): Promise<Blob> {
   ctx.fillStyle = glow
   ctx.fillRect(0, 0, W, H)
 
+  // Token artwork is fetched through a CORS-safe proxy — DexScreener's CDN
+  // sends no CORS header, and drawing it directly would taint the canvas and
+  // make toBlob throw.
+  const tokenImg = await loadLogoForPixels(d.logoUrl, 256)
+
   // ── Header ──────────────────────────────────────────────────────────────────
   const logo = await loadLogo()
   const logoSize = 34
@@ -237,18 +246,27 @@ export async function renderShareCard(d: ShareCardData): Promise<Blob> {
   const tx = 330
   const rightW = W - PAD - tx
 
-  const nameMax = rightW - 130
+  // Token avatar, then the name beside it
+  const AV = 54
+  drawTokenAvatar(ctx, {
+    img: tokenImg, symbol: d.symbol, name: d.title,
+    x: tx, y: 200 - AV + 8, size: AV,
+    ring: vColor + '66', fontFamily: DISPLAY,
+  })
+  const nameX = tx + AV + 16
+
+  const nameMax = W - PAD - nameX - 130
   fitFontSize(ctx, d.title, nameMax, [46, 40, 34, 29], 800, DISPLAY)
   ctx.fillStyle = WHITE
   const shownName = fitText(ctx, d.title, nameMax)
-  ctx.fillText(shownName, tx, 200)
+  ctx.fillText(shownName, nameX, 200)
   const nameW = Math.min(ctx.measureText(shownName).width, nameMax)
 
   // Symbol chip
   if (d.symbol) {
     ctx.font = `700 15px ${MONO}`
     const sw = ctx.measureText(d.symbol).width
-    const chipX = tx + nameW + 14
+    const chipX = nameX + nameW + 14
     ctx.fillStyle = 'rgba(0,207,255,0.12)'
     roundRect(ctx, chipX, 176, sw + 22, 30, 8); ctx.fill()
     ctx.strokeStyle = 'rgba(0,207,255,0.3)'; ctx.lineWidth = 1; ctx.stroke()
@@ -258,7 +276,7 @@ export async function renderShareCard(d: ShareCardData): Promise<Blob> {
 
   ctx.font = `400 17px ${DISPLAY}`
   ctx.fillStyle = GHOST
-  ctx.fillText(fitText(ctx, d.subtitle, rightW), tx, 230)
+  ctx.fillText(fitText(ctx, d.subtitle, W - PAD - nameX), nameX, 230)
 
   // ── Verdict band ────────────────────────────────────────────────────────────
   const bandY = 254, bandH = 70

@@ -15,6 +15,7 @@
  *  - Findings carry plain-English detail; the UI and the share card both read
  *    from this single structure.
  */
+import { logoFromPairs } from './tokenLogo'
 
 export type FindingState = 'pass' | 'warn' | 'fail' | 'unknown'
 
@@ -65,6 +66,8 @@ export type ScanReport = {
   isProxy: boolean | null
   isMintable: boolean | null
   pairAgeDays: number | null
+  /** Token artwork from DexScreener. Null when the token has none. */
+  logoUrl: string | null
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -420,5 +423,6 @@ export function buildScanReport(opts: {
     totalSupply: gp?.total_supply ?? '—',
     isOpenSource, isProxy, isMintable,
     pairAgeDays,
+    logoUrl: logoFromPairs(dexPairs),
   }
 }

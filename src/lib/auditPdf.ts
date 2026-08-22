@@ -5,6 +5,7 @@
  * as coloured dots and PASS/WARN/FAIL words rather than ✅/⚠️/❌.
  */
 import { jsPDF } from 'jspdf'
+import { logoDataUrl, monogramColor, monogram } from './tokenLogo'
 
 export type PdfCheck = {
   label: string
@@ -31,6 +32,8 @@ export type AuditReportData = {
   pct: number
   sections: PdfSection[]
   onChain: { verified: boolean; ownerRenounced: boolean; hasLiquidity: boolean } | null
+  /** Token artwork. Falls back to a monogram disc when absent. */
+  logoUrl?: string | null
 }
 
 // ── Palette (RGB) ─────────────────────────────────────────────────────────────
@@ -67,7 +70,11 @@ function checkWord(c: PdfCheck): string {
   return 'FAIL'
 }
 
-export function generateAuditPdf(d: AuditReportData): void {
+export async function generateAuditPdf(d: AuditReportData): Promise<void> {
+  // Fetch artwork first — jsPDF needs the bytes, and DexScreener's CDN is
+  // CORS-blocked, so this goes through the proxy in lib/tokenLogo.
+  const logoPng = await logoDataUrl(d.logoUrl, 128)
+
   const doc = new jsPDF({ unit: 'pt', format: 'a4' })
   const now = new Date()
   const stamp = now.toLocaleString('en-GB', {
@@ -124,19 +131,37 @@ export function generateAuditPdf(d: AuditReportData): void {
   doc.setFont('helvetica', 'normal')
   doc.text('GRADE', M + 48, y + 80, { align: 'center' })
 
+  // Token artwork, then identity beside it
+  const AV = 34
+  const avX = M + 118, avY = y + 12
+  if (logoPng) {
+    doc.addImage(logoPng, 'PNG', avX, avY, AV, AV)
+  } else {
+    // Monogram disc, matching the on-screen fallback
+    const hsl = monogramColor(d.tokenSymbol || d.tokenName)
+    const hue = Number(hsl.match(/hsl\((\d+)/)?.[1] ?? 200)
+    const [r0, g0, b0] = hslToRgb(hue / 360, 0.62, 0.46)
+    doc.setFillColor(r0, g0, b0)
+    doc.circle(avX + AV / 2, avY + AV / 2, AV / 2, 'F')
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(14)
+    doc.setTextColor(255, 255, 255)
+    doc.text(monogram(d.tokenSymbol, d.tokenName), avX + AV / 2, avY + AV / 2 + 5, { align: 'center' })
+  }
+
   // Token identity
-  const tx = M + 118
+  const tx = avX + AV + 14
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(16)
   doc.setTextColor(...INK)
   const nameLine = d.tokenName || 'Unnamed Token'
-  doc.text(nameLine.length > 34 ? nameLine.slice(0, 34) + '…' : nameLine, tx, y + 28)
+  doc.text(nameLine.length > 26 ? nameLine.slice(0, 26) + '…' : nameLine, tx, y + 28)
 
   if (d.tokenSymbol) {
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(10)
     doc.setTextColor(...MUTED)
-    doc.text(`(${d.tokenSymbol})`, tx + doc.getTextWidth(nameLine.slice(0, 34)) + 8, y + 28)
+    doc.text(`(${d.tokenSymbol})`, tx + doc.getTextWidth(nameLine.slice(0, 26)) + 8, y + 28)
   }
 
   doc.setFont('helvetica', 'bold')
@@ -149,7 +174,7 @@ export function generateAuditPdf(d: AuditReportData): void {
   doc.text(`${d.pct}%`, tx + doc.getTextWidth(`${d.totalScore} / ${d.maxScore}`) + 10, y + 54)
 
   // Progress bar
-  const barX = tx, barY = y + 66, barW = CONTENT_W - 118 - 24, barH = 7
+  const barX = tx, barY = y + 66, barW = PAGE_W - M - tx - 16, barH = 7
   doc.setFillColor(...HAIR)
   doc.roundedRect(barX, barY, barW, barH, 3.5, 3.5, 'F')
   if (d.pct > 0) {
@@ -320,4 +345,15 @@ export function generateAuditPdf(d: AuditReportData): void {
     .toLowerCase() || 'token'
   const dateSlug = now.toISOString().slice(0, 10)
   doc.save(`fatdev-audit-${slug}-${dateSlug}.pdf`)
+}
+
+
+/** HSL → RGB, for the monogram disc (jsPDF only accepts RGB). */
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  const f = (n: number) => {
+    const k = (n + h * 12) % 12
+    const a = s * Math.min(l, 1 - l)
+    return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))))
+  }
+  return [f(0), f(8), f(4)]
 }
