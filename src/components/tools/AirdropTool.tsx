@@ -212,8 +212,8 @@ export function AirdropTool() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span style={{ color: 'var(--text-muted)' }}>Contract address:</span>
-            <code style={{ fontFamily: "'Space Mono',monospace", fontSize: 11, color: '#fff',
-              background: 'rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: 5 }}>
+            <code style={{ fontFamily: "'Space Mono',monospace", fontSize: 11, color: 'var(--fd-white)',
+              background: 'var(--fd-fill-strong)', padding: '2px 8px', borderRadius: 5 }}>
               {sharedContract}
             </code>
             <button
@@ -239,7 +239,7 @@ export function AirdropTool() {
           <strong style={{ color: 'var(--blue)' }}>Multi-Sender:</strong>{' '}
           A shared FatDev batch contract will be deployed for this chain on first use.
           Lists over {CHUNK_SIZE} wallets split into multiple batches automatically —
-          you sign <strong style={{ color: '#fff' }}>2 transactions per batch</strong> (approve + send).
+          you sign <strong style={{ color: 'var(--fd-white)' }}>2 transactions per batch</strong> (approve + send).
         </div>
       )}
 
@@ -290,8 +290,8 @@ export function AirdropTool() {
         </div>
         <textarea
           style={{ width: '100%', minHeight: 130,
-            background: 'rgba(255,255,255,0.04)', border: '0.5px solid var(--border)',
-            borderRadius: 8, color: '#fff', fontFamily: "'Space Mono',monospace",
+            background: 'var(--fd-fill)', border: '0.5px solid var(--border)',
+            borderRadius: 8, color: 'var(--fd-white)', fontFamily: "'Space Mono',monospace",
             fontSize: 12, padding: 12, resize: 'vertical', boxSizing: 'border-box' }}
           placeholder={'0xABC...123, 1000\n0xDEF...456, 2500\n0x789...abc, 500'}
           value={csvText} onChange={e => handleText(e.target.value)}
@@ -320,7 +320,7 @@ export function AirdropTool() {
             <strong style={{ color: 'var(--fd-cyan)' }}>
               {chunkCount} batches · {validRows.length} wallets
             </strong>
-            {' '}— You will sign <strong style={{ color: '#fff' }}>{chunkCount * 2} transactions</strong> total.
+            {' '}— You will sign <strong style={{ color: 'var(--fd-white)' }}>{chunkCount * 2} transactions</strong> total.
           </div>
         )}
 
@@ -329,7 +329,7 @@ export function AirdropTool() {
             borderRadius: 8, border: '0.5px solid var(--border)' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
-                <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
+                <tr style={{ background: 'var(--fd-fill)' }}>
                   {['#', 'Address', 'Amount', 'OK'].map((h, i) => (
                     <th key={h} style={{ padding: '5px 10px', fontWeight: 600,
                       color: 'var(--text-muted)', textAlign: i === 2 ? 'right' : i === 3 ? 'center' : 'left' }}>{h}</th>
@@ -387,8 +387,8 @@ export function AirdropTool() {
         {tokenInfo && validRows.length > 0 && (
           <div style={{
             marginBottom: 12, padding: '10px 14px', borderRadius: 8, fontSize: 12,
-            background: 'rgba(0,207,255,0.06)', border: '1px solid rgba(0,207,255,0.22)',
-            color: 'rgba(255,255,255,0.72)', lineHeight: 1.65,
+            background: 'var(--fd-accent-ghost)', border: '1px solid var(--fd-border-accent)',
+            color: 'var(--fd-ghost)', lineHeight: 1.65,
           }}>
             <strong style={{ color: 'var(--fd-cyan)' }}>
               Service fee ${airdropFeeUsd(validRows.length).toFixed(2)}

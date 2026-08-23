@@ -211,7 +211,7 @@ export function Step6Deploy({ onSuccess: _onSuccess }: { onSuccess: () => void }
       {chainId === 4663 && (
         <div style={{
           padding: '14px 18px', borderRadius: 'var(--fd-radius-lg)',
-          background: 'rgba(0,207,255,0.06)', border: '1px solid rgba(0,207,255,0.2)',
+          background: 'var(--fd-accent-ghost)', border: '1px solid var(--fd-border-accent)',
           fontSize: 13, color: 'var(--fd-ghost)', lineHeight: 1.6,
           display: 'flex', alignItems: 'flex-start', gap: 12,
         }}>

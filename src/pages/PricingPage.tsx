@@ -97,7 +97,7 @@ export function PricingPage() {
 
           <div style={{
             marginTop: 18, padding: '12px 16px', borderRadius: 'var(--fd-radius)',
-            background: 'rgba(255,255,255,0.03)', border: '1px solid var(--fd-border)',
+            background: 'var(--fd-fill)', border: '1px solid var(--fd-border)',
             fontSize: 12, color: 'var(--fd-ghost)', lineHeight: 1.7,
           }}>
             <strong style={{ color: 'var(--fd-white)' }}>How fees work.</strong>{' '}

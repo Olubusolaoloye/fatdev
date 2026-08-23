@@ -138,7 +138,7 @@ function ScanCard() {
   ]
   return (
     <div style={{
-      background: 'linear-gradient(135deg, rgba(10,25,41,0.95) 0%, rgba(7,21,37,0.95) 100%)',
+      background: 'var(--fd-panel)',
       border: '0.5px solid rgba(255,215,0,0.18)',
       borderRadius: 18, padding: 24,
       backdropFilter: 'blur(20px)',
@@ -150,7 +150,7 @@ function ScanCard() {
           {/* Score ring */}
           <div style={{ position: 'relative', width: 52, height: 52 }}>
             <svg width={52} height={52} viewBox="0 0 52 52">
-              <circle cx={26} cy={26} r={20} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={5} />
+              <circle cx={26} cy={26} r={20} fill="none" stroke="var(--fd-fill-strong)" strokeWidth={5} />
               <circle cx={26} cy={26} r={20} fill="none" stroke="var(--green)" strokeWidth={5}
                 strokeDasharray="110 126" strokeDashoffset="31" strokeLinecap="round"
                 style={{ filter: 'drop-shadow(0 0 6px rgba(0,230,118,0.6))' }} />
@@ -210,7 +210,7 @@ function ScanCard() {
               <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 10,
                 color: t.color, fontWeight: 700 }}>{t.pct}%</span>
             </div>
-            <div style={{ height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2 }}>
+            <div style={{ height: 4, background: 'var(--fd-fill-strong)', borderRadius: 2 }}>
               <div style={{ width: `${t.pct * 4}%`, height: '100%', borderRadius: 2,
                 background: t.color, boxShadow: `0 0 6px ${t.color}` }} />
             </div>
@@ -238,7 +238,7 @@ function FCard({ icon, title, desc, tag, to }: {
       <Link to={to} style={{ textDecoration: 'none', color: 'inherit', display: 'block', height: '100%' }}>
         <div style={{
           padding: '28px 24px', borderRadius: 16, height: '100%', position: 'relative',
-          background: 'linear-gradient(135deg, rgba(10,25,41,0.9) 0%, rgba(7,21,37,0.9) 100%)',
+          background: 'var(--fd-panel)',
           border: '0.5px solid rgba(255,215,0,0.1)',
           transition: 'border-color 0.25s, transform 0.25s, box-shadow 0.25s',
           cursor: 'pointer',
@@ -336,9 +336,9 @@ function Typewriter() {
       display: 'inline-flex', alignItems: 'center', gap: 0,
       fontFamily: "'Space Mono', monospace",
       fontSize: 'clamp(12px, 1.4vw, 14px)',
-      color: '#00CFFF',
-      background: 'rgba(0,207,255,0.05)',
-      border: '1px solid rgba(0,207,255,0.12)',
+      color: 'var(--fd-accent)',
+      background: 'var(--fd-accent-ghost)',
+      border: '1px solid var(--fd-accent-ghost)',
       borderRadius: 8,
       padding: '10px 18px',
       letterSpacing: '0.04em',
@@ -349,7 +349,7 @@ function Typewriter() {
       <span>{displayed}</span>
       <span style={{
         display: 'inline-block', width: 2, height: '1.1em',
-        background: '#00CFFF', marginLeft: 2, verticalAlign: 'text-bottom',
+        background: 'var(--fd-accent)', marginLeft: 2, verticalAlign: 'text-bottom',
         animation: 'blink-bar 0.9s step-end infinite',
       }} />
     </div>
@@ -362,7 +362,7 @@ export function LandingPage() {
   const { features } = useAppConfig()
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--fd-void)', color: '#fff',
+    <div style={{ minHeight: '100vh', background: 'var(--fd-void)', color: 'var(--fd-white)',
       overflowX: 'hidden', fontFamily: "'Inter',sans-serif" }}>
 
       {/* ── Global keyframes ── */}
@@ -388,7 +388,7 @@ export function LandingPage() {
           transform: translateY(-2px) !important;
         }
         .hero-cta-ghost:hover {
-          background: rgba(255,255,255,0.06) !important;
+          background: var(--fd-fill-strong) !important;
           border-color: rgba(255,255,255,0.3) !important;
           transform: translateY(-2px) !important;
         }
@@ -424,7 +424,7 @@ export function LandingPage() {
         <div style={{
           position: 'absolute', top: '20%', left: '50%', transform: 'translateX(-50%)',
           width: 'min(900px, 120vw)', height: 500, pointerEvents: 'none',
-          background: 'radial-gradient(ellipse at 50% 40%, rgba(0,207,255,0.06) 0%, transparent 65%)',
+          background: 'radial-gradient(ellipse at 50% 40%, var(--fd-accent-ghost) 0%, transparent 65%)',
         }} />
         <div style={{
           position: 'absolute', bottom: 0, right: '-10%',
@@ -448,7 +448,7 @@ export function LandingPage() {
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 10,
             padding: '5px 14px', borderRadius: 24, marginBottom: 28,
-            background: 'rgba(4,13,24,0.7)',
+            background: 'var(--fd-surface)',
             border: '0.5px solid rgba(255,215,0,0.2)',
             backdropFilter: 'blur(12px)',
             animation: 'hero-in 0.5s ease 0.1s both',
@@ -457,7 +457,7 @@ export function LandingPage() {
               boxShadow: '0 0 8px var(--green)', display: 'inline-block',
               animation: 'pulse-dot 1.6s ease-in-out infinite' }} />
             <span style={{ fontSize: 10, fontFamily: "'Space Mono',monospace",
-              color: 'rgba(255,255,255,0.65)', letterSpacing: '.1em' }}>
+              color: 'var(--fd-ghost)', letterSpacing: '.1em' }}>
               LIVE ON
             </span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -486,7 +486,7 @@ export function LandingPage() {
             fontSize: 'clamp(52px, 9vw, 88px)',
             fontWeight: 900, lineHeight: 0.98,
             letterSpacing: '-0.025em', margin: '0 0 32px',
-            background: 'linear-gradient(135deg, #ffffff 0%, #00CFFF 55%, #00E57A 100%)',
+            background: 'linear-gradient(135deg, var(--fd-white) 0%, var(--fd-accent) 55%, var(--fd-green) 100%)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             backgroundClip: 'text',
             animation: 'hero-in 0.7s ease 0.28s both',
@@ -505,7 +505,7 @@ export function LandingPage() {
           {/* Tagline */}
           <p style={{
             fontSize: 'clamp(14px, 1.5vw, 15px)',
-            color: 'rgba(255,255,255,0.45)', lineHeight: 1.75,
+            color: 'var(--fd-hint)', lineHeight: 1.75,
             maxWidth: 440, margin: '0 auto 40px',
             fontFamily: "'Space Grotesk', sans-serif",
             animation: 'hero-in 0.7s ease 0.55s both',
@@ -523,7 +523,7 @@ export function LandingPage() {
               padding: '14px 36px',
               borderRadius: 12, fontSize: 15, fontWeight: 700,
               background: 'var(--fd-cyan)', color: 'var(--fd-void)', textDecoration: 'none',
-              boxShadow: '0 0 32px rgba(0,207,255,0.28)',
+              boxShadow: '0 0 32px var(--fd-border-accent)',
               transition: 'box-shadow 0.25s, transform 0.25s',
               fontFamily: "'Space Grotesk', sans-serif",
               display: 'inline-flex', alignItems: 'center', gap: 8,
@@ -533,8 +533,8 @@ export function LandingPage() {
             <Link to="/tools" className="hero-cta-ghost" style={{
               padding: '14px 32px',
               borderRadius: 12, fontSize: 15, fontWeight: 600,
-              background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.75)',
-              border: '1px solid rgba(255,255,255,0.1)', textDecoration: 'none',
+              background: 'var(--fd-fill)', color: 'var(--fd-ghost)',
+              border: '1px solid var(--fd-track)', textDecoration: 'none',
               transition: 'background 0.25s, border-color 0.25s, transform 0.25s',
               fontFamily: "'Space Grotesk', sans-serif",
               display: 'inline-flex', alignItems: 'center', gap: 8,
@@ -568,7 +568,7 @@ export function LandingPage() {
             gap: 'clamp(20px,3vw,40px)',
             borderTop: '0.5px solid rgba(255,215,0,0.07)',
             borderBottom: '0.5px solid rgba(255,215,0,0.07)',
-            background: 'rgba(10,25,41,0.4)',
+            background: 'var(--fd-deep)',
             backdropFilter: 'blur(8px)',
           }}>
             {[
@@ -709,7 +709,7 @@ export function LandingPage() {
           <div className="cta-strip" style={{
             borderRadius: 24, padding: 'clamp(40px,5vw,72px) clamp(24px,5vw,64px)',
             textAlign: 'center', position: 'relative', overflow: 'hidden',
-            background: 'linear-gradient(135deg, #0c1f35 0%, #071525 50%, #0a1929 100%)',
+            background: 'var(--fd-panel)',
             border: '0.5px solid rgba(255,215,0,0.15)',
             animation: 'border-glow 4s ease-in-out infinite',
           }}>
@@ -745,7 +745,7 @@ export function LandingPage() {
                   padding: 'clamp(12px,1.5vw,15px) clamp(28px,3vw,40px)',
                   borderRadius: 12, fontSize: 'clamp(14px,1.3vw,16px)', fontWeight: 800,
                   background: 'var(--fd-cyan)', color: 'var(--fd-void)', textDecoration: 'none',
-                  boxShadow: '0 0 28px rgba(0,207,255,0.3)',
+                  boxShadow: '0 0 28px var(--fd-border-accent)',
                   fontFamily: "'Syne',sans-serif",
                   display: 'inline-flex', alignItems: 'center', gap: 8,
                 }}>
@@ -754,7 +754,7 @@ export function LandingPage() {
                 <Link to="/tools" style={{
                   padding: 'clamp(12px,1.5vw,15px) clamp(28px,3vw,32px)',
                   borderRadius: 12, fontSize: 'clamp(14px,1.3vw,16px)', fontWeight: 700,
-                  background: 'transparent', color: '#fff',
+                  background: 'transparent', color: 'var(--fd-white)',
                   border: '0.5px solid rgba(255,255,255,0.2)', textDecoration: 'none',
                   fontFamily: "'Syne',sans-serif",
                 }}>

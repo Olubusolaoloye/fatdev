@@ -111,7 +111,7 @@ export function Toggle({ on, onChange, name, desc }: {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      background: 'rgba(255,255,255,0.02)',
+      background: 'var(--fd-fill)',
       border: `1px solid ${on ? 'var(--fd-border-cyan)' : 'var(--fd-border)'}`,
       borderRadius: 'var(--fd-radius)', padding: '12px 16px',
       gap: 12, transition: 'border-color 200ms ease',

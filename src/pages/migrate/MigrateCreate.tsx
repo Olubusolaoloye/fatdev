@@ -289,7 +289,7 @@ export function MigrateCreate() {
                 background: 'rgba(255,215,0,0.05)', border: '0.5px solid var(--border)',
                 fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6,
               }}>
-                ⚠️ <strong style={{ color: '#fff' }}>Two transactions required:</strong> First approve V2 token spend, then deposit into the vault.
+                ⚠️ <strong style={{ color: 'var(--fd-white)' }}>Two transactions required:</strong> First approve V2 token spend, then deposit into the vault.
               </div>
             </div>
           </div>

@@ -107,7 +107,7 @@ export function MigrateCalculator() {
         }}>
           <span style={{ fontSize: 18 }}>💡</span>
           <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            <strong style={{ color: '#fff' }}>Recommendation:</strong> Fund your vault with{' '}
+            <strong style={{ color: 'var(--fd-white)' }}>Recommendation:</strong> Fund your vault with{' '}
             <strong style={{ color: 'var(--fd-cyan)' }}>
               {calcVaultNeeded(supply, ratio, Math.min(participation + 10, 99)).toLocaleString()} V2 tokens
             </strong>{' '}

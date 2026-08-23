@@ -26,29 +26,29 @@ function buildWidgetCode(t: TokenFacts) {
 <div id="fattoken-widget"
      data-contract="${t.contractAddr}"
      data-chain="${t.chainId}"
-     style="font-family:system-ui,sans-serif;max-width:320px;border:1px solid #00CFFF33;
+     style="font-family:system-ui,sans-serif;max-width:320px;border:1px solid #FFD70033;
             border-radius:14px;background:#0A1929;padding:18px;color:#EEF2FF;">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
     <div>
       <div style="font-weight:800;font-size:18px;">${t.name || 'Token'}</div>
-      <div style="color:#00CFFF;font-size:12px;">$${t.symbol || 'SYMBOL'}</div>
+      <div style="color:#FFD700;font-size:12px;">$${t.symbol || 'SYMBOL'}</div>
     </div>
     <img src="https://fatdev.org/logo.png" alt="FatDev" width="32" height="32"
          style="border-radius:7px;" onerror="this.style.display='none'"/>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
-    <div style="background:#00CFFF14;border-radius:9px;padding:9px 11px;">
+    <div style="background:#FFD70014;border-radius:9px;padding:9px 11px;">
       <div style="color:#8A9BC2;font-size:10px;margin-bottom:3px;">Supply</div>
       <div style="font-weight:700;">${t.totalSupply.toLocaleString()}</div>
     </div>
-    <div style="background:#00CFFF14;border-radius:9px;padding:9px 11px;">
+    <div style="background:#FFD70014;border-radius:9px;padding:9px 11px;">
       <div style="color:#8A9BC2;font-size:10px;margin-bottom:3px;">Buy / Sell Tax</div>
       <div style="font-weight:700;">${t.buyTax.toFixed(1)}% / ${t.sellTax.toFixed(1)}%</div>
     </div>
   </div>
   <div style="margin-top:11px;font-size:10px;color:#8A9BC299;">
     ${t.contractAddr ? t.contractAddr.slice(0, 10) + '…' + t.contractAddr.slice(-8) : 'Contract pending'}
-    · Powered by <a href="https://fatdev.org" style="color:#00CFFF;">FatDev</a>
+    · Powered by <a href="https://fatdev.org" style="color:#FFD700;">FatDev</a>
   </div>
 </div>`
 }

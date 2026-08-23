@@ -18,7 +18,7 @@ export default function ComingSoon({
   bullets = [],
 }: Props) {
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--fd-void)', color: '#fff', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--fd-void)', color: 'var(--fd-white)', display: 'flex', flexDirection: 'column' }}>
       <Navbar />
 
       <main style={{

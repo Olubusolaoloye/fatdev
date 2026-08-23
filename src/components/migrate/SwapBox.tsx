@@ -33,7 +33,7 @@ export function SwapBox({ ratio, v1Symbol = 'V1', v2Symbol = 'V2', disabled, onS
           />
         </div>
         <div style={{
-          background: 'rgba(255,255,255,0.07)', borderRadius: 6,
+          background: 'var(--fd-fill-strong)', borderRadius: 6,
           padding: '4px 10px', fontWeight: 700, fontSize: 13,
           fontFamily: "'Space Mono',monospace",
         }}>

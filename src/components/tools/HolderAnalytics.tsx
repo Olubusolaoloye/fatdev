@@ -201,7 +201,7 @@ export function HolderAnalytics() {
                   marginBottom: -1 }}>
                 {t.label}
                 {t.count !== undefined && (
-                  <span style={{ marginLeft: 6, fontSize: 11, background: 'rgba(255,255,255,0.08)', borderRadius: 4, padding: '1px 5px' }}>
+                  <span style={{ marginLeft: 6, fontSize: 11, background: 'var(--fd-fill-strong)', borderRadius: 4, padding: '1px 5px' }}>
                     {t.count}
                   </span>
                 )}
@@ -213,7 +213,7 @@ export function HolderAnalytics() {
           {tab === 'holders' && (
             <div className="card" style={{ borderRadius: '0 8px 8px 8px', marginTop: 0 }}>
               <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
-                Click <strong style={{ color: '#fff' }}>Check age</strong> to detect bot wallets (new wallets = potential bots).
+                Click <strong style={{ color: 'var(--fd-white)' }}>Check age</strong> to detect bot wallets (new wallets = potential bots).
               </div>
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>

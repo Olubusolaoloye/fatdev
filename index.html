@@ -9,7 +9,14 @@
     <meta property="og:title" content="FatDev" />
     <meta property="og:description" content="Become a dev without code. Token deploy, security scanner, tax sim, LP audit — all in one platform." />
     <meta property="og:image" content="/logo.png" />
-    <title>FatDev — Become a Dev Without Code</title>
+    <title>FatDev - Your Genesis Stack</title>
+    <script>
+      // Applied before first paint — a flash of the wrong palette is jarring.
+      try {
+        var t = localStorage.getItem('fatdev-theme');
+        if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -62,14 +62,14 @@ const IDLE: StepStatus = { state: 'idle', msg: '' }
 function stepBg(s: StepState) {
   return s === 'ok'      ? 'rgba(0,230,118,0.08)'   :
          s === 'err'     ? 'rgba(255,82,82,0.08)'   :
-         s === 'pending' ? 'rgba(0,207,255,0.08)'   :
-         s === 'skip'    ? 'rgba(255,255,255,0.03)' :
-         'rgba(255,255,255,0.03)'
+         s === 'pending' ? 'var(--fd-accent-ghost)'   :
+         s === 'skip'    ? 'var(--fd-fill)' :
+         'var(--fd-fill)'
 }
 function stepBorder(s: StepState) {
   return s === 'ok'      ? 'rgba(0,230,118,0.3)'  :
          s === 'err'     ? 'rgba(255,82,82,0.3)'  :
-         s === 'pending' ? 'rgba(0,207,255,0.3)'  :
+         s === 'pending' ? 'var(--fd-border-accent)'  :
          'var(--border)'
 }
 function stepColor(s: StepState) {
@@ -82,7 +82,7 @@ function badgeBg(s: StepState) {
          s === 'err'     ? 'var(--red)'       :
          s === 'pending' ? 'var(--fd-cyan)'   :
          s === 'skip'    ? 'var(--text-muted)' :
-         'rgba(255,255,255,0.12)'
+         'var(--fd-track)'
 }
 function badgeLabel(s: StepState, n: string) {
   return s === 'ok' ? '✓' : s === 'err' ? '✗' : s === 'pending' ? '…' : s === 'skip' ? '—' : n
@@ -317,8 +317,8 @@ export function LiquidityLaunch({
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
         <div style={{
           width: 32, height: 32, borderRadius: 8,
-          background: 'rgba(0,207,255,0.12)',
-          border: '1px solid rgba(0,207,255,0.25)',
+          background: 'var(--fd-accent-ghost)',
+          border: '1px solid var(--fd-border-accent)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
         }}><Icon name="droplet" size={22} /></div>
         <div>
@@ -391,8 +391,8 @@ export function LiquidityLaunch({
                     onClick={() => setTokenAmt(balFormatted!)}
                     style={{
                       fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-                      background: 'rgba(0,207,255,0.12)', color: 'var(--fd-cyan)',
-                      border: '1px solid rgba(0,207,255,0.25)', cursor: 'pointer',
+                      background: 'var(--fd-accent-ghost)', color: 'var(--fd-cyan)',
+                      border: '1px solid var(--fd-border-accent)', cursor: 'pointer',
                     }}>MAX</button>
                 </div>
               )}

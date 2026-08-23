@@ -452,7 +452,7 @@ export function AuditScore() {
             ].map(({ key, label }) => (
               <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12 }}>
                 <div style={{ width: 36, height: 20, borderRadius: 10, flexShrink: 0, cursor: 'pointer',
-                  background: (manual as any)[key] ? 'var(--fd-cyan)' : 'rgba(255,255,255,0.1)',
+                  background: (manual as any)[key] ? 'var(--fd-cyan)' : 'var(--fd-track)',
                   position: 'relative', transition: 'background 0.2s' }}
                   onClick={() => setManual(m => ({ ...m, [key]: !(m as any)[key] }))}>
                   <div style={{ width: 16, height: 16, borderRadius: 8, background: '#fff',
@@ -467,7 +467,7 @@ export function AuditScore() {
 
       {/* ── Score hero ── */}
       <div className="card" style={{ textAlign: 'center', marginBottom: 14, padding: '28px 20px',
-        background: 'linear-gradient(135deg,rgba(10,25,41,0.9),rgba(4,13,24,1))',
+        background: 'var(--fd-panel)',
         border: `1px solid ${gradeColor}40` }}>
         <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.12em', color: 'var(--text-muted)', marginBottom: 8 }}>
           FatDev Audit Score
@@ -484,7 +484,7 @@ export function AuditScore() {
               symbol={activeSymbol || activeName}
               name={activeName}
               size={26}
-              ring={`${gradeColor === 'var(--green)' ? 'rgba(0,229,122,0.4)' : 'rgba(255,255,255,0.18)'}`}
+              ring={`${gradeColor === 'var(--green)' ? 'rgba(0,229,122,0.4)' : 'var(--fd-hint)'}`}
             />
           )}
           <span>{pct}% — {activeName || 'Token'} ({activeSymbol || '—'})</span>
@@ -494,7 +494,7 @@ export function AuditScore() {
             {contractAddr}
           </div>
         )}
-        <div style={{ margin: '14px auto 0', maxWidth: 320, height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.1)' }}>
+        <div style={{ margin: '14px auto 0', maxWidth: 320, height: 6, borderRadius: 3, background: 'var(--fd-track)' }}>
           <div style={{ height: '100%', borderRadius: 3, width: `${pct}%`, background: gradeColor, transition: 'width 0.8s ease' }} />
         </div>
       </div>
@@ -503,7 +503,7 @@ export function AuditScore() {
       {nonEvmReport && (
         <div className="card" style={{
           marginBottom: 14, display: 'flex', gap: 10, alignItems: 'flex-start',
-          background: 'rgba(0,207,255,0.05)', border: '1px solid rgba(0,207,255,0.22)',
+          background: 'var(--fd-accent-ghost)', border: '1px solid var(--fd-border-accent)',
           fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.65,
         }}>
           <Icon name="info" size={15} style={{ color: 'var(--fd-cyan)', marginTop: 1 }} />
@@ -594,7 +594,7 @@ export function AuditScore() {
         marginBottom: 14, display: 'flex', gap: 9, lineHeight: 1.6 }}>
         <Icon name="alert" size={15} style={{ color: 'var(--amber)', marginTop: 1 }} />
         <span>
-          This is an automated configuration check, <strong style={{ color: '#fff' }}>not a professional
+          This is an automated configuration check, <strong style={{ color: 'var(--fd-white)' }}>not a professional
           security audit</strong>. It does not check for logic vulnerabilities, rug-pull mechanisms,
           or malicious code. Always DYOR.
         </span>

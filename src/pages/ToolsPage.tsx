@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
 import { AirdropTool }     from '../components/tools/AirdropTool'
@@ -7,22 +8,31 @@ import { AuditScore }      from '../components/tools/AuditScore'
 import { SocialTools }     from '../components/tools/SocialTools'
 import { SecurityScanner } from '../components/tools/SecurityScanner'
 import Icon from '../components/ui-kit/Icon'
-import { TOOL_FEATURES, type FeatureKey, type FeatureMeta } from '../lib/tools'
+import { TOOL_FEATURES, TOOL_SLUG, TOOL_KEY_BY_SLUG, type FeatureKey, type FeatureMeta } from '../lib/tools'
 import { useAppConfig }    from '../hooks/useAppConfig'
 
 export function ToolsPage() {
   const { features, loading } = useAppConfig()
-  const [active, setActive] = useState<FeatureKey | null>(null)
+  const { slug } = useParams<{ slug?: string }>()
+  const navigate = useNavigate()
 
   // Only tools the admin has switched on
   const visible = TOOL_FEATURES.filter(t => features[t.key])
+
+  // The URL is the source of truth, so every tool is linkable and shareable,
+  // Back works, and a deep link opens straight into the tool.
+  const active: FeatureKey | null = slug ? (TOOL_KEY_BY_SLUG[slug] ?? null) : null
   const tool = active ? visible.find(t => t.key === active) ?? null : null
 
-  // A tool switched off while open (or deep-linked) falls back to the grid
-  if (active && !tool) setActive(null)
+  // Unknown slug, or a tool switched off in admin — send them to the grid.
+  // In an effect, not during render: redirecting mid-render warns in React and
+  // would fire again on every re-render while the flags are still loading.
+  useEffect(() => {
+    if (slug && !tool && !loading) navigate('/tools', { replace: true })
+  }, [slug, tool, loading, navigate])
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--fd-void)', color: '#fff', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--fd-void)', color: 'var(--fd-white)', display: 'flex', flexDirection: 'column' }}>
       <Navbar />
 
       <main style={{
@@ -35,7 +45,7 @@ export function ToolsPage() {
         {/* ── Tool view ── */}
         {active && tool && (
           <div>
-            <button onClick={() => setActive(null)}
+            <Link to="/tools"
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
                 background: 'var(--fd-surface)', border: '1px solid var(--fd-border)',
@@ -53,7 +63,7 @@ export function ToolsPage() {
                 ;(e.currentTarget as HTMLElement).style.borderColor = 'var(--fd-border)'
               }}>
               ← All Tools
-            </button>
+            </Link>
 
             <div style={{
               display: 'flex', alignItems: 'center', gap: 16, marginBottom: 36,
@@ -74,9 +84,9 @@ export function ToolsPage() {
                   {tool.badge && (
                     <span style={{
                       fontSize: 10, padding: '3px 10px', borderRadius: 20, fontWeight: 700,
-                      background: tool.free ? 'rgba(0,230,118,0.12)' : 'rgba(0,207,255,0.12)',
+                      background: tool.free ? 'rgba(0,230,118,0.12)' : 'var(--fd-accent-ghost)',
                       color: tool.free ? 'var(--fd-green)' : 'var(--fd-cyan)',
-                      border: `1px solid ${tool.free ? 'rgba(0,230,118,0.25)' : 'rgba(0,207,255,0.25)'}`,
+                      border: `1px solid ${tool.free ? 'rgba(0,230,118,0.25)' : 'var(--fd-border-accent)'}`,
                       textTransform: 'uppercase', letterSpacing: '0.08em',
                     }}>{tool.badge}</span>
                   )}
@@ -139,7 +149,7 @@ export function ToolsPage() {
                 </div>
                 <div className="tools-grid">
                   {visible.filter(t => t.free).map(t => (
-                    <ToolCard key={t.key} tool={t} onOpen={() => setActive(t.key)} />
+                    <ToolCard key={t.key} tool={t} />
                   ))}
                 </div>
               </div>
@@ -158,7 +168,7 @@ export function ToolsPage() {
                 </div>
                 <div className="tools-grid">
                   {visible.filter(t => !t.free).map(t => (
-                    <ToolCard key={t.key} tool={t} onOpen={() => setActive(t.key)} />
+                    <ToolCard key={t.key} tool={t} />
                   ))}
                 </div>
               </div>
@@ -202,15 +212,16 @@ export function ToolsPage() {
 }
 
 // ── Tool card ─────────────────────────────────────────────────────────────────
-function ToolCard({ tool, onOpen }: { tool: FeatureMeta; onOpen: () => void }) {
+function ToolCard({ tool }: { tool: FeatureMeta }) {
   const [hovered, setHovered] = useState(false)
 
   return (
-    <button
-      onClick={onOpen}
+    <Link
+      to={`/tools/${TOOL_SLUG[tool.key] ?? tool.key}`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
+        display: 'block', textDecoration: 'none',
         textAlign: 'left', cursor: 'pointer',
         background: 'var(--fd-surface)',
         border: `1px solid ${hovered ? 'var(--fd-border-cyan)' : 'var(--fd-border)'}`,
@@ -225,9 +236,9 @@ function ToolCard({ tool, onOpen }: { tool: FeatureMeta; onOpen: () => void }) {
         <span style={{
           position: 'absolute', top: 14, right: 14,
           fontSize: 9, fontWeight: 700, padding: '3px 9px', borderRadius: 20,
-          background: tool.free ? 'rgba(0,230,118,0.12)' : 'rgba(0,207,255,0.12)',
+          background: tool.free ? 'rgba(0,230,118,0.12)' : 'var(--fd-accent-ghost)',
           color: tool.free ? 'var(--fd-green)' : 'var(--fd-cyan)',
-          border: `1px solid ${tool.free ? 'rgba(0,230,118,0.25)' : 'rgba(0,207,255,0.25)'}`,
+          border: `1px solid ${tool.free ? 'rgba(0,230,118,0.25)' : 'var(--fd-border-accent)'}`,
           textTransform: 'uppercase', letterSpacing: '0.06em',
         }}>{tool.badge}</span>
       )}
@@ -235,7 +246,7 @@ function ToolCard({ tool, onOpen }: { tool: FeatureMeta; onOpen: () => void }) {
       <div style={{
         width: 44, height: 44, borderRadius: 12, marginBottom: 16,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: hovered ? 'var(--fd-cyan-ghost)' : 'rgba(255,255,255,0.04)',
+        background: hovered ? 'var(--fd-cyan-ghost)' : 'var(--fd-fill)',
         border: `1px solid ${hovered ? 'var(--fd-border-cyan)' : 'var(--fd-border)'}`,
         color: hovered ? 'var(--fd-cyan)' : 'var(--fd-ghost)',
         transition: 'background 180ms ease, border-color 180ms ease, color 180ms ease',
@@ -254,6 +265,6 @@ function ToolCard({ tool, onOpen }: { tool: FeatureMeta; onOpen: () => void }) {
           fontFamily: "'Space Grotesk', sans-serif",
         }}>Open tool →</span>
       </div>
-    </button>
+    </Link>
   )
 }

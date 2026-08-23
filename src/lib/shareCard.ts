@@ -20,7 +20,7 @@ const PAD = 48
 // ── Palette (matches src/index.css design tokens) ─────────────────────────────
 const VOID    = '#080C18'
 const SURFACE = '#0D1424'
-const CYAN    = '#00CFFF'
+const CYAN    = '#FFD700'
 const GREEN   = '#00E57A'
 const RED     = '#FF5252'
 const AMBER   = '#FFB020'

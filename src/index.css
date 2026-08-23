@@ -5,38 +5,65 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── CSS Variables ── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Design tokens — BLIN Protocol palette, light + dark
+   Colours taken from blinprotocol.com's own CSS variables:
+     gold #FFD700 · gold2 #C8960E · red #CC0000 · red2 #E82222
+     cream #FFF8E7 · parchment #F5DEB3 · dark #130400 · dark2 #1E0700
+     card #1F0900 · pancake #E8961E
+   Typography stays FatDev's own (Space Grotesk / JetBrains Mono).
+
+   Light mode is derived rather than copied — BLIN ships dark only. Bright gold
+   on cream is about 1.3:1, nowhere near readable, so light mode uses the deeper
+   gold for text and keeps bright gold for fills that carry dark ink on top.
+
+   `--fd-cyan` is kept as an alias of the accent: the previous palette was cyan
+   and the name is referenced in hundreds of places. New code should use
+   `--fd-accent`.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 :root {
-  /* Backgrounds */
-  --fd-void:    #080C18;
-  --fd-deep:    #0D1427;
-  --fd-surface: #131B35;
-  --fd-slate:   #1E2B4A;
-  --fd-muted:   #2E3F66;
+  /* ── Light (default) ── */
+  --fd-void:    #FFF8E7;   /* cream page */
+  --fd-deep:    #FBEFD6;
+  --fd-surface: #FFFFFF;
+  --fd-slate:   #FAF0DA;
+  --fd-muted:   #E8D5A8;
 
-  /* Brand accents */
-  --fd-cyan:       #00CFFF;
-  --fd-cyan-dim:   #0099CC;
-  --fd-cyan-ghost: rgba(0, 207, 255, 0.12);
-  --fd-green:      #00E57A;
-  --fd-green-dim:  #00A855;
-  --fd-green-ghost: rgba(0, 229, 122, 0.10);
-  --fd-purple:     #937FFF;
-  --fd-purple-ghost: rgba(147, 111, 255, 0.10);
+  --fd-accent:       #9A6F06;   /* deep gold — readable on cream */
+  --fd-accent-bright:#FFD700;   /* BLIN gold — fills only, dark ink on top */
+  --fd-accent-dim:   #C8960E;
+  --fd-accent-ghost: rgba(154, 111, 6, 0.10);
+  --fd-accent-ink:   #130400;   /* text colour to use ON a bright-gold fill */
 
-  /* Text */
-  --fd-white:  #EEF2FF;
-  --fd-ghost:  #8A9BC2;
-  --fd-hint:   #3A4F7A;
+  --fd-green:       #04795B;
+  --fd-green-dim:   #035C46;
+  --fd-green-ghost: rgba(4, 121, 91, 0.10);
+  --fd-red:         #CC0000;
+  --fd-amber:       #A05C05;
+  --fd-purple:      #7A5AF8;
+  --fd-purple-ghost: rgba(122, 90, 248, 0.10);
 
-  /* Typography */
+  --fd-white:  #130400;                  /* primary text */
+  --fd-ghost:  rgba(19, 4, 0, 0.62);     /* secondary text */
+  --fd-hint:   rgba(19, 4, 0, 0.36);
+
+  --fd-border:        rgba(19, 4, 0, 0.12);
+  --fd-border-accent: rgba(154, 111, 6, 0.32);
+  --fd-border-green:  rgba(4, 121, 91, 0.28);
+
+  --fd-shadow: 0 1px 2px rgba(19,4,0,0.06), 0 8px 24px rgba(19,4,0,0.06);
+
+  /* Subtle overlay fills — inverted per theme */
+  --fd-fill:        rgba(19, 4, 0, 0.04);
+  --fd-fill-strong: rgba(19, 4, 0, 0.07);
+  --fd-track:       rgba(19, 4, 0, 0.08);
+  --fd-panel: linear-gradient(135deg, #FFFFFF 0%, #FBEFD6 100%);
+
+
+  /* Typography — FatDev's own, unchanged */
   --fd-font-display: 'Space Grotesk', sans-serif;
   --fd-font-mono:    'JetBrains Mono', monospace;
-
-  /* Borders */
-  --fd-border:       rgba(255,255,255,0.07);
-  --fd-border-cyan:  rgba(0,207,255,0.20);
-  --fd-border-green: rgba(0,229,122,0.18);
 
   /* Radius */
   --fd-radius-sm: 6px;
@@ -45,14 +72,117 @@
   --fd-radius-xl: 24px;
 }
 
+/* ── Dark: BLIN's native mode ── */
+:root[data-theme="dark"] {
+  --fd-void:    #130400;
+  --fd-deep:    #1E0700;
+  --fd-surface: #1F0900;
+  --fd-slate:   #2A1004;
+  --fd-muted:   #3D1A06;
+
+  --fd-accent:       #FFD700;
+  --fd-accent-bright:#FFD700;
+  --fd-accent-dim:   #C8960E;
+  --fd-accent-ghost: rgba(255, 215, 0, 0.12);
+  --fd-accent-ink:   #130400;
+
+  --fd-green:       #00C896;
+  --fd-green-dim:   #00A87D;
+  --fd-green-ghost: rgba(0, 200, 150, 0.12);
+  --fd-red:         #E82222;
+  --fd-amber:       #E8961E;
+  --fd-purple:      #B79CFF;
+  --fd-purple-ghost: rgba(183, 156, 255, 0.12);
+
+  --fd-white:  #FFF8E7;                     /* cream */
+  --fd-ghost:  rgba(245, 222, 179, 0.66);   /* parchment */
+  --fd-hint:   rgba(245, 222, 179, 0.34);
+
+  --fd-border:        rgba(255, 215, 0, 0.14);
+  --fd-border-accent: rgba(255, 215, 0, 0.38);
+  --fd-border-green:  rgba(0, 200, 150, 0.28);
+
+  --fd-shadow: 0 1px 2px rgba(0,0,0,0.5), 0 10px 30px rgba(0,0,0,0.45);
+
+  --fd-fill:        rgba(255, 248, 231, 0.05);
+  --fd-fill-strong: rgba(255, 248, 231, 0.09);
+  --fd-track:       rgba(255, 248, 231, 0.10);
+  --fd-panel: linear-gradient(135deg, #1F0900 0%, #130400 100%);
+
+}
+
+/* Follow the OS when the user has not chosen explicitly */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --fd-void:    #130400;
+    --fd-deep:    #1E0700;
+    --fd-surface: #1F0900;
+    --fd-slate:   #2A1004;
+    --fd-muted:   #3D1A06;
+
+    --fd-accent:       #FFD700;
+    --fd-accent-bright:#FFD700;
+    --fd-accent-dim:   #C8960E;
+    --fd-accent-ghost: rgba(255, 215, 0, 0.12);
+    --fd-accent-ink:   #130400;
+
+    --fd-green:       #00C896;
+    --fd-green-dim:   #00A87D;
+    --fd-green-ghost: rgba(0, 200, 150, 0.12);
+    --fd-red:         #E82222;
+    --fd-amber:       #E8961E;
+    --fd-purple:      #B79CFF;
+    --fd-purple-ghost: rgba(183, 156, 255, 0.12);
+
+    --fd-white:  #FFF8E7;
+    --fd-ghost:  rgba(245, 222, 179, 0.66);
+    --fd-hint:   rgba(245, 222, 179, 0.34);
+
+    --fd-border:        rgba(255, 215, 0, 0.14);
+    --fd-border-accent: rgba(255, 215, 0, 0.38);
+    --fd-border-green:  rgba(0, 200, 150, 0.28);
+
+    --fd-shadow: 0 1px 2px rgba(0,0,0,0.5), 0 10px 30px rgba(0,0,0,0.45);
+
+    --fd-fill:        rgba(255, 248, 231, 0.05);
+    --fd-fill-strong: rgba(255, 248, 231, 0.09);
+    --fd-track:       rgba(255, 248, 231, 0.10);
+    --fd-panel: linear-gradient(135deg, #1F0900 0%, #130400 100%);
+
+  }
+}
+
+/* ── Compatibility aliases ──────────────────────────────────────────────────
+   The previous palette was cyan and these names are used throughout the app.
+   Pointing them at the accent keeps every existing component themed. */
+:root {
+  --fd-cyan:        var(--fd-accent);
+  --fd-cyan-dim:    var(--fd-accent-dim);
+  --fd-cyan-ghost:  var(--fd-accent-ghost);
+  --fd-border-cyan: var(--fd-border-accent);
+
+  /* Legacy names referenced by older components */
+  --green:      var(--fd-green);
+  --red:        var(--fd-red);
+  --amber:      var(--fd-amber);
+  --blue:       var(--fd-purple);
+  --navy:       var(--fd-void);
+  --navy-card:  var(--fd-surface);
+  --border:     var(--fd-border);
+  --border-strong: var(--fd-border-accent);
+  --text-muted:     var(--fd-ghost);
+  --text-secondary: var(--fd-ghost);
+  --gold:       var(--fd-accent);
+}
+
 /* ── Scrollbar ── */
 ::-webkit-scrollbar              { width: 6px; }
 ::-webkit-scrollbar-track        { background: var(--fd-void); }
 ::-webkit-scrollbar-thumb        { background: var(--fd-muted); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover  { background: var(--fd-cyan); }
+::-webkit-scrollbar-thumb:hover  { background: var(--fd-accent); }
 
 /* ── Selection ── */
-::selection { background: rgba(0, 207, 255, 0.2); color: var(--fd-white); }
+::selection { background: var(--fd-accent-ghost); color: var(--fd-white); }
 
 /* ── Spin keyframe for Spinner ── */
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -126,7 +256,7 @@ body::before {
 }
 
 .field-input {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--fd-fill);
   border: 0.5px solid var(--border);
   border-radius: 8px;
   padding: 10px 14px;
@@ -148,7 +278,7 @@ body::before {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--fd-fill);
   border: 0.5px solid var(--border);
   border-radius: 8px;
   padding: 12px 14px;
@@ -160,7 +290,7 @@ body::before {
 .toggle-btn {
   width: 44px; height: 24px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--fd-track);
   border: none; cursor: pointer;
   position: relative;
   transition: background 0.2s;
@@ -189,7 +319,7 @@ body::before {
 }
 .tax-bar-wrap {
   height: 4px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--fd-fill-strong);
   border-radius: 2px; overflow: hidden; margin-top: 8px;
 }
 .tax-bar { height: 100%; border-radius: 2px; transition: width 0.3s, background 0.3s; }
@@ -230,7 +360,7 @@ body::before {
   font-weight: 600; font-size: 13px;
   cursor: pointer; transition: all 0.2s;
 }
-.btn-ghost:hover { background: rgba(255,255,255,0.05); color: #fff; }
+.btn-ghost:hover { background: var(--fd-fill); color: #fff; }
 
 /* ── Code block ── */
 .code-block {
@@ -387,18 +517,7 @@ html, body { max-width: 100vw; overflow-x: hidden; }
    components don't each have to remember them.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* --- Legacy colour aliases -------------------------------------------------
-   Several components referenced --green / --red / --blue, which were never
-   defined — they silently resolved to nothing, so those pills, bars and
-   countdown digits rendered transparent or inherited. Aliased to the real
-   design tokens rather than rewritten at ~40 call sites. */
-:root {
-  --green: var(--fd-green);
-  --red:   #FF5252;
-  --amber: #FFB020;
-  --blue:  #4A90E2;
-  --fd-amber: #FFB020;
-}
+
 
 /* --- Focus visibility ------------------------------------------------------
    Keyboard users must be able to see where they are. Uses :focus-visible so
@@ -579,7 +698,7 @@ html, body { overflow-x: hidden; }
 .scan-risk {
   display: flex; gap: 10px; align-items: flex-start;
   padding: 8px 0;
-  border-top: 1px solid rgba(255,255,255,0.06);
+  border-top: 1px solid var(--fd-fill-strong);
 }
 .scan-risk:first-of-type { border-top: none; padding-top: 0; }
 .scan-risk__label { font-size: 12.5px; font-weight: 600; color: var(--fd-white); }
@@ -623,7 +742,7 @@ html, body { overflow-x: hidden; }
 }
 .scan-pillar__track {
   width: 100%; height: 4px; border-radius: 2px;
-  background: rgba(255,255,255,0.07); margin-top: 8px; overflow: hidden;
+  background: var(--fd-fill-strong); margin-top: 8px; overflow: hidden;
 }
 .scan-pillar__fill {
   height: 100%; border-radius: 2px;
@@ -641,7 +760,7 @@ html, body { overflow-x: hidden; }
 
 .scan-badge-muted {
   font-size: 9.5px; font-family: var(--fd-font-mono); color: var(--fd-ghost);
-  background: rgba(255,255,255,0.05); border-radius: 999px;
+  background: var(--fd-fill); border-radius: 999px;
   padding: 1px 7px; white-space: nowrap;
 }
 
@@ -681,7 +800,7 @@ html, body { overflow-x: hidden; }
 }
 .opt {
   text-align: left; cursor: pointer;
-  background: var(--fd-slate, rgba(255,255,255,0.03));
+  background: var(--fd-slate, var(--fd-fill));
   border: 1px solid var(--fd-border);
   border-radius: var(--fd-radius, 10px);
   padding: 11px 13px;
@@ -703,7 +822,7 @@ html, body { overflow-x: hidden; }
 /* Segmented control — platforms, small switches */
 .seg {
   display: inline-flex; gap: 4px; padding: 4px;
-  background: rgba(255,255,255,0.04);
+  background: var(--fd-fill);
   border: 1px solid var(--fd-border);
   border-radius: 999px;
 }
@@ -758,7 +877,7 @@ html, body { overflow-x: hidden; }
   padding: 16px 17px 15px;
   transition: border-color 180ms ease, background 180ms ease;
 }
-.svc:hover { border-color: var(--fd-border-cyan); background: rgba(0,207,255,0.04); }
+.svc:hover { border-color: var(--fd-border-cyan); background: rgba(255, 215, 0,0.04); }
 
 .svc__head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .svc__icon {

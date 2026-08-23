@@ -50,7 +50,7 @@ function BarChart({ data }: { data: { label: string; value: number; color?: stri
       {data.map(d => (
         <div key={d.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 80, fontSize: 12, color: 'var(--text-secondary)', textAlign: 'right', flexShrink: 0 }}>{d.label}</div>
-          <div style={{ flex: 1, background: 'rgba(255,255,255,0.05)', borderRadius: 4, height: 22, overflow: 'hidden' }}>
+          <div style={{ flex: 1, background: 'var(--fd-fill)', borderRadius: 4, height: 22, overflow: 'hidden' }}>
             <div style={{
               height: '100%', borderRadius: 4, width: `${(d.value / max) * 100}%`,
               background: d.color ?? 'var(--fd-cyan)', transition: 'width 0.5s ease',
@@ -152,7 +152,7 @@ function DashboardContent() {
   ]
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--fd-void)', color: '#fff', fontFamily: 'Syne, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--fd-void)', color: 'var(--fd-white)', fontFamily: 'Syne, sans-serif' }}>
       {/* Header */}
       <div style={{ borderBottom: '0.5px solid var(--border)', padding: '0 2rem', position: 'sticky', top: 0, background: 'var(--fd-void)', zIndex: 10 }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -180,7 +180,7 @@ function DashboardContent() {
                   <Icon name={t.icon} size={15} />
                   {t.label}
                   {t.count !== undefined && (
-                    <span style={{ marginLeft: 6, fontSize: 10, background: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: 4 }}>
+                    <span style={{ marginLeft: 6, fontSize: 10, background: 'var(--fd-track)', padding: '1px 5px', borderRadius: 4 }}>
                       {t.count}
                     </span>
                   )}
@@ -337,11 +337,11 @@ function FeaturesTab() {
     return (
       <div style={{
         display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px',
-        borderBottom: '0.5px solid rgba(255,255,255,0.05)',
+        borderBottom: '0.5px solid var(--fd-fill)',
       }}>
         <div style={{
           width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-          background: on ? 'rgba(0,229,122,0.08)' : 'rgba(255,255,255,0.04)',
+          background: on ? 'rgba(0,229,122,0.08)' : 'var(--fd-fill)',
           border: `0.5px solid ${on ? 'rgba(0,229,122,0.25)' : 'var(--border)'}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           color: on ? 'var(--fd-green)' : 'var(--text-muted)',
@@ -359,8 +359,8 @@ function FeaturesTab() {
             }}>{on ? 'LIVE' : 'HIDDEN'}</span>
             {!on && f.comingSoon && (
               <span className="pill" style={{
-                fontSize: 9, padding: '2px 8px', background: 'rgba(0,207,255,0.1)',
-                color: 'var(--fd-cyan)', border: '0.5px solid rgba(0,207,255,0.25)',
+                fontSize: 9, padding: '2px 8px', background: 'var(--fd-accent-ghost)',
+                color: 'var(--fd-cyan)', border: '0.5px solid var(--fd-border-accent)',
               }}>COMING SOON PAGE</span>
             )}
           </div>
@@ -373,7 +373,7 @@ function FeaturesTab() {
           style={{
             width: 46, height: 26, borderRadius: 13, flexShrink: 0, cursor: 'pointer',
             border: 'none', padding: 0, position: 'relative',
-            background: on ? 'var(--fd-green)' : 'rgba(255,255,255,0.14)',
+            background: on ? 'var(--fd-green)' : 'var(--fd-hint)',
             transition: 'background 0.2s',
           }}>
           <span style={{
@@ -463,7 +463,7 @@ function DeployTable({ deploys, title, showWallet }: { deploys: DbDeploy[]; titl
           </thead>
           <tbody>
             {deploys.map(d => (
-              <tr key={d.id} style={{ borderBottom: '0.5px solid rgba(255,255,255,0.04)' }}>
+              <tr key={d.id} style={{ borderBottom: '0.5px solid var(--fd-fill)' }}>
                 <td style={{ padding: '9px 10px', fontWeight: 700 }}>
                   {d.token_name} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>{d.token_symbol}</span>
                 </td>
@@ -547,7 +547,7 @@ function UsersTab({ users, loading, onRefresh }: { users: DbUser[]; loading: boo
           <input className="field-input" placeholder="Search wallet…" value={search}
             onChange={e => setSearch(e.target.value)} style={{ width: 220, fontSize: 12, padding: '6px 12px' }} />
           <select value={tierFilter} onChange={e => setTierFilter(e.target.value)}
-            style={{ background: 'var(--fd-void)', border: '0.5px solid var(--border)', color: '#fff', borderRadius: 8, padding: '6px 10px', fontSize: 12, cursor: 'pointer' }}>
+            style={{ background: 'var(--fd-void)', border: '0.5px solid var(--border)', color: 'var(--fd-white)', borderRadius: 8, padding: '6px 10px', fontSize: 12, cursor: 'pointer' }}>
             <option value="all">All wallets</option>
             <option value="paid">Has paid deploys</option>
             <option value="none">No deploys purchased</option>
@@ -559,7 +559,7 @@ function UsersTab({ users, loading, onRefresh }: { users: DbUser[]; loading: boo
         <div style={{ background: 'var(--navy-card)', border: '0.5px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>
-              <tr style={{ borderBottom: '0.5px solid var(--border)', background: 'rgba(255,255,255,0.02)' }}>
+              <tr style={{ borderBottom: '0.5px solid var(--border)', background: 'var(--fd-fill)' }}>
                 {['Wallet', 'Deploys used', 'Purchased', 'Payment TX', 'Joined', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
@@ -604,7 +604,7 @@ function UsersTab({ users, loading, onRefresh }: { users: DbUser[]; loading: boo
                                 {drillDeploys.length === 0
                                   ? <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>No deploys.</p>
                                   : drillDeploys.map(d => (
-                                    <div key={d.id} style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', marginBottom: 6, fontSize: 11 }}>
+                                    <div key={d.id} style={{ padding: '8px 10px', borderRadius: 8, background: 'var(--fd-fill)', marginBottom: 6, fontSize: 11 }}>
                                       <div style={{ fontWeight: 700 }}>{d.token_name} <span style={{ color: 'var(--text-muted)' }}>{d.token_symbol}</span>
                                         {d.verified && <span className="pill pill-ok" style={{ marginLeft: 6, fontSize: 9 }}>verified</span>}
                                       </div>
@@ -629,7 +629,7 @@ function UsersTab({ users, loading, onRefresh }: { users: DbUser[]; loading: boo
                                 {drillPayments.length === 0
                                   ? <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>No payments recorded.</p>
                                   : drillPayments.map(p => (
-                                    <div key={p.id} style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', marginBottom: 6, fontSize: 11 }}>
+                                    <div key={p.id} style={{ padding: '8px 10px', borderRadius: 8, background: 'var(--fd-fill)', marginBottom: 6, fontSize: 11 }}>
                                       <div style={{ fontWeight: 700, textTransform: 'uppercase', color: 'var(--fd-cyan)' }}>
                                         {p.tier} — {p.amount_usd ? fmt(p.amount_usd) : '—'}
                                       </div>
@@ -693,7 +693,7 @@ function PaymentsTab({ payments, loading, totalRevenue }: { payments: DbPayment[
         <div style={{ background: 'var(--navy-card)', border: '0.5px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>
-              <tr style={{ borderBottom: '0.5px solid var(--border)', background: 'rgba(255,255,255,0.02)' }}>
+              <tr style={{ borderBottom: '0.5px solid var(--border)', background: 'var(--fd-fill)' }}>
                 {['Wallet', 'Tier', 'Amount', 'Method', 'Chain', 'Tx Hash', 'When'].map(h => (
                   <th key={h} style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
@@ -701,7 +701,7 @@ function PaymentsTab({ payments, loading, totalRevenue }: { payments: DbPayment[
             </thead>
             <tbody>
               {payments.map(p => (
-                <tr key={p.id} style={{ borderBottom: '0.5px solid rgba(255,255,255,0.04)' }}>
+                <tr key={p.id} style={{ borderBottom: '0.5px solid var(--fd-fill)' }}>
                   <td style={{ padding: '10px 12px', fontFamily: "'Space Mono',monospace" }}>{shortAddr(p.wallet)}</td>
                   <td style={{ padding: '10px 12px' }}>
                     <span style={{ fontWeight: 700, color: 'var(--fd-cyan)', textTransform: 'uppercase', fontSize: 11 }}>{p.tier}</span>
@@ -778,7 +778,7 @@ function SettingsTab() {
         {/* Toggle */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
           <div style={{ width: 52, height: 28, borderRadius: 14, flexShrink: 0, cursor: 'pointer',
-            background: maintenance ? 'var(--red)' : 'rgba(255,255,255,0.1)', position: 'relative', transition: 'background 0.2s' }}
+            background: maintenance ? 'var(--red)' : 'var(--fd-track)', position: 'relative', transition: 'background 0.2s' }}
             onClick={() => setMaintenance(m => !m)}>
             <div style={{ width: 22, height: 22, borderRadius: 11, background: '#fff',
               position: 'absolute', top: 3, left: maintenance ? 27 : 3, transition: 'left 0.2s' }} />

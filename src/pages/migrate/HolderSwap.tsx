@@ -196,7 +196,7 @@ export function HolderSwap() {
             <>
               {v1BalanceFmt !== null && (
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, textAlign: 'right' }}>
-                  Your balance: <strong style={{ color: '#fff' }}>{v1BalanceFmt.toLocaleString(undefined, { maximumFractionDigits: 4 })} {v1Sym}</strong>
+                  Your balance: <strong style={{ color: 'var(--fd-white)' }}>{v1BalanceFmt.toLocaleString(undefined, { maximumFractionDigits: 4 })} {v1Sym}</strong>
                 </div>
               )}
               <SwapBox

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import Logo from './ui-kit/Logo'
+import ThemeToggle from './ui-kit/ThemeToggle'
 import { useAppConfig } from '../hooks/useAppConfig'
 import type { FeatureFlags, FeatureKey } from '../lib/tools'
 
@@ -24,17 +25,17 @@ export function visibleNavLinks(features: FeatureFlags): NavLink[] {
 function HamburgerIcon({ open }: { open: boolean }) {
   return (
     <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg"
-      style={{ transition: 'transform 0.2s' }}>
+      style={{ transition: 'transform 0.2s', color: 'var(--fd-white)' }}>
       {open ? (
         <>
-          <line x1="4" y1="4" x2="18" y2="18" stroke="#EEF2FF" strokeWidth="1.8" strokeLinecap="round" />
-          <line x1="18" y1="4" x2="4" y2="18" stroke="#EEF2FF" strokeWidth="1.8" strokeLinecap="round" />
+          <line x1="4" y1="4" x2="18" y2="18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          <line x1="18" y1="4" x2="4" y2="18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
         </>
       ) : (
         <>
-          <line x1="3" y1="6"  x2="19" y2="6"  stroke="#EEF2FF" strokeWidth="1.8" strokeLinecap="round" />
-          <line x1="3" y1="11" x2="19" y2="11" stroke="#EEF2FF" strokeWidth="1.8" strokeLinecap="round" />
-          <line x1="3" y1="16" x2="14" y2="16" stroke="#EEF2FF" strokeWidth="1.8" strokeLinecap="round" />
+          <line x1="3" y1="6"  x2="19" y2="6"  stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          <line x1="3" y1="11" x2="19" y2="11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          <line x1="3" y1="16" x2="14" y2="16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
         </>
       )}
     </svg>
@@ -55,7 +56,7 @@ function MobileDrawer({ open, onClose, links }: { open: boolean; onClose: () => 
       {/* Backdrop */}
       <div onClick={onClose} style={{
         position: 'absolute', inset: 0,
-        background: 'rgba(8,12,24,0.8)',
+        background: 'color-mix(in srgb, var(--fd-void) 80%, transparent)',
         backdropFilter: 'blur(6px)',
         opacity: open ? 1 : 0,
         transition: 'opacity 0.25s ease',
@@ -89,7 +90,7 @@ function MobileDrawer({ open, onClose, links }: { open: boolean; onClose: () => 
             transition: `opacity 0.25s ease ${80 + i * 50}ms, transform 0.25s ease ${80 + i * 50}ms`,
           }}
           onMouseEnter={e => {
-            ;(e.currentTarget as HTMLElement).style.background = 'rgba(0,207,255,0.06)'
+            ;(e.currentTarget as HTMLElement).style.background = 'var(--fd-accent-ghost)'
             ;(e.currentTarget as HTMLElement).style.color = 'var(--fd-cyan)'
           }}
           onMouseLeave={e => {
@@ -168,6 +169,7 @@ export default function Navbar() {
 
           {/* Right — wallet + hamburger */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+            <ThemeToggle />
             <span className="navbar-desktop-connect">
               <ConnectButton accountStatus="avatar" chainStatus="icon" showBalance={false} />
             </span>

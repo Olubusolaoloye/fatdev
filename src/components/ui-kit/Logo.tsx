@@ -26,8 +26,8 @@ export default function Logo({ size = 40, variant = 'full' }: LogoProps) {
       lineHeight: 1,
       userSelect: 'none',
     }}>
-      <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, color: '#EEF2FF' }}>Fat</span>
-      <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 400, color: '#00CFFF' }}>Dev</span>
+      <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, color: 'var(--fd-white)' }}>Fat</span>
+      <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 400, color: 'var(--fd-accent)' }}>Dev</span>
     </span>
   )
 

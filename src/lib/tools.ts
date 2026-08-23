@@ -91,5 +91,18 @@ export function normalizeFlags(stored: Partial<FeatureFlags> | null | undefined)
   return { ...DEFAULT_FEATURE_FLAGS, ...(stored ?? {}) }
 }
 
+/** URL slug per tool — each tool is linkable at /tools/<slug>. */
+export const TOOL_SLUG: Record<string, string> = {
+  scanner:   'security-scanner',
+  social:    'social',
+  analytics: 'holder-analytics',
+  audit:     'audit-score',
+  airdrop:   'airdrop',
+}
+
+export const TOOL_KEY_BY_SLUG: Record<string, FeatureKey> = Object.fromEntries(
+  Object.entries(TOOL_SLUG).map(([k, s]) => [s, k as FeatureKey])
+)
+
 export const TOOL_FEATURES    = FEATURE_REGISTRY.filter(f => f.kind === 'tool')
 export const SECTION_FEATURES = FEATURE_REGISTRY.filter(f => f.kind === 'section')

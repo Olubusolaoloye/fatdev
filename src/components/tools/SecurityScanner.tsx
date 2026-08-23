@@ -51,7 +51,7 @@ function ScoreRing({ score, color }: { score: number; color: string }) {
   return (
     <div style={{ position: 'relative', width: 148, height: 148, flexShrink: 0 }}>
       <svg width={148} height={148} viewBox="0 0 148 148" style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={74} cy={74} r={R} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={11} />
+        <circle cx={74} cy={74} r={R} fill="none" stroke="var(--fd-fill-strong)" strokeWidth={11} />
         <circle cx={74} cy={74} r={R} fill="none" stroke={color} strokeWidth={11}
           strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
           style={{ filter: `drop-shadow(0 0 9px ${color})`, transition: 'stroke-dasharray 900ms ease' }} />
@@ -290,7 +290,7 @@ export function SecurityScanner() {
 
   const busy = phase === 'detecting' || phase === 'scanning'
   const vColor = report ? verdictColor(report.verdict) : 'var(--fd-cyan)'
-  const vRaw   = report ? verdictHex(report.verdict) : '#00CFFF'
+  const vRaw   = report ? verdictHex(report.verdict) : 'var(--fd-accent)'
   const explorer = report ? CHAIN_EXPLORERS[report.chainId] : ''
 
   // ── Derived view models ─────────────────────────────────────────────────────
@@ -413,7 +413,7 @@ export function SecurityScanner() {
     <div className="step-panel">
 
       {/* ── Input ── */}
-      <div className="card" style={{ marginBottom: 20, background: 'linear-gradient(135deg,#0a1929,#071525)' }}>
+      <div className="card" style={{ marginBottom: 20, background: 'var(--fd-panel)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
           <div style={{
             width: 32, height: 32, borderRadius: 8, background: 'var(--fd-cyan-ghost)',
@@ -597,7 +597,7 @@ export function SecurityScanner() {
             <div style={{
               padding: '10px 14px', borderRadius: 8, fontSize: 12, lineHeight: 1.6,
               background: 'rgba(255,176,32,0.06)', border: '1px solid rgba(255,176,32,0.22)',
-              color: 'rgba(255,255,255,0.72)', display: 'flex', gap: 9,
+              color: 'var(--fd-ghost)', display: 'flex', gap: 9,
             }}>
               <Icon name="info" size={15} style={{ color: 'var(--amber)', marginTop: 1 }} />
               <span>
@@ -618,7 +618,7 @@ export function SecurityScanner() {
           </section>
 
           {/* Share */}
-          <div className="card" style={{ background: 'linear-gradient(135deg,#0a1929,#071525)' }}>
+          <div className="card" style={{ background: 'var(--fd-panel)' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: 200 }}>
                 <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>

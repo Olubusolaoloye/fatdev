@@ -65,10 +65,10 @@ export function MigrationCard({ migration, stats, dimmed }: MigrationCardProps) 
 
       {/* Stats row */}
       <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--text-muted)' }}>
-        <span>Ratio: <strong style={{ color: '#fff' }}>{migration.ratio}×</strong></span>
+        <span>Ratio: <strong style={{ color: 'var(--fd-white)' }}>{migration.ratio}×</strong></span>
         {stats && (
           <>
-            <span>Participants: <strong style={{ color: '#fff' }}>{stats.participantCount.toLocaleString()}</strong></span>
+            <span>Participants: <strong style={{ color: 'var(--fd-white)' }}>{stats.participantCount.toLocaleString()}</strong></span>
             <span>Swapped: <strong style={{ color: 'var(--green)' }}>{Number(stats.totalSwapped).toLocaleString()}</strong></span>
           </>
         )}

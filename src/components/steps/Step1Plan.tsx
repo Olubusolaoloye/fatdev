@@ -177,8 +177,8 @@ export function Step1Plan({ onNext }: { onNext: () => void }) {
                 <span style={{ color: 'var(--amber)' }}>{quoteErr}</span>
               ) : quote ? (
                 <>
-                  <strong style={{ color: '#fff' }}>${quote.usd}</strong> ={' '}
-                  <strong style={{ color: '#fff' }}>{formatQuote(quote)}</strong>{' '}
+                  <strong style={{ color: 'var(--fd-white)' }}>${quote.usd}</strong> ={' '}
+                  <strong style={{ color: 'var(--fd-white)' }}>{formatQuote(quote)}</strong>{' '}
                   at ${quote.usdPerNative.toLocaleString(undefined, { maximumFractionDigits: 6 })} / {quote.symbol}.
                   <br />
                   {quote.pegged

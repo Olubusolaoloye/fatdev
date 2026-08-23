@@ -30,7 +30,7 @@ export default function TokenAvatar({
         width: size, height: size, borderRadius: '50%', flexShrink: 0,
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         overflow: 'hidden', position: 'relative',
-        background: showImg ? 'rgba(255,255,255,0.04)' : monogramColor(symbol || name),
+        background: showImg ? 'var(--fd-fill)' : monogramColor(symbol || name),
         boxShadow: `0 0 0 1px ${ring} inset`,
         ...style,
       }}
@@ -48,7 +48,7 @@ export default function TokenAvatar({
         />
       ) : (
         <span style={{
-          color: '#fff', fontWeight: 800,
+          color: '#FFFFFF', fontWeight: 800,
           fontSize: Math.round(size * 0.4),
           fontFamily: 'var(--fd-font-display)',
           lineHeight: 1, userSelect: 'none',

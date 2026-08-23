@@ -7,7 +7,7 @@ import { WagmiLiFiAdapter } from './WagmiLiFiAdapter'
 
 const BASE_THEME = {
   palette: {
-    primary:   { main: '#00CFFF' },
+    primary:   { main: '#FFD700' },
     secondary: { main: '#00E57A' },
     background: {
       default: '#080C18',
@@ -38,8 +38,8 @@ export function BridgeSection() {
       <div style={{ marginBottom: 32, textAlign: 'center' }}>
         <div style={{
           display: 'inline-flex', alignItems: 'center', gap: 8,
-          background: 'rgba(0,207,255,0.08)',
-          border: '1px solid rgba(0,207,255,0.2)',
+          background: 'var(--fd-accent-ghost)',
+          border: '1px solid var(--fd-border-accent)',
           borderRadius: 20, padding: '4px 14px',
           fontSize: 12, fontWeight: 600,
           color: 'var(--fd-cyan)', letterSpacing: '0.06em',
