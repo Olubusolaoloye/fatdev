@@ -17,16 +17,20 @@ const H = 675
 const SCALE = 2
 const PAD = 48
 
-// ── Palette (matches src/index.css design tokens) ─────────────────────────────
-const VOID    = '#080C18'
-const SURFACE = '#0D1424'
+// ── Palette ───────────────────────────────────────────────────────────────────
+// Literal hex, not CSS variables: this renders to a canvas, outside the DOM.
+// The card is deliberately always dark — it is a social image, so it must look
+// the same everywhere rather than following the viewer's light/dark setting.
+// Values mirror the dark theme in src/index.css.
+const VOID    = '#130400'
+const SURFACE = '#1F0900'
 const CYAN    = '#FFD700'
-const GREEN   = '#00E57A'
-const RED     = '#FF5252'
-const AMBER   = '#FFB020'
-const WHITE   = '#EEF2FF'
-const GHOST   = '#8A9BC2'
-const HAIR    = 'rgba(255,255,255,0.08)'
+const GREEN   = '#00C896'
+const RED     = '#E82222'
+const AMBER   = '#E8961E'
+const WHITE   = '#FFF8E7'
+const GHOST   = '#B5A387'
+const HAIR    = 'rgba(255,215,0,0.10)'
 
 const DISPLAY = '"Space Grotesk", "Syne", system-ui, -apple-system, sans-serif'
 const MONO    = '"JetBrains Mono", "Space Mono", ui-monospace, monospace'

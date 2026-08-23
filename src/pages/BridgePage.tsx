@@ -24,7 +24,7 @@ export function BridgePage() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--fd-void)', display: 'flex', flexDirection: 'column' }}>
       <Navbar />
-      <main style={{ flex: 1, paddingTop: 40 }}>
+      <main style={{ flex: 1, paddingTop: 'clamp(88px, 10vw, 108px)' }}>
         <BridgeSection />
       </main>
       <Footer />

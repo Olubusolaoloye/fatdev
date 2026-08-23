@@ -420,7 +420,7 @@ body::before {
 
 /* ── Migration Protocol ── */
 .migrate-page { min-height: 100vh; background: var(--fd-void); padding-bottom: 60px; }
-.migrate-hero { background: linear-gradient(140deg, #0a1e30 0%, var(--navy-card) 60%); border: 1px solid var(--border); border-radius: 16px; }
+.migrate-hero { background: var(--fd-panel); border: 1px solid var(--border); border-radius: 16px; }
 .migrate-step-bar { height: 3px; border-radius: 2px; background: var(--border); }
 .migrate-step-bar-fill { height: 3px; border-radius: 2px; background: var(--fd-cyan); transition: width 0.3s ease; }
 .vault-bar { height: 6px; border-radius: 99px; background: var(--border); overflow: hidden; }
@@ -608,7 +608,7 @@ html, body { overflow-x: hidden; }
   border-radius: var(--fd-radius-lg, 14px);
   background:
     radial-gradient(120% 140% at 12% 50%, var(--scan-glow, transparent) 0%, transparent 60%),
-    linear-gradient(135deg, #0A1929 0%, #071525 100%);
+    var(--fd-panel);
   border: 1px solid var(--scan-edge, var(--fd-border));
 }
 @media (max-width: 640px) {
@@ -771,7 +771,7 @@ html, body { overflow-x: hidden; }
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .tool-panel {
-  background: linear-gradient(135deg, #0A1929 0%, #071525 100%);
+  background: var(--fd-panel);
   border: 1px solid var(--fd-border);
   border-radius: var(--fd-radius-lg, 14px);
   padding: 18px;
