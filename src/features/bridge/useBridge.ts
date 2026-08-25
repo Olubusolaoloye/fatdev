@@ -11,6 +11,7 @@ import { parseUnits, formatUnits } from 'viem'
 import {
   loadChains, loadTokens, loadWalletBalances, clearBalanceCache,
   fetchQuote, quoteToRoute, runRoute, setBridgeWallet, NATIVE_ADDRESS,
+  fetchDirectBalance,
   type ExtendedChain, type Token, type TokenAmount, type LiFiStep, type RouteExtended,
 } from '../../lib/lifi'
 
@@ -56,14 +57,20 @@ export function useBridge() {
   // ── Balances — one request, every chain ────────────────────────────────────
   const [balances, setBalances] = useState<Record<number, TokenAmount[]>>({})
   const [balancesLoading, setBalancesLoading] = useState(false)
+  /** True when the aggregate lookup failed or timed out. */
+  const [balancesStale, setBalancesStale] = useState(false)
 
   const refreshBalances = useCallback(async (force = false) => {
     if (!address) { setBalances({}); return }
     setBalancesLoading(true)
     try {
       setBalances(await loadWalletBalances(address, force))
+      setBalancesStale(false)
     } catch {
-      setBalances({})   // the picker still works from the full token list
+      // The picker still works from the full token list, and the From panel
+      // has its own direct read, so this is degraded rather than broken.
+      setBalances({})
+      setBalancesStale(true)
     } finally {
       setBalancesLoading(false)
     }
@@ -74,12 +81,31 @@ export function useBridge() {
     refreshBalances()
   }, [address, refreshBalances])
 
+  // The From panel reads its token straight from the chain. The aggregate
+  // endpoint indexes unseen wallets on first use (10-30s), which is far too
+  // slow for the one number the user is actually looking at.
+  const [directBal, setDirectBal] = useState<bigint | null>(null)
+  useEffect(() => {
+    if (!address || !fromToken) { setDirectBal(null); return }
+    let alive = true
+    setDirectBal(null)
+    fetchDirectBalance(fromChain, fromToken.address, address)
+      .then(v => { if (alive) setDirectBal(v) })
+      .catch(() => { if (alive) setDirectBal(null) })
+    return () => { alive = false }
+  }, [address, fromChain, fromToken])
+
   const balanceOf = useCallback((chainId: number, tokenAddress: string): bigint => {
+    if (directBal !== null && fromToken
+        && chainId === fromChain
+        && tokenAddress.toLowerCase() === fromToken.address.toLowerCase()) {
+      return directBal
+    }
     const hit = balances[chainId]?.find(
       t => t.address.toLowerCase() === tokenAddress.toLowerCase(),
     )
     return hit?.amount ? BigInt(hit.amount) : 0n
-  }, [balances])
+  }, [balances, directBal, fromChain, fromToken])
 
   // ── Token lists ────────────────────────────────────────────────────────────
   // Held tokens first (they come from the balances call and are already loaded),
@@ -253,7 +279,8 @@ export function useBridge() {
     // amounts
     amount, setAmount, setMax, insufficient,
     // balances
-    balanceOf, balancesLoading, refreshBalances,
+    balanceOf, balancesLoading, balancesStale, refreshBalances,
+    directBalanceReady: directBal !== null,
     // quote + run
     phase, quote, route, error, execute, reset, swapSides,
   }

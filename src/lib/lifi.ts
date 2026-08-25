@@ -177,6 +177,35 @@ export function loadTokens(chainId: number): Promise<Token[]> {
 }
 
 /**
+ * Balance of ONE token, read straight from the chain.
+ *
+ * This is what the From panel displays. It deliberately does NOT go through
+ * loadWalletBalances: that endpoint has to index a wallet the first time it
+ * sees one, which measured at 10-30s cold (7ms once warm). Making the number
+ * the user stares at wait on that made the bridge look like it could not read
+ * their wallet at all.
+ *
+ * One RPC call for the selected token is sub-second, so the panel fills
+ * immediately and the aggregate is left to enrich the picker in the background.
+ */
+export async function fetchDirectBalance(
+  chainId: number, tokenAddress: string, owner: string,
+): Promise<bigint> {
+  const rpcUrl = (await lifiClient().getRpcUrlsByChainId(chainId))[0]
+  const pub = createPublicClient({ transport: http(rpcUrl) })
+  const who = owner as `0x${string}`
+  if (tokenAddress.toLowerCase() === NATIVE_ADDRESS) {
+    return pub.getBalance({ address: who })
+  }
+  return await pub.readContract({
+    address: tokenAddress as `0x${string}`,
+    abi: erc20Abi,
+    functionName: 'balanceOf',
+    args: [who],
+  }) as bigint
+}
+
+/**
  * Every token the wallet holds, on every chain, in one request.
  *
  * This is the call that made the bridge usable: it replaces the per-token RPC
@@ -185,6 +214,8 @@ export function loadTokens(chainId: number): Promise<Token[]> {
  * bridge completes.
  */
 const BALANCE_TTL = 30_000
+/** Cold indexing of an unseen wallet has been measured at 10-30s. */
+const BALANCE_TIMEOUT = 25_000
 type BalanceCache = { address: string; at: number; data: Record<number, TokenAmount[]> }
 let balanceCache: BalanceCache | null = null
 let balanceInFlight: Promise<Record<number, TokenAmount[]>> | null = null
@@ -199,7 +230,12 @@ export async function loadWalletBalances(
   }
   if (balanceInFlight && !force) return balanceInFlight
 
-  balanceInFlight = getWalletBalances(lifiClient(), address)
+  // LI.FI indexes unseen wallets on demand, which can run long. Cap it rather
+  // than leaving the picker in a loading state indefinitely.
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), BALANCE_TIMEOUT)
+
+  balanceInFlight = getWalletBalances(lifiClient(), address, { signal: ctrl.signal })
     .then(res => {
       // WalletTokenExtended already carries `amount`; normalise to TokenAmount.
       const data: Record<number, TokenAmount[]> = {}
@@ -213,7 +249,7 @@ export async function loadWalletBalances(
       balanceCache = { address: key, at: Date.now(), data }
       return data
     })
-    .finally(() => { balanceInFlight = null })
+    .finally(() => { clearTimeout(timer); balanceInFlight = null })
 
   return balanceInFlight
 }

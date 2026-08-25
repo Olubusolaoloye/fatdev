@@ -70,6 +70,11 @@ export function BridgeSection() {
         </p>
       </div>
 
+      {b.balancesStale && b.isConnected && (
+        <Callout tone="warn"
+          text="Could not load your full token list — balances for the selected token are still read live from the chain." />
+      )}
+
       {b.chainsError && (
         <Callout tone="err" text={`Could not reach the bridge network list — ${b.chainsError}`} />
       )}
@@ -119,10 +124,22 @@ export function BridgeSection() {
             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               {b.isConnected && b.fromToken && (
                 <>
-                  <span style={{ fontFamily: 'var(--fd-font-mono)' }}>
-                    Balance {fmt(fromBal, b.fromToken.decimals)}
-                  </span>
-                  {fromBal > 0n && (
+                  {/* Until the direct read lands, say so. Rendering "Balance 0"
+                      while it is still loading reads as a failure to see the
+                      wallet at all. */}
+                  {b.directBalanceReady ? (
+                    <span style={{ fontFamily: 'var(--fd-font-mono)' }}>
+                      Balance {fmt(fromBal, b.fromToken.decimals)}
+                    </span>
+                  ) : (
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      fontFamily: 'var(--fd-font-mono)', color: 'var(--fd-hint)',
+                    }}>
+                      <Spinner /> Reading balance…
+                    </span>
+                  )}
+                  {b.directBalanceReady && fromBal > 0n && (
                     <button onClick={b.setMax} disabled={running}
                       style={{
                         background: 'var(--fd-accent-ghost)',
@@ -132,7 +149,6 @@ export function BridgeSection() {
                         cursor: 'pointer', fontFamily: 'var(--fd-font-display)',
                       }}>MAX</button>
                   )}
-                  {b.balancesLoading && <Spinner />}
                 </>
               )}
             </span>
