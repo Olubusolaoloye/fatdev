@@ -267,8 +267,15 @@ export function renderOnTemplate(
   ctx.font = `700 17px ${DISPLAY}`
   ctx.fillStyle = CYAN
   ctx.fillText('fatdev.org', right, fy + 4)
+  // "Powered by $BLIN" — the ticker carries the brand, so it gets the accent
+  // while the lead-in stays quiet. Still right-aligned, so $BLIN is measured
+  // first and the lead-in is placed to land immediately before it.
+  ctx.font = `700 11px ${DISPLAY}`
+  const blinW = ctx.measureText('$BLIN').width
+  ctx.fillStyle = CYAN
+  ctx.fillText('$BLIN', right, fy + 21)
   ctx.font = `400 11px ${DISPLAY}`
   ctx.fillStyle = 'rgba(200,185,160,0.65)'
-  ctx.fillText('Scan any token free', right, fy + 21)
+  ctx.fillText('Powered by ', right - blinW, fy + 21)
   ctx.textAlign = 'left'
 }

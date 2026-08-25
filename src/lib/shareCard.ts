@@ -460,9 +460,13 @@ export async function renderShareCard(d: ShareCardData): Promise<Blob> {
   ctx.font = `700 17px ${DISPLAY}`
   ctx.fillStyle = CYAN
   ctx.fillText('fatdev.org', W - PAD, 600)
+  ctx.font = `700 12px ${DISPLAY}`
+  const blinW = ctx.measureText('$BLIN').width
+  ctx.fillStyle = CYAN
+  ctx.fillText('$BLIN', W - PAD, 622)
   ctx.font = `400 12px ${DISPLAY}`
   ctx.fillStyle = 'rgba(138,155,194,0.55)'
-  ctx.fillText('Scan any token free', W - PAD, 622)
+  ctx.fillText('Powered by ', W - PAD - blinW, 622)
   ctx.textAlign = 'left'
 
   // Bottom accent
