@@ -530,7 +530,10 @@ export function LandingPage() {
             }}>
               <Icon name="zap" size={16} />{isConnected ? 'Go to Wizard' : 'Start Building'}
             </Link>
-            <Link to="/tools" className="hero-cta-ghost" style={{
+            {/* Straight to the scanner rather than the tools index: it is free,
+                needs no wallet, and is the lowest-friction way in — so the
+                second CTA names the action instead of a destination. */}
+            <Link to="/tools/security-scanner" className="hero-cta-ghost" style={{
               padding: '14px 32px',
               borderRadius: 12, fontSize: 15, fontWeight: 600,
               background: 'var(--fd-fill)', color: 'var(--fd-ghost)',
@@ -539,7 +542,7 @@ export function LandingPage() {
               fontFamily: "'Space Grotesk', sans-serif",
               display: 'inline-flex', alignItems: 'center', gap: 8,
             }}>
-              Explore Tools →
+              <Icon name="scan" size={16} />Scan a Token →
             </Link>
           </div>
 
