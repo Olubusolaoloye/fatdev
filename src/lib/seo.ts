@@ -49,7 +49,7 @@ export type RouteSeo = {
 export const ROUTES: RouteSeo[] = [
   {
     path: '/',
-    title: 'FatDev — Deploy, Scan and Launch Tokens Without Code',
+    title: 'FatDev — Build, Secure, Bridge & Grow',
     description:
       'Create and deploy ERC-20 and BEP-20 tokens on 9 chains without writing Solidity. '
       + 'Free honeypot and rug-pull scanning, airdrops, cross-chain bridging and audit reports.',

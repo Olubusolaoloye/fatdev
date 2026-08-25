@@ -477,7 +477,7 @@ export function LandingPage() {
             textTransform: 'uppercase', marginBottom: 12,
             animation: 'hero-in 0.6s ease 0.2s both',
           }}>
-            Your On-Chain
+            Build, Secure, Bridge &amp; Grow
           </div>
 
           {/* Main headline — always bold, always big */}
@@ -622,7 +622,7 @@ export function LandingPage() {
             </h2>
             <p style={{ fontSize: 15, color: 'var(--text-muted)', lineHeight: 1.75,
               marginBottom: 28, maxWidth: 440 }}>
-              Paste any contract address. GoPlus + Honeypot.is run a full security simulation —
+              Paste any contract address. We run a full security simulation —
               honeypot detection, tax rates, LP lock status, blacklist, mint risk, and a live
               0–100 trust score. Free, no wallet needed.
             </p>
