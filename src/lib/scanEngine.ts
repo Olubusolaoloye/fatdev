@@ -16,6 +16,7 @@
  *    from this single structure.
  */
 import { logoFromPairs } from './tokenLogo'
+import { FAIR_MIN, GOOD_MIN } from './mascots'
 
 export type FindingState = 'pass' | 'warn' | 'fail' | 'unknown'
 
@@ -270,6 +271,18 @@ export function buildScanReport(opts: {
     const f: Finding[] = []
     let s = 100
 
+    // Every signal in this pillar is measured against a live market. With no
+    // pair there is nothing to simulate a sell against, and the tax fields
+    // read 0/0 — which previously scored as "low tax, pass" and handed a
+    // rugged token full marks for a market that does not exist.
+    const hasMarket = dexPairs.length > 0 || liquidityUsd > 0
+
+    if (!hasMarket) {
+      f.push({ label: 'No live market to test', state: 'unknown',
+        detail: 'Without a trading pair, sell simulation and tax rates cannot be measured.' })
+      pillars.push(pillar('honeypot', 'Honeypot & Trading', 0.22, f, 0))
+    } else {
+
     if (isHoneypot) {
       f.push({ label: 'Honeypot detected', state: 'fail',
         detail: honeypotReason || 'Sell simulation failed — this token cannot be sold.' })
@@ -293,6 +306,7 @@ export function buildScanReport(opts: {
     if (pausable === true)      { f.push({ label: 'Trading can be paused by owner', state: 'warn', detail: 'The owner can halt all transfers at will.' }); s = deduct(s, 15) }
 
     pillars.push(pillar('honeypot', 'Honeypot & Trading', 0.22, f, s))
+    }
   }
 
   // ── 2. Liquidity — 20% ─────────────────────────────────────────────────────
@@ -474,10 +488,28 @@ export function buildScanReport(opts: {
   const coveredWeight = covered.reduce((s, p) => s + p.weight, 0)
   const totalWeight   = pillars.reduce((s, p) => s + p.weight, 0)
 
-  const score = coveredWeight > 0
-    ? Math.round(covered.reduce((s, p) => s + p.score * p.weight, 0) / coveredWeight)
+  /**
+   * Unassessed weight is NOT neutral.
+   *
+   * Dividing by covered weight alone answers "how good were the things we
+   * happened to check", which is not the question anyone is asking. A token
+   * where only Honeypot (22%) and Deployer Provenance (4%) could be read
+   * scored 84/100 on 44% coverage — two pillars, both scoring well by default,
+   * outvoting five that could not be read at all.
+   *
+   * In a safety tool "we could not verify this" is closer to bad news than
+   * good, so the unreadable share is blended toward a pessimistic constant
+   * rather than excluded. At full coverage this is identical to the old
+   * behaviour, so well-covered tokens are unaffected.
+   */
+  const coverageFrac = totalWeight > 0 ? coveredWeight / totalWeight : 0
+  const coveredAvg = coveredWeight > 0
+    ? covered.reduce((s, p) => s + p.score * p.weight, 0) / coveredWeight
     : 0
-  const coverage = Math.round((coveredWeight / totalWeight) * 100)
+  const UNVERIFIED_SCORE = 35
+
+  let score = Math.round(coveredAvg * coverageFrac + UNVERIFIED_SCORE * (1 - coverageFrac))
+  const coverage = Math.round(coverageFrac * 100)
 
   const ratingOverride = computeRatingOverride({
     pillars,
@@ -486,11 +518,28 @@ export function buildScanReport(opts: {
     pairAgeDays,
   })
 
+  /**
+   * An override has to move the number too.
+   *
+   * Showing 84/100 and "LOW RISK" beside "Rated BAD regardless of score" is
+   * incoherent, and the big number is what people actually read — several
+   * reported a rugged token as "81/100" while ignoring the warning next to it.
+   * So a floor pulls the score into that tier's band, and a cap ceilings it.
+   */
+  if (ratingOverride) {
+    // Both modes ceiling the score into their tier's band; neither ever raises
+    // it, so a genuinely awful token cannot be lifted by the new-pair cap.
+    const ceiling = ratingOverride.tier === 'bad' ? FAIR_MIN - 1 : GOOD_MIN - 1
+    score = Math.min(score, ceiling)
+  }
+
   const verdict: ScanReport['verdict'] =
-    isHoneypot        ? 'CRITICAL'
-    : score >= 80     ? 'LOW RISK'
-    : score >= 55     ? 'CAUTION'
-    : score >= 30     ? 'HIGH RISK'
+    isHoneypot                                    ? 'CRITICAL'
+    // A forced BAD rating cannot sit beside a reassuring verdict.
+    : ratingOverride?.tier === 'bad'               ? 'HIGH RISK'
+    : score >= 80                                  ? 'LOW RISK'
+    : score >= 55                                  ? 'CAUTION'
+    : score >= 30                                  ? 'HIGH RISK'
     : 'CRITICAL'
 
   return {
