@@ -9,7 +9,15 @@
       "Read(//tmp/**)",
       "Bash(cat /tmp/solc_compile/FatAirdrop_bytecode.txt)",
       "Bash(node scripts/compile-presale.cjs)",
-      "Bash(pnpm vite *)"
+      "Bash(pnpm vite *)",
+      "WebFetch(domain:codelessdev.org)",
+      "WebSearch",
+      "Bash(pnpm build *)",
+      "Bash(python -)",
+      "Bash(git add *)",
+      "Bash(grep -n \"^function PillarCard\\\\|^// ── Main\\\\|^  return \\(\\\\|{/\\\\* ── Results\" src/components/tools/SecurityScanner.tsx)",
+      "Bash(PYTHONIOENCODING=utf-8 python -)",
+      "mcp__a753a91d-7d82-4611-9a37-8c2bef142ac8__jobs_wait"
     ]
   }
 }

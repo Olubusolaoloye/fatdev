@@ -32,3 +32,9 @@ contracts-build/.env
 # Hardhat build artifacts (large, reproducible)
 contracts-build/artifacts/
 contracts-build/cache/
+
+# Agent worktrees — full repo copies; also give ESLint a second tsconfig root
+.claude/worktrees/
+
+# solc output emitted at repo root
+src_contracts_*.bin
