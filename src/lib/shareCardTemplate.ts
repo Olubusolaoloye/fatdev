@@ -104,7 +104,7 @@ export function renderOnTemplate(
   ctx.stroke()
 
   // ── Brand row ───────────────────────────────────────────────────────────────
-  let y = py + TPL.pad + 4
+  const y = py + TPL.pad + 4
   const logoSize = 32
   if (logo) ctx.drawImage(logo, x, y - 22, logoSize, logoSize)
   ctx.font = `800 23px ${DISPLAY}`

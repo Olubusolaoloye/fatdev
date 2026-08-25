@@ -45,7 +45,9 @@ export class EVMStepExecutor implements StepExecutor {
 
     const sm = new StatusManager(this.options.routeId)
     // StatusManager throwing must never take the transaction down with it — the
-    // bridge still works, we just lose a progress tick.
+    // bridge still works, we just lose a progress tick. The empty catches below
+    // are the whole point, so they are exempted rather than filled with noise.
+    /* eslint-disable no-empty */
     const smInit = () => { try { sm.initializeExecution(step) } catch {} }
     const smAction = (type: ExecutionActionType, chainId: number, status: ExecutionActionStatus) =>
       { try { sm.initializeAction({ step, type, chainId, status }) } catch {} }
@@ -55,6 +57,8 @@ export class EVMStepExecutor implements StepExecutor {
     const smFail = (message: string) => {
       try { sm.updateExecution(step, { status: 'FAILED', error: { code: 'EXECUTION_ERROR', message } } as any) } catch {}
     }
+
+    /* eslint-enable no-empty */
 
     smInit()
 
