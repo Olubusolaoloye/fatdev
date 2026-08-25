@@ -12,7 +12,7 @@ export default function Logo({ size = 40, variant = 'full' }: LogoProps) {
       alt="FatDev"
       width={s}
       height={s}
-      style={{ borderRadius: s * 0.24, objectFit: 'contain', display: 'block', flexShrink: 0 }}
+      style={{ objectFit: 'contain', display: 'block', flexShrink: 0 }}
     />
   )
 
