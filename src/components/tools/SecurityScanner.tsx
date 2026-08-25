@@ -234,6 +234,7 @@ export function SecurityScanner() {
       subtitle: `${CHAIN_NAME[r.chainId] ?? `Chain ${r.chainId}`} · ${r.holders.toLocaleString()} holders · ${r.coverage}% coverage`,
       score:    r.score,
       verdict:  r.verdict,
+      verdictRaw: r.verdict,
       verdictTone: verdictTone(r.verdict),
       verdictNote: r.isHoneypot
         ? (r.honeypotReason || 'Sell simulation failed — this token cannot be sold.')

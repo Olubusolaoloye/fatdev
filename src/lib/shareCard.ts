@@ -36,6 +36,8 @@ const DISPLAY = '"Space Grotesk", "Syne", system-ui, -apple-system, sans-serif'
 const MONO    = '"JetBrains Mono", "Space Mono", ui-monospace, monospace'
 
 import { loadLogoForPixels, drawTokenAvatar } from './tokenLogo'
+import { tierForScore, mascotUrl, loadMascot, TIER_LABEL } from './mascots'
+import { renderOnTemplate, TEMPLATE_ASPECT_MIN } from './shareCardTemplate'
 
 export type Tone = 'good' | 'warn' | 'bad' | 'neutral'
 
@@ -53,6 +55,12 @@ export type ShareCardData = {
   /** e.g. "SAFE" / "DANGER" / "GRADE A" */
   verdict: string
   verdictTone: Tone
+  /**
+   * The scanner's own verdict ('LOW RISK' | 'CAUTION' | 'HIGH RISK' |
+   * 'CRITICAL'). Used to cap the mascot tier so a honeypot can never draw
+   * a cheerful character, whatever it scored on the weighted pillars.
+   */
+  verdictRaw?: string
   /** One-line plain-English summary under the verdict */
   verdictNote: string
   /** Up to 4 tiles */
@@ -142,6 +150,24 @@ export async function renderShareCard(d: ShareCardData): Promise<Blob> {
 
   const vColor = toneColor(d.verdictTone)
 
+  // Artwork is resolved first: a landscape template replaces the entire card,
+  // so none of the background below should be painted in that case.
+  const tier = tierForScore(d.score, d.verdictRaw)
+  const art = await loadMascot(mascotUrl(tier, d.contract || d.symbol || d.title))
+  const isTemplate = !!art && art.width > 0 && art.width / art.height >= TEMPLATE_ASPECT_MIN
+
+  if (isTemplate && art) {
+    const tokenImgT = await loadLogoForPixels(d.logoUrl, 256)
+    const logoT = await loadLogo()
+    renderOnTemplate(ctx, d, art, tier, vColor, tokenImgT, logoT, {
+      W, H, PAD, WHITE, GHOST, CYAN, GREEN, RED, HAIR, DISPLAY, MONO,
+      toneColor, roundRect, fitText, fitFontSize, setLetterSpacing,
+    })
+    return await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error('Canvas export failed')), 'image/png')
+    })
+  }
+
   // ── Background ──────────────────────────────────────────────────────────────
   ctx.fillStyle = VOID
   ctx.fillRect(0, 0, W, H)
@@ -162,6 +188,54 @@ export async function renderShareCard(d: ShareCardData): Promise<Blob> {
   glow.addColorStop(1, 'transparent')
   ctx.fillStyle = glow
   ctx.fillRect(0, 0, W, H)
+
+  // ── Mascot ──────────────────────────────────────────────────────────────────
+  // Bottom-anchored in the left column so the character stands on the footer
+  // rule. Drawn before the header and score ring so both read over the top.
+  const mascot = art
+
+  if (mascot && mascot.width > 0) {
+    const colW = 356, bandTop = 108, bandBottom = 566
+    const bandH = bandBottom - bandTop
+
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(0, bandTop, colW, bandH)
+    ctx.clip()
+
+    // Cover-fit: the art is a full poster scene, so fill the column and let the
+    // overflow crop rather than letterboxing it against the card background.
+    const scale = Math.max(colW / mascot.width, bandH / mascot.height)
+    const mw = mascot.width * scale
+    const mh = mascot.height * scale
+    ctx.drawImage(mascot, (colW - mw) / 2, bandTop + (bandH - mh) / 2, mw, mh)
+
+    // Blend the panel into the card on every open edge so it reads as one
+    // composition instead of a pasted-in rectangle.
+    const right = ctx.createLinearGradient(colW - 90, 0, colW, 0)
+    right.addColorStop(0, 'transparent')
+    right.addColorStop(1, VOID)
+    ctx.fillStyle = right
+    ctx.fillRect(colW - 90, bandTop, 90, bandH)
+
+    const top = ctx.createLinearGradient(0, bandTop, 0, bandTop + 40)
+    top.addColorStop(0, VOID)
+    top.addColorStop(1, 'transparent')
+    ctx.fillStyle = top
+    ctx.fillRect(0, bandTop, colW, 40)
+
+    const bottom = ctx.createLinearGradient(0, bandBottom - 46, 0, bandBottom)
+    bottom.addColorStop(0, 'transparent')
+    bottom.addColorStop(1, VOID)
+    ctx.fillStyle = bottom
+    ctx.fillRect(0, bandBottom - 46, colW, 46)
+
+    // Slight overall knock-back so the score ring and chrome stay dominant.
+    ctx.fillStyle = 'rgba(19,4,0,0.18)'
+    ctx.fillRect(0, bandTop, colW, bandH)
+
+    ctx.restore()
+  }
 
   // Token artwork is fetched through a CORS-safe proxy — DexScreener's CDN
   // sends no CORS header, and drawing it directly would taint the canvas and
@@ -215,8 +289,18 @@ export async function renderShareCard(d: ShareCardData): Promise<Blob> {
   ctx.beginPath(); ctx.moveTo(PAD, 108.5); ctx.lineTo(W - PAD, 108.5); ctx.stroke()
 
   // ── Score ring ──────────────────────────────────────────────────────────────
-  const cx = 196, cy = 300, R = 92
+  const cx = mascot ? 268 : 196, cy = mascot ? 462 : 300, R = mascot ? 74 : 92
   const pct = Math.max(0, Math.min(100, d.score)) / 100
+
+  if (mascot) {
+    // Solid disc behind the ring — the score has to stay readable over art.
+    ctx.save()
+    ctx.shadowColor = 'rgba(0,0,0,0.75)'
+    ctx.shadowBlur = 32
+    ctx.fillStyle = 'rgba(19,4,0,0.92)'
+    ctx.beginPath(); ctx.arc(cx, cy, R + 4, 0, Math.PI * 2); ctx.fill()
+    ctx.restore()
+  }
 
   ctx.lineWidth = 18
   ctx.lineCap = 'round'
@@ -236,19 +320,28 @@ export async function renderShareCard(d: ShareCardData): Promise<Blob> {
   }
 
   ctx.textAlign = 'center'
-  ctx.font = `800 66px ${DISPLAY}`
+  ctx.font = `800 ${mascot ? 58 : 66}px ${DISPLAY}`
   ctx.fillStyle = vColor
-  ctx.fillText(String(d.score), cx, cy + 12)
+  ctx.fillText(String(d.score), cx, cy + (mascot ? 10 : 12))
   setLetterSpacing(ctx, '3px')
   ctx.font = `700 13px ${MONO}`
   ctx.fillStyle = GHOST
-  ctx.fillText('/ 100', cx, cy + 38)
+  ctx.fillText('/ 100', cx, cy + (mascot ? 32 : 38))
+  if (mascot) {
+    ctx.font = `800 15px ${DISPLAY}`
+    ctx.fillStyle = vColor
+    ctx.fillText(TIER_LABEL[tier], cx, cy + 56)
+  }
   setLetterSpacing(ctx, '0px')
   ctx.textAlign = 'left'
 
   // ── Identity block ──────────────────────────────────────────────────────────
-  const tx = 330
+  // Left edge of the text column. With a mascot the panel owns the left 356px,
+  // so the identity block, tiles, chips and footer rule all start clear of it.
+  const tx = mascot ? 380 : 330
   const rightW = W - PAD - tx
+  const contentX = mascot ? tx : PAD
+  const contentW = W - PAD - contentX
 
   // Token avatar, then the name beside it
   const AV = 54
@@ -306,11 +399,11 @@ export async function renderShareCard(d: ShareCardData): Promise<Blob> {
   const stats = d.stats.slice(0, 4)
   if (stats.length) {
     const gap = 16
-    const tileW = (W - PAD * 2 - gap * (stats.length - 1)) / stats.length
+    const tileW = (contentW - gap * (stats.length - 1)) / stats.length
     const tileY = 366, tileH = 86
 
     stats.forEach((s, i) => {
-      const x = PAD + i * (tileW + gap)
+      const x = contentX + i * (tileW + gap)
       ctx.fillStyle = SURFACE
       roundRect(ctx, x, tileY, tileW, tileH, 12); ctx.fill()
       ctx.strokeStyle = HAIR; ctx.lineWidth = 1; ctx.stroke()
@@ -330,7 +423,7 @@ export async function renderShareCard(d: ShareCardData): Promise<Blob> {
   // ── Highlight chips ─────────────────────────────────────────────────────────
   const chips = d.highlights.slice(0, 6)
   if (chips.length) {
-    let x = PAD
+    let x = contentX
     const chipY = 484, chipH = 34
     ctx.font = `600 14px ${DISPLAY}`
 
@@ -352,12 +445,12 @@ export async function renderShareCard(d: ShareCardData): Promise<Blob> {
 
   // ── Footer ──────────────────────────────────────────────────────────────────
   ctx.strokeStyle = HAIR; ctx.lineWidth = 1
-  ctx.beginPath(); ctx.moveTo(PAD, 566.5); ctx.lineTo(W - PAD, 566.5); ctx.stroke()
+  ctx.beginPath(); ctx.moveTo(contentX, 566.5); ctx.lineTo(W - PAD, 566.5); ctx.stroke()
 
   if (d.contract) {
     ctx.font = `400 13px ${MONO}`
     ctx.fillStyle = 'rgba(138,155,194,0.8)'
-    ctx.fillText(d.contract, PAD, 600)
+    ctx.fillText(d.contract, contentX, 600)
   }
 
   ctx.textAlign = 'right'
