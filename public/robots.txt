@@ -1,0 +1,10 @@
+# https://fatdev.org
+User-agent: *
+Allow: /
+
+# Wallet-specific and in-app surfaces. Nothing here is a useful search result,
+# and indexing them dilutes the pages that are.
+Disallow: /dashboard
+Disallow: /app
+
+Sitemap: https://fatdev.org/sitemap.xml

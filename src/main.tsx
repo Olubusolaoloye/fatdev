@@ -15,6 +15,7 @@ import { PricingPage }  from './pages/PricingPage'
 import { BridgePage }   from './pages/BridgePage'
 import { DashboardPage } from './pages/DashboardPage'
 import { initTheme, useTheme } from './hooks/useTheme'
+import { useSeo } from './hooks/useSeo'
 import '@rainbow-me/rainbowkit/styles.css'
 
 initTheme()
@@ -44,6 +45,16 @@ function ThemedRainbowKit({ children }: { children: React.ReactNode }) {
   )
 }
 
+/**
+ * Applies per-route metadata. Must sit inside the Router so it can read the
+ * location, and it renders nothing — the prerendered HTML already carries the
+ * correct head; this keeps it correct after client-side navigation.
+ */
+function SeoHead() {
+  useSeo()
+  return null
+}
+
 function MaintenanceGate({ children }: { children: React.ReactNode }) {
   const { maintenanceMode, maintenanceMessage, loading } = useAppConfig()
   const params = new URLSearchParams(window.location.search)
@@ -61,6 +72,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <WagmiProvider config={config}>
         <QueryClientProvider client={queryClient}>
           <ThemedRainbowKit>
+            <SeoHead />
             <MaintenanceGate>
               <Routes>
                 <Route path="/"          element={<LandingPage />} />
