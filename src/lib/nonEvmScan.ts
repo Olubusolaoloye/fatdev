@@ -14,8 +14,8 @@
  * Output uses the same ScanReport shape as the EVM engine, so the results UI and
  * share card work unchanged.
  */
-import type { Finding, Pillar, ScanReport } from './scanEngine'
-import { computeRatingOverride } from './scanEngine'
+import type { Finding, Pillar, ScanReport, RatingOverride } from './scanEngine'
+import { computeRatingOverride, clampScoreToOverride } from './scanEngine'
 import { SOLANA_CHAIN_ID, SUI_CHAIN_ID, NON_EVM_DEX_SLUG } from './ecosystems'
 import { logoFromPairs } from './tokenLogo'
 
@@ -33,12 +33,24 @@ function pillar(key: string, title: string, weight: number, findings: Finding[],
   return { key, title, weight, score, covered: findings.some(f => f.state !== 'unknown'), findings }
 }
 
+/**
+ * Mirrors the EVM engine: unassessed weight is blended toward a pessimistic
+ * constant rather than normalised away. Dividing by covered weight alone let a
+ * token with no liquidity and 95% in one wallet score 72, because the two
+ * pillars that happened to be readable both scored 100.
+ */
+const UNVERIFIED_SCORE = 35
+
 function rollUp(pillars: Pillar[]) {
   const covered = pillars.filter(p => p.covered)
   const cw = covered.reduce((s, p) => s + p.weight, 0)
   const tw = pillars.reduce((s, p) => s + p.weight, 0)
-  const score = cw > 0 ? Math.round(covered.reduce((s, p) => s + p.score * p.weight, 0) / cw) : 0
-  return { score, coverage: Math.round((cw / tw) * 100) }
+  const frac = tw > 0 ? cw / tw : 0
+  const avg = cw > 0 ? covered.reduce((s, p) => s + p.score * p.weight, 0) / cw : 0
+  return {
+    score: Math.round(avg * frac + UNVERIFIED_SCORE * (1 - frac)),
+    coverage: Math.round(frac * 100),
+  }
 }
 
 /**
@@ -50,8 +62,12 @@ function rollUp(pillars: Pillar[]) {
  * priced into the score, and forcing CRITICAL on it produced contradictions
  * like DeepBook scoring 81 while the banner screamed CRITICAL.
  */
-function verdictFor(score: number, critical: boolean): ScanReport['verdict'] {
-  if (critical)     return 'CRITICAL'
+function verdictFor(
+  score: number, critical: boolean, override?: RatingOverride | null,
+): ScanReport['verdict'] {
+  if (critical) return 'CRITICAL'
+  // A forced BAD rating cannot sit beside a reassuring verdict.
+  if (override?.tier === 'bad') return 'HIGH RISK'
   if (score >= 80)  return 'LOW RISK'
   if (score >= 55)  return 'CAUTION'
   if (score >= 30)  return 'HIGH RISK'
@@ -92,8 +108,9 @@ function liquidityPillar(liquidityUsd: number, weight: number): Pillar {
     else if (liquidityUsd < 25_000) { f.push({ label: `Low liquidity — ${usd}`, state: 'warn', detail: 'Larger positions will move the price significantly.' }); s = deduct(s, 22) }
     else                            { f.push({ label: `Liquidity ${usd}`, state: 'pass' }) }
   } else {
-    f.push({ label: 'No liquidity pool found', state: 'unknown', detail: 'Not trading on a DEX this scanner indexes — it may be pre-launch.' })
-    s = deduct(s, 20)
+    f.push({ label: 'No liquidity pool found', state: 'fail',
+      detail: 'No tradeable market — a position here cannot be exited.' })
+    s = 0
   }
   return pillar('liquidity', 'Liquidity', weight, f, s)
 }
@@ -272,23 +289,24 @@ export async function scanSolana(address: string): Promise<ScanReport> {
   // 6. Market — 7%
   pillars.push(marketPillar(market.pairAgeDays, market.volume24h, 0.07))
 
-  const { score, coverage } = rollUp(pillars)
+  const { score: rawScore, coverage } = rollUp(pillars)
   const holders = d.holders ?? []
+  const override = computeRatingOverride({
+    pillars,
+    keys: { liquidity: 'liquidity', code: 'metadata', ownership: 'authorities' },
+    creatorPct: 0,   // not exposed by the Solana API
+    topHolderPct: holders.length ? num(holders[0]?.percent) * 100 : 0,
+    liquidityUsd: market.liquidityUsd,
+    pairAgeDays: market.pairAgeDays,
+  })
+  const score = clampScoreToOverride(rawScore, override)
 
   return {
     name:   d.metadata?.name   ?? 'Unknown Token',
     symbol: d.metadata?.symbol ?? '???',
     address, chainId: SOLANA_CHAIN_ID,
-    score, coverage, verdict: verdictFor(score, critical), pillars,
-    // Solana expresses "can this be tampered with" as authorities, and
-    // "is the contract legible" as metadata; creator share is not exposed by
-    // the API, so that rule cannot fire here rather than firing wrongly.
-    ratingOverride: computeRatingOverride({
-      pillars,
-      keys: { liquidity: 'liquidity', code: 'metadata', ownership: 'authorities' },
-      creatorPct: 0,
-      pairAgeDays: market.pairAgeDays,
-    }),
+    score, coverage, verdict: verdictFor(score, critical, override), pillars,
+    ratingOverride: override,
     buyTax: 0, sellTax: 0,
     isHoneypot: false,
     honeypotReason: undefined,
@@ -387,20 +405,24 @@ export async function scanSui(coinType: string): Promise<ScanReport> {
   // 5. Market — 12%
   pillars.push(marketPillar(market.pairAgeDays, market.volume24h, 0.12))
 
-  const { score, coverage } = rollUp(pillars)
+  const { score: rawScore, coverage } = rollUp(pillars)
   const holders = d.holders ?? []
+  const override = computeRatingOverride({
+    pillars,
+    keys: { liquidity: 'liquidity', code: 'metadata', ownership: 'capabilities' },
+    creatorPct: 0,   // not exposed by the Sui API
+    topHolderPct: holders.length ? num(holders[0]?.percent) * 100 : 0,
+    liquidityUsd: market.liquidityUsd,
+    pairAgeDays: market.pairAgeDays,
+  })
+  const score = clampScoreToOverride(rawScore, override)
 
   return {
     name:   d.name   ?? 'Unknown Coin',
     symbol: d.symbol ?? '???',
     address: coinType, chainId: SUI_CHAIN_ID,
-    score, coverage, verdict: verdictFor(score, critical), pillars,
-    ratingOverride: computeRatingOverride({
-      pillars,
-      keys: { liquidity: 'liquidity', code: 'metadata', ownership: 'capabilities' },
-      creatorPct: 0,
-      pairAgeDays: market.pairAgeDays,
-    }),
+    score, coverage, verdict: verdictFor(score, critical, override), pillars,
+    ratingOverride: override,
     buyTax: 0, sellTax: 0,
     isHoneypot: false,
     honeypotReason: undefined,

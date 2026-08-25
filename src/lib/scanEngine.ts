@@ -131,8 +131,14 @@ export function computeRatingOverride(opts: {
   keys: { liquidity: string; code: string; ownership: string }
   creatorPct: number
   pairAgeDays: number | null
+  /** Largest single holder, %. Stands in for creator share where that is not exposed. */
+  topHolderPct?: number
+  /** Total DEX liquidity in USD. 0 means nothing to sell into. */
+  liquidityUsd?: number
 }): RatingOverride | null {
   const { pillars, keys, creatorPct, pairAgeDays } = opts
+  const topHolderPct = opts.topHolderPct ?? 0
+  const liquidityUsd = opts.liquidityUsd ?? 0
   const covered = (k: string) => pillars.find(p => p.key === k)?.covered ?? false
 
   // Nothing verifiable about custody, code or liquidity. With all three dark
@@ -145,11 +151,25 @@ export function computeRatingOverride(opts: {
     }
   }
 
-  // One wallet holding half the supply can exit into every buyer at once.
-  if (creatorPct >= CREATOR_HOLD_BAD_PCT) {
+  // No market means no exit. Functionally the same outcome as a honeypot for
+  // anyone holding it, so it is rated the same way.
+  if (liquidityUsd <= 0) {
     return {
       tier: 'bad', mode: 'floor',
-      reason: `The creator holds ${creatorPct.toFixed(1)}% of supply. `
+      reason: 'No liquidity pool was found. With no market to sell into, a '
+        + 'position in this token cannot be exited at any price.',
+    }
+  }
+
+  // One wallet holding half the supply can exit into every buyer at once.
+  // Solana and Sui do not expose creator share, so the largest holder stands
+  // in — the risk is identical whoever the wallet belongs to.
+  const concentration = Math.max(creatorPct, topHolderPct)
+  if (concentration >= CREATOR_HOLD_BAD_PCT) {
+    const who = creatorPct >= topHolderPct ? 'creator' : 'largest wallet'
+    return {
+      tier: 'bad', mode: 'floor',
+      reason: `The ${who} holds ${concentration.toFixed(1)}% of supply. `
         + 'A single wallet with half or more of the supply can exit into any buyer.',
     }
   }
@@ -164,6 +184,23 @@ export function computeRatingOverride(opts: {
   }
 
   return null
+}
+
+/**
+ * Pull the score into the band its rating implies.
+ *
+ * Shared by every ecosystem: the EVM and non-EVM engines compute scores
+ * separately, and when only one of them clamped, a Solana token rated BAD
+ * still displayed 53 — inside the fair band, contradicting its own label.
+ *
+ * Only ever lowers. A cap must not promote a genuinely bad token.
+ */
+export function clampScoreToOverride(
+  score: number, override: RatingOverride | null,
+): number {
+  if (!override) return score
+  const ceiling = override.tier === 'bad' ? FAIR_MIN - 1 : GOOD_MIN - 1
+  return Math.min(score, ceiling)
 }
 
 /** Deduct from 100, floored at 0. */
@@ -320,9 +357,12 @@ export function buildScanReport(opts: {
       else if (liquidityUsd < 25_000) { f.push({ label: `Low liquidity — ${usd}`, state: 'warn', detail: 'Larger positions will move the price significantly.' }); s = deduct(s, 22) }
       else                            { f.push({ label: `Liquidity ${usd}`, state: 'pass' }) }
     } else {
-      f.push({ label: 'No liquidity pool found', state: 'unknown',
-        detail: 'Token is not trading on a DEX this scanner indexes — it may be pre-launch.' })
-      s = deduct(s, 20)
+      // A determined absence, not missing data. Marking this 'unknown' made the
+      // pillar uncovered, which handed its whole weight back and let a token
+      // with nowhere to sell score well on the pillars that could be read.
+      f.push({ label: 'No liquidity pool found', state: 'fail',
+        detail: 'No tradeable market — a position here cannot be exited.' })
+      s = 0
     }
 
     if (lpTotal > 0) {
@@ -516,6 +556,8 @@ export function buildScanReport(opts: {
     keys: { liquidity: 'liquidity', code: 'code', ownership: 'ownership' },
     creatorPct,
     pairAgeDays,
+    topHolderPct,
+    liquidityUsd,
   })
 
   /**
@@ -526,12 +568,7 @@ export function buildScanReport(opts: {
    * reported a rugged token as "81/100" while ignoring the warning next to it.
    * So a floor pulls the score into that tier's band, and a cap ceilings it.
    */
-  if (ratingOverride) {
-    // Both modes ceiling the score into their tier's band; neither ever raises
-    // it, so a genuinely awful token cannot be lifted by the new-pair cap.
-    const ceiling = ratingOverride.tier === 'bad' ? FAIR_MIN - 1 : GOOD_MIN - 1
-    score = Math.min(score, ceiling)
-  }
+  score = clampScoreToOverride(score, ratingOverride)
 
   const verdict: ScanReport['verdict'] =
     isHoneypot                                    ? 'CRITICAL'
