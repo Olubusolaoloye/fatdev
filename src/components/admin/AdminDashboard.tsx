@@ -76,9 +76,8 @@ function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--fd-void)' }}>
       <div style={{ background: 'var(--navy-card)', border: '0.5px solid var(--border-strong)', borderRadius: 16, padding: '2.5rem', width: 340, textAlign: 'center' }}>
-        <div style={{ width: 44, height: 44, borderRadius: 10, background: 'var(--fd-cyan)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-          <span style={{ color: 'var(--fd-void)', fontSize: 20, fontWeight: 800 }}>F</span>
-        </div>
+        <img src="/logo.png" alt="FatDev" width={48} height={48}
+          style={{ display: 'block', margin: '0 auto 16px', objectFit: 'contain' }} />
         <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 6 }}>Admin Access</h2>
         <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>Enter the admin password to continue</p>
         <input type="password" className="field-input" placeholder="Password" value={pw} autoFocus
@@ -354,7 +353,7 @@ function FeaturesTab() {
             <span className="pill" style={{
               fontSize: 9, padding: '2px 8px',
               background: on ? 'rgba(0,229,122,0.12)' : 'rgba(255,82,82,0.12)',
-              color:      on ? 'var(--fd-green)' : '#FF5252',
+              color:      on ? 'var(--fd-green)' : 'var(--fd-red)',
               border: `0.5px solid ${on ? 'rgba(0,229,122,0.35)' : 'rgba(255,82,82,0.35)'}`,
             }}>{on ? 'LIVE' : 'HIDDEN'}</span>
             {!on && f.comingSoon && (
@@ -426,7 +425,7 @@ function FeaturesTab() {
           </button>
         )}
         {msg && (
-          <span style={{ fontSize: 12, color: msg.startsWith('Failed') ? '#FF5252' : 'var(--fd-green)' }}>
+          <span style={{ fontSize: 12, color: msg.startsWith('Failed') ? 'var(--fd-red)' : 'var(--fd-green)' }}>
             {msg}
           </span>
         )}
@@ -436,7 +435,7 @@ function FeaturesTab() {
         <div style={{
           marginTop: 16, padding: '10px 14px', borderRadius: 8, fontSize: 12,
           background: 'rgba(255,82,82,0.08)', border: '0.5px solid rgba(255,82,82,0.25)',
-          color: '#FF5252', lineHeight: 1.6,
+          color: 'var(--fd-red)', lineHeight: 1.6,
         }}>
           Supabase is not connected, so toggles cannot be saved. The site is currently running on
           the built-in defaults (Holder Analytics and Migrate hidden).
@@ -585,7 +584,7 @@ function UsersTab({ users, loading, onRefresh }: { users: DbUser[]; loading: boo
                     <td style={{ padding: '10px 12px' }} onClick={e => e.stopPropagation()}>
                       <button className="btn-ghost" style={{ fontSize: 10, padding: '3px 8px' }}
                         onClick={() => setEditTier({ wallet: u.wallet, tier: u.tier, limit: u.deploys_limit })}>
-                        Edit tier
+                        Edit credits
                       </button>
                     </td>
                   </tr>
@@ -657,13 +656,13 @@ function UsersTab({ users, loading, onRefresh }: { users: DbUser[]; loading: boo
         </div>
       )}
 
-      {/* Edit tier modal */}
+      {/* Edit deploy credits modal */}
       {editTier && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           onClick={() => setEditTier(null)}>
           <div style={{ background: 'var(--navy-card)', border: '1px solid var(--border-strong)', borderRadius: 16, padding: '2rem', width: 360 }}
             onClick={e => e.stopPropagation()}>
-            <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 4 }}>Edit User Tier</div>
+            <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 4 }}>Edit deploy credits</div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: "'Space Mono',monospace", marginBottom: 16 }}>{editTier.wallet}</div>
             <div className="field-label" style={{ marginBottom: 6 }}>Deploys purchased (999 = unlimited)</div>
             <input type="number" className="field-input" style={{ width: '100%', marginBottom: 16 }}
@@ -694,7 +693,7 @@ function PaymentsTab({ payments, loading, totalRevenue }: { payments: DbPayment[
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>
               <tr style={{ borderBottom: '0.5px solid var(--border)', background: 'var(--fd-fill)' }}>
-                {['Wallet', 'Tier', 'Amount', 'Method', 'Chain', 'Tx Hash', 'When'].map(h => (
+                {['Wallet', 'Product', 'Amount', 'Method', 'Chain', 'Tx Hash', 'When'].map(h => (
                   <th key={h} style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -786,7 +785,7 @@ function SettingsTab() {
           <div>
             <div style={{ fontWeight: 600, fontSize: 13 }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%',
-                      background: maintenance ? '#FF5252' : 'var(--fd-green)' }} />
+                      background: maintenance ? 'var(--fd-red)' : 'var(--fd-green)' }} />
                     {maintenance ? 'Maintenance ON' : 'Maintenance OFF'}
                   </span></div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
