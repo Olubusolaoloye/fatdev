@@ -15,6 +15,7 @@
  * share card work unchanged.
  */
 import type { Finding, Pillar, ScanReport } from './scanEngine'
+import { computeRatingOverride } from './scanEngine'
 import { SOLANA_CHAIN_ID, SUI_CHAIN_ID, NON_EVM_DEX_SLUG } from './ecosystems'
 import { logoFromPairs } from './tokenLogo'
 
@@ -279,6 +280,15 @@ export async function scanSolana(address: string): Promise<ScanReport> {
     symbol: d.metadata?.symbol ?? '???',
     address, chainId: SOLANA_CHAIN_ID,
     score, coverage, verdict: verdictFor(score, critical), pillars,
+    // Solana expresses "can this be tampered with" as authorities, and
+    // "is the contract legible" as metadata; creator share is not exposed by
+    // the API, so that rule cannot fire here rather than firing wrongly.
+    ratingOverride: computeRatingOverride({
+      pillars,
+      keys: { liquidity: 'liquidity', code: 'metadata', ownership: 'authorities' },
+      creatorPct: 0,
+      pairAgeDays: market.pairAgeDays,
+    }),
     buyTax: 0, sellTax: 0,
     isHoneypot: false,
     honeypotReason: undefined,
@@ -385,6 +395,12 @@ export async function scanSui(coinType: string): Promise<ScanReport> {
     symbol: d.symbol ?? '???',
     address: coinType, chainId: SUI_CHAIN_ID,
     score, coverage, verdict: verdictFor(score, critical), pillars,
+    ratingOverride: computeRatingOverride({
+      pillars,
+      keys: { liquidity: 'liquidity', code: 'metadata', ownership: 'capabilities' },
+      creatorPct: 0,
+      pairAgeDays: market.pairAgeDays,
+    }),
     buyTax: 0, sellTax: 0,
     isHoneypot: false,
     honeypotReason: undefined,

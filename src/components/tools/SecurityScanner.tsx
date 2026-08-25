@@ -235,6 +235,7 @@ export function SecurityScanner() {
       score:    r.score,
       verdict:  r.verdict,
       verdictRaw: r.verdict,
+      tierOverride: r.ratingOverride,
       verdictTone: verdictTone(r.verdict),
       verdictNote: r.isHoneypot
         ? (r.honeypotReason || 'Sell simulation failed — this token cannot be sold.')
@@ -532,6 +533,34 @@ export function SecurityScanner() {
                 <span className="scan-verdict__dot" />
                 {report.verdict}
               </div>
+
+              {/* A rating that ignores the score has to explain itself, or it
+                  just looks like the scanner is broken. */}
+              {report.ratingOverride && (
+                <p className="scan-override" style={{
+                  display: 'flex', gap: 8, alignItems: 'flex-start',
+                  margin: '10px 0 0', padding: '10px 12px',
+                  borderRadius: 'var(--fd-radius)',
+                  background: report.ratingOverride.tier === 'bad'
+                    ? 'color-mix(in srgb, var(--fd-red) 10%, transparent)'
+                    : 'color-mix(in srgb, var(--fd-amber) 12%, transparent)',
+                  border: `1px solid ${report.ratingOverride.tier === 'bad'
+                    ? 'color-mix(in srgb, var(--fd-red) 32%, transparent)'
+                    : 'color-mix(in srgb, var(--fd-amber) 34%, transparent)'}`,
+                  color: report.ratingOverride.tier === 'bad' ? 'var(--fd-red)' : 'var(--fd-amber)',
+                  fontSize: 12.5, lineHeight: 1.55, maxWidth: 520,
+                }}>
+                  <Icon name="alert" size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+                  <span>
+                    <strong>
+                      {report.ratingOverride.mode === 'floor'
+                        ? `Rated ${report.ratingOverride.tier.toUpperCase()} regardless of score.`
+                        : `Capped at ${report.ratingOverride.tier.toUpperCase()}.`}
+                    </strong>{' '}
+                    {report.ratingOverride.reason}
+                  </span>
+                </p>
+              )}
 
               <p className="scan-meta">
                 <ChainIcon chainId={report.chainId} size={14} style={{ verticalAlign: '-2px', marginRight: 5 }} />

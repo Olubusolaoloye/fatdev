@@ -89,15 +89,36 @@ export const TIER_LABEL: Record<MascotTier, string> = {
  * verdict that severe caps the tier regardless of score, so the mascot can
  * never look cheerful about a honeypot.
  */
-export function tierForScore(score: number, verdict?: string): MascotTier {
+export type TierOverride = { tier: 'bad' | 'fair'; mode: 'floor' | 'cap' }
+
+/** Rank used to compare tiers when applying a cap. */
+const TIER_RANK: Record<MascotTier, number> = { bad: 0, fair: 1, good: 2, perfect: 3 }
+
+export function tierForScore(
+  score: number, verdict?: string, override?: TierOverride | null,
+): MascotTier {
   // A severe verdict caps the tier whatever the score. A token can score well
   // on the weighted pillars while still being unsellable, and the mascot must
   // never look cheerful about a honeypot.
   if (verdict === 'CRITICAL' || verdict === 'HIGH RISK') return 'bad'
-  if (score >= PERFECT_MIN) return 'perfect'
-  if (score >= GOOD_MIN)    return 'good'
-  if (score >= FAIR_MIN)    return 'fair'
-  return 'bad'
+
+  // A 'floor' override pins the rating outright. These fire when the score
+  // itself is untrustworthy, so letting the pillars vote would defeat the point.
+  if (override?.mode === 'floor') return override.tier
+
+  const byScore: MascotTier =
+    score >= PERFECT_MIN ? 'perfect'
+    : score >= GOOD_MIN  ? 'good'
+    : score >= FAIR_MIN  ? 'fair'
+    : 'bad'
+
+  // A 'cap' only stops something rating BETTER than the ceiling. It must never
+  // promote: a brand-new pair that is also a rug stays bad rather than being
+  // lifted to fair.
+  if (override?.mode === 'cap' && TIER_RANK[byScore] > TIER_RANK[override.tier]) {
+    return override.tier
+  }
+  return byScore
 }
 
 /** FNV-1a — small, fast, and stable across browsers. */

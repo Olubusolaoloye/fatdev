@@ -34,6 +34,14 @@ export type Pillar = {
   findings: Finding[]
 }
 
+/** Forces the displayed rating, with a reason the UI can show. */
+export type RatingOverride = {
+  tier: 'bad' | 'fair'
+  /** 'floor' pins the rating exactly; 'cap' only prevents anything better. */
+  mode: 'floor' | 'cap'
+  reason: string
+}
+
 export type ScanReport = {
   name: string
   symbol: string
@@ -45,6 +53,16 @@ export type ScanReport = {
   verdict: 'LOW RISK' | 'CAUTION' | 'HIGH RISK' | 'CRITICAL'
 
   pillars: Pillar[]
+
+  /**
+   * A rating floor/ceiling that the weighted score cannot argue its way out of.
+   *
+   * The pillar average is a good summary of what we could measure, but some
+   * conditions make the average itself untrustworthy or irrelevant. Those are
+   * handled here rather than as another deduction, because a deduction can be
+   * outvoted by the other pillars scoring well.
+   */
+  ratingOverride: RatingOverride | null
 
   // Headline facts reused by the UI + share card
   buyTax: number
@@ -87,6 +105,64 @@ function pillar(
 ): Pillar {
   const covered = findings.some(f => f.state !== 'unknown')
   return { key, title, weight, score, covered, findings }
+}
+
+/**
+ * Rating overrides — conditions the weighted score is not allowed to argue
+ * with.
+ *
+ * These are deliberately not extra deductions. A deduction gets averaged
+ * against the other pillars, so a token can lose points for something
+ * disqualifying and still come out "good". These set the rating directly.
+ *
+ * Evaluated in severity order, first match wins, so a brand-new pair that is
+ * ALSO a rug stays bad rather than being lifted to fair by the age rule.
+ *
+ * Pillar keys differ by ecosystem (EVM has 'code'/'ownership'; Solana and Sui
+ * express the same idea as 'metadata'/'authorities'/'capabilities'), so the
+ * caller supplies the names.
+ */
+export const CREATOR_HOLD_BAD_PCT = 50
+export const NEW_PAIR_FAIR_DAYS = 1
+
+export function computeRatingOverride(opts: {
+  pillars: Pillar[]
+  keys: { liquidity: string; code: string; ownership: string }
+  creatorPct: number
+  pairAgeDays: number | null
+}): RatingOverride | null {
+  const { pillars, keys, creatorPct, pairAgeDays } = opts
+  const covered = (k: string) => pillars.find(p => p.key === k)?.covered ?? false
+
+  // Nothing verifiable about custody, code or liquidity. With all three dark
+  // there is no evidence a good score could legitimately rest on.
+  if (!covered(keys.liquidity) && !covered(keys.code) && !covered(keys.ownership)) {
+    return {
+      tier: 'bad', mode: 'floor',
+      reason: 'Liquidity, contract code and ownership could not be verified. '
+        + 'With all three unreadable there is nothing to base a safe rating on.',
+    }
+  }
+
+  // One wallet holding half the supply can exit into every buyer at once.
+  if (creatorPct >= CREATOR_HOLD_BAD_PCT) {
+    return {
+      tier: 'bad', mode: 'floor',
+      reason: `The creator holds ${creatorPct.toFixed(1)}% of supply. `
+        + 'A single wallet with half or more of the supply can exit into any buyer.',
+    }
+  }
+
+  // A clean contract with no trading history is unproven, not safe.
+  if (pairAgeDays !== null && pairAgeDays < NEW_PAIR_FAIR_DAYS) {
+    return {
+      tier: 'fair', mode: 'cap',
+      reason: 'The trading pair is less than a day old. There is not yet enough '
+        + 'history to trust a higher rating, however clean the contract looks.',
+    }
+  }
+
+  return null
 }
 
 /** Deduct from 100, floored at 0. */
@@ -403,6 +479,13 @@ export function buildScanReport(opts: {
     : 0
   const coverage = Math.round((coveredWeight / totalWeight) * 100)
 
+  const ratingOverride = computeRatingOverride({
+    pillars,
+    keys: { liquidity: 'liquidity', code: 'code', ownership: 'ownership' },
+    creatorPct,
+    pairAgeDays,
+  })
+
   const verdict: ScanReport['verdict'] =
     isHoneypot        ? 'CRITICAL'
     : score >= 80     ? 'LOW RISK'
@@ -414,7 +497,7 @@ export function buildScanReport(opts: {
     name:   gp?.token_name   ?? hp?.token?.name   ?? 'Unknown Token',
     symbol: gp?.token_symbol ?? hp?.token?.symbol ?? '???',
     address, chainId,
-    score, coverage, verdict, pillars,
+    score, coverage, verdict, pillars, ratingOverride,
     buyTax, sellTax, isHoneypot, honeypotReason,
     holders, liquidityUsd, volume24h,
     lpLockedPct, lpBurnedPct,

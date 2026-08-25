@@ -61,6 +61,8 @@ export type ShareCardData = {
    * a cheerful character, whatever it scored on the weighted pillars.
    */
   verdictRaw?: string
+  /** Forces the rating tier when the weighted score cannot be trusted. */
+  tierOverride?: { tier: 'bad' | 'fair'; mode: 'floor' | 'cap' } | null
   /** One-line plain-English summary under the verdict */
   verdictNote: string
   /** Up to 4 tiles */
@@ -155,7 +157,7 @@ export async function renderShareCard(d: ShareCardData): Promise<Blob> {
   // Artwork is mandatory: a card is never produced without a tier template.
   // loadMascotOrThrow retries once, then throws so the caller can surface it
   // rather than quietly shipping an unbranded card.
-  const tier = tierForScore(d.score, d.verdictRaw)
+  const tier = tierForScore(d.score, d.verdictRaw, d.tierOverride)
   const art = await loadMascotOrThrow(tier, d.contract || d.symbol || d.title)
   const isTemplate = art.width / art.height >= TEMPLATE_ASPECT_MIN
 
