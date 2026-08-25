@@ -34,8 +34,10 @@
  * Either way the art must contain NO text, numbers, score or shield: those are
  * drawn at render time and would collide with anything baked in.
  *
- * A missing or unloadable file is not an error: the card falls back to the
- * mascot-less layout, so a half-finished set never breaks sharing.
+ * Artwork is REQUIRED. A card is never produced without a tier template — an
+ * unbranded card in a Telegram channel is worse than no card at all. Callers
+ * use loadMascotOrThrow, which retries once and then raises
+ * MascotMissingError so the UI can say what went wrong.
  */
 
 export type MascotTier = 'perfect' | 'good' | 'fair' | 'bad'
@@ -49,6 +51,26 @@ export const MASCOT_COUNTS: Record<MascotTier, number> = {
   good: 1,
   fair: 1,
   bad: 1,
+}
+
+/**
+ * Score bands.
+ *
+ *     perfect  90 - 100
+ *     good     65 - 89
+ *     fair     52 - 64
+ *     bad      below 52
+ */
+export const PERFECT_MIN = 90
+export const GOOD_MIN    = 65
+export const FAIR_MIN    = 52
+
+/** Inclusive display range per tier, for UI that needs to explain the bands. */
+export const TIER_RANGE: Record<MascotTier, [number, number]> = {
+  perfect: [PERFECT_MIN, 100],
+  good:    [GOOD_MIN, PERFECT_MIN - 1],
+  fair:    [FAIR_MIN, GOOD_MIN - 1],
+  bad:     [0, FAIR_MIN - 1],
 }
 
 /** Tier label shown on the card beside the mascot. */
@@ -68,10 +90,13 @@ export const TIER_LABEL: Record<MascotTier, string> = {
  * never look cheerful about a honeypot.
  */
 export function tierForScore(score: number, verdict?: string): MascotTier {
+  // A severe verdict caps the tier whatever the score. A token can score well
+  // on the weighted pillars while still being unsellable, and the mascot must
+  // never look cheerful about a honeypot.
   if (verdict === 'CRITICAL' || verdict === 'HIGH RISK') return 'bad'
-  if (score >= 90) return 'perfect'
-  if (score >= 75) return 'good'
-  if (score >= 50) return 'fair'
+  if (score >= PERFECT_MIN) return 'perfect'
+  if (score >= GOOD_MIN)    return 'good'
+  if (score >= FAIR_MIN)    return 'fair'
   return 'bad'
 }
 
@@ -96,10 +121,31 @@ export function mascotUrl(tier: MascotTier, seed: string): string | null {
   return `/mascots/${tier}-${n}.webp`
 }
 
+/** Raised when a tier's artwork cannot be loaded. */
+export class MascotMissingError extends Error {
+  // Explicit fields rather than parameter properties: the project builds with
+  // erasableSyntaxOnly, which disallows the shorthand.
+  tier: MascotTier
+  url: string | null
+
+  constructor(tier: MascotTier, url: string | null) {
+    super(
+      url
+        ? `Could not load the ${tier} card template (${url}).`
+        : `No card template is configured for the ${tier} tier.`,
+    )
+    this.name = 'MascotMissingError'
+    this.tier = tier
+    this.url = url
+  }
+}
+
 /**
  * Load a mascot for canvas use. Same-origin, so unlike the DexScreener token
  * artwork this needs no CORS proxy and cannot taint the canvas.
- * Resolves to null on any failure — the card must still render.
+ *
+ * Resolves to null on failure. Callers that must have artwork should use
+ * `loadMascotOrThrow` — a share card is never rendered without a template.
  */
 export function loadMascot(url: string | null): Promise<HTMLImageElement | null> {
   if (!url) return Promise.resolve(null)
@@ -109,4 +155,25 @@ export function loadMascot(url: string | null): Promise<HTMLImageElement | null>
     img.onerror = () => resolve(null)
     img.src = url
   })
+}
+
+/**
+ * Load a tier's artwork, or fail loudly.
+ *
+ * The card must never be produced without a template — an unbranded card
+ * shipped into a Telegram channel is worse than no card at all, and a silent
+ * fallback made that failure invisible. One retry covers a transient miss on
+ * a cold cache; anything past that is a real problem worth surfacing.
+ */
+export async function loadMascotOrThrow(
+  tier: MascotTier, seed: string,
+): Promise<HTMLImageElement> {
+  const url = mascotUrl(tier, seed)
+  if (!url) throw new MascotMissingError(tier, null)
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const img = await loadMascot(attempt === 0 ? url : `${url}?retry=1`)
+    if (img && img.width > 0) return img
+  }
+  throw new MascotMissingError(tier, url)
 }

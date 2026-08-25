@@ -36,7 +36,7 @@ const DISPLAY = '"Space Grotesk", "Syne", system-ui, -apple-system, sans-serif'
 const MONO    = '"JetBrains Mono", "Space Mono", ui-monospace, monospace'
 
 import { loadLogoForPixels, drawTokenAvatar } from './tokenLogo'
-import { tierForScore, mascotUrl, loadMascot, TIER_LABEL } from './mascots'
+import { tierForScore, loadMascotOrThrow, TIER_LABEL } from './mascots'
 import { renderOnTemplate, TEMPLATE_ASPECT_MIN } from './shareCardTemplate'
 
 export type Tone = 'good' | 'warn' | 'bad' | 'neutral'
@@ -152,11 +152,14 @@ export async function renderShareCard(d: ShareCardData): Promise<Blob> {
 
   // Artwork is resolved first: a landscape template replaces the entire card,
   // so none of the background below should be painted in that case.
+  // Artwork is mandatory: a card is never produced without a tier template.
+  // loadMascotOrThrow retries once, then throws so the caller can surface it
+  // rather than quietly shipping an unbranded card.
   const tier = tierForScore(d.score, d.verdictRaw)
-  const art = await loadMascot(mascotUrl(tier, d.contract || d.symbol || d.title))
-  const isTemplate = !!art && art.width > 0 && art.width / art.height >= TEMPLATE_ASPECT_MIN
+  const art = await loadMascotOrThrow(tier, d.contract || d.symbol || d.title)
+  const isTemplate = art.width / art.height >= TEMPLATE_ASPECT_MIN
 
-  if (isTemplate && art) {
+  if (isTemplate) {
     const tokenImgT = await loadLogoForPixels(d.logoUrl, 256)
     const logoT = await loadLogo()
     renderOnTemplate(ctx, d, art, tier, vColor, tokenImgT, logoT, {
@@ -492,8 +495,11 @@ export async function downloadShareCard(d: ShareCardData, filename: string): Pro
 /** Copy the PNG straight to the clipboard for pasting into Telegram/X/Discord. */
 export async function copyShareCard(d: ShareCardData): Promise<boolean> {
   if (typeof ClipboardItem === 'undefined' || !navigator.clipboard?.write) return false
+  // Rendering failures propagate: a missing template is not a clipboard
+  // problem, and reporting it as one sends people chasing the wrong thing.
+  // Only the clipboard write itself is treated as a soft failure.
+  const blob = await renderShareCard(d)
   try {
-    const blob = await renderShareCard(d)
     await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
     return true
   } catch {

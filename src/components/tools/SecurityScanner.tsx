@@ -282,10 +282,14 @@ export function SecurityScanner() {
   async function clipCard() {
     if (!report) return
     setCardBusy('copy'); setCardNotice('')
-    const ok = await copyShareCard(buildCard(report))
-    setCardNotice(ok
-      ? 'Image copied — paste it straight into Telegram, X, or Discord.'
-      : 'Your browser blocks image copy. Use Download PNG instead.')
+    try {
+      const ok = await copyShareCard(buildCard(report))
+      setCardNotice(ok
+        ? 'Image copied — paste it straight into Telegram, X, or Discord.'
+        : 'Your browser blocks image copy. Use Download PNG instead.')
+    } catch (e: any) {
+      setCardNotice(`Image export failed: ${e.message ?? e}`)
+    }
     setCardBusy(null)
   }
 
