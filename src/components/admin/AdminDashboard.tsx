@@ -14,6 +14,7 @@ import {
 import { CHAIN_EXPLORERS, CHAIN_NAME } from '../../lib/wagmi'
 import { Spinner } from '../ui-kit'
 import Icon, { type IconName } from '../ui-kit/Icon'
+import { AdsTab } from './AdsTab'
 
 const ADMIN_PASSWORD = 'fatadmin2025'
 
@@ -92,7 +93,7 @@ function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
 }
 
 // ── Tab type ──────────────────────────────────────────────────────────────────
-type Tab = 'overview' | 'users' | 'deploys' | 'payments' | 'features' | 'settings'
+type Tab = 'overview' | 'users' | 'deploys' | 'payments' | 'features' | 'ads' | 'settings'
 
 // ── Main export ───────────────────────────────────────────────────────────────
 export function AdminDashboard() {
@@ -147,6 +148,7 @@ function DashboardContent() {
     { id: 'deploys',   label: 'Deploys',   icon: 'rocket',   count: deploys.length  },
     { id: 'payments',  label: 'Payments',  icon: 'coins',    count: payments.length },
     { id: 'features',  label: 'Features',  icon: 'sliders'  },
+    { id: 'ads',       label: 'Ads',       icon: 'megaphone' },
     { id: 'settings',  label: 'Settings',  icon: 'settings' },
   ]
 
@@ -280,6 +282,8 @@ function DashboardContent() {
         )}
 
         {/* ── Settings tab ── */}
+        {tab === 'ads' && <AdsTab />}
+
         {tab === 'features' && (
           <FeaturesTab />
         )}

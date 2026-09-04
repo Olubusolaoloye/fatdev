@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { getAppConfig } from '../lib/db'
 import { DEFAULT_FEATURE_FLAGS, normalizeFlags, type FeatureFlags, type FeatureKey } from '../lib/tools'
+import { DEFAULT_ADS, normalizeAds, type AdsConfig } from '../lib/ads'
 
 
 type AppConfig = {
   maintenanceMode:    boolean
   maintenanceMessage: string
   features:           FeatureFlags
+  ads:                AdsConfig
   loading:            boolean
 }
 
@@ -23,6 +25,7 @@ export function useAppConfig(): AppConfig {
       maintenanceMode:    false,
       maintenanceMessage: 'Scheduled maintenance in progress.',
       features:           DEFAULT_FEATURE_FLAGS,
+      ads:                DEFAULT_ADS,
       loading:            true,
     }
   )
@@ -38,15 +41,19 @@ export function useAppConfig(): AppConfig {
     }
 
     fetchPromise = (async () => {
-      const [maintenance, message, features] = await Promise.all([
+      const [maintenance, message, features, ads] = await Promise.all([
         getAppConfig<boolean>('maintenance_mode',    false),
         getAppConfig<string> ('maintenance_message', 'Scheduled maintenance in progress.'),
         getAppConfig<Partial<FeatureFlags>>('feature_flags', DEFAULT_FEATURE_FLAGS),
+        getAppConfig<unknown>('ads', DEFAULT_ADS),
       ])
       cachedConfig = {
         maintenanceMode:    maintenance,
         maintenanceMessage: message,
         features:           normalizeFlags(features),
+        // Normalised here rather than at each render: the value is remote JSON
+        // an admin edits by hand, so a malformed slide must not reach the UI.
+        ads:                normalizeAds(ads),
         loading:            false,
       }
       setConfig(cachedConfig)
@@ -64,6 +71,12 @@ export function useAppConfig(): AppConfig {
 export function useFeature(key: FeatureKey): { enabled: boolean; loading: boolean } {
   const { features, loading } = useAppConfig()
   return { enabled: features[key], loading }
+}
+
+/** The ad carousel's config, already validated. */
+export function useAds(): { ads: AdsConfig; loading: boolean } {
+  const { ads, loading } = useAppConfig()
+  return { ads, loading }
 }
 
 /** Invalidate the cache (call after admin saves config) */

@@ -8,11 +8,12 @@ import { AuditScore }      from '../components/tools/AuditScore'
 import { SocialTools }     from '../components/tools/SocialTools'
 import { SecurityScanner } from '../components/tools/SecurityScanner'
 import Icon from '../components/ui-kit/Icon'
+import AdBar from '../components/ui-kit/AdBar'
 import { TOOL_FEATURES, TOOL_SLUG, TOOL_KEY_BY_SLUG, type FeatureKey, type FeatureMeta } from '../lib/tools'
 import { useAppConfig }    from '../hooks/useAppConfig'
 
 export function ToolsPage() {
-  const { features, loading } = useAppConfig()
+  const { features, ads, loading } = useAppConfig()
   const { slug } = useParams<{ slug?: string }>()
   const navigate = useNavigate()
 
@@ -38,9 +39,21 @@ export function ToolsPage() {
       <main style={{
         flex: 1,
         maxWidth: 1100, margin: '0 auto', width: '100%',
-        padding: 'clamp(80px,10vw,100px) clamp(16px,4vw,2rem) 64px',
+        /* Longhands, not the shorthand: `padding: clamp(a,b,c) clamp(d,e,f) g`
+           mis-parsed — the top edge resolved to 16px (the inline value) instead
+           of 80px, so page content sat underneath the fixed 60px navbar. It only
+           became visible once the ad strip became the first element. */
+        paddingTop: 'clamp(80px, 10vw, 100px)',
+        paddingLeft: 'clamp(16px, 4vw, 2rem)',
+        paddingRight: 'clamp(16px, 4vw, 2rem)',
+        paddingBottom: 64,
         boxSizing: 'border-box',
       }}>
+
+        {/* Runs across the top of the tools index and every individual tool.
+            Placed once here rather than inside each branch below so a new tool
+            picks it up automatically. */}
+        <AdBar config={ads} />
 
         {/* ── Tool view ── */}
         {active && tool && (
