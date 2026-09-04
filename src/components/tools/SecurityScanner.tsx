@@ -516,7 +516,10 @@ export function SecurityScanner() {
             ['--scan-glow'  as any]: `${vRaw}1F`,
           }}>
             <ScoreRing score={report.score} color={vColor} />
-            <div style={{ minWidth: 0 }}>
+            {/* Named so the mobile rules can lay the identity block out as a
+                centred stack rather than inheriting desktop's side-by-side
+                margins. */}
+            <div className="scan-hero__ident" style={{ minWidth: 0 }}>
               <div className="scan-hero__name">
                 <TokenAvatar
                   src={report.logoUrl}
@@ -563,8 +566,11 @@ export function SecurityScanner() {
               )}
 
               <p className="scan-meta">
-                <ChainIcon chainId={report.chainId} size={14} style={{ verticalAlign: '-2px', marginRight: 5 }} />
-                <strong>{CHAIN_NAME[report.chainId]}</strong> · {report.holders.toLocaleString()} holders
+                <span style={{ whiteSpace: 'nowrap' }}>
+                  <ChainIcon chainId={report.chainId} size={14} style={{ verticalAlign: '-2px', marginRight: 5 }} />
+                  <strong>{CHAIN_NAME[report.chainId]}</strong>
+                </span>
+                {' '}· {report.holders.toLocaleString()} holders
                 {report.pairAgeDays != null && <> · {report.pairAgeDays}d old</>}
                 <br />
                 Weighted across {report.pillars.length} pillars · {report.coverage}% coverage

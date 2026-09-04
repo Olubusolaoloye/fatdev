@@ -612,7 +612,27 @@ html, body { overflow-x: hidden; }
   border: 1px solid var(--scan-edge, var(--fd-border));
 }
 @media (max-width: 640px) {
-  .scan-hero { grid-template-columns: 1fr; justify-items: center; text-align: center; gap: 20px; }
+  .scan-hero {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+    gap: 16px;
+  }
+
+  /* text-align does not centre flex children, so the name row stayed packed
+     left while the inline-flex verdict pill centred — three stacked elements
+     on three different alignments under a centred ring, which read as
+     scattered. Each flex row has to be centred explicitly. */
+  .scan-hero__name,
+  .scan-override { justify-content: center; }
+
+  /* One consistent rhythm for the stacked block rather than three different
+     margins inherited from the side-by-side desktop layout. */
+  .scan-hero__name { margin-bottom: 0; }
+  .scan-verdict    { margin-bottom: 0; }
+  .scan-meta       { margin: 0; }
+  .scan-hero__ident { display: grid; justify-items: center; gap: 10px; }
+  .scan-addr       { margin-top: 4px; }
 }
 
 .scan-hero__name {
@@ -650,9 +670,16 @@ html, body { overflow-x: hidden; }
 
 .scan-addr {
   margin-top: 14px; font-family: var(--fd-font-mono);
-  font-size: 10.5px; color: var(--fd-ghost); word-break: break-all;
+  font-size: 10.5px; color: var(--fd-ghost);
+  /* anywhere, not break-all: the address still wraps at any character, but
+     break-all applied to the whole block also split the word "explorer" in
+     the link beside it. */
+  overflow-wrap: anywhere;
 }
-.scan-addr a { color: var(--fd-cyan); text-decoration: none; margin-left: 8px; }
+.scan-addr a {
+  color: var(--fd-cyan); text-decoration: none; margin-left: 8px;
+  white-space: nowrap; overflow-wrap: normal;
+}
 .scan-addr a:hover { text-decoration: underline; }
 
 /* --- Stat grid ----------------------------------------------------------- */

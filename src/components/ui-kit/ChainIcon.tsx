@@ -235,7 +235,13 @@ export default function ChainIcon({ chainId, size = 18, withLabel, short, style 
     </svg>
   )
 
-  if (!withLabel) return <span style={style}>{badge}</span>
+  // inline-flex, not a bare span: the svg inside is display:block (to kill the
+  // inline descender gap), which would otherwise claim its own line whenever
+  // the icon sits in a run of text — it stranded the chain badge above the
+  // chain name in the scan results.
+  if (!withLabel) {
+    return <span style={{ display: 'inline-flex', verticalAlign: 'middle', ...style }}>{badge}</span>
+  }
 
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, ...style }}>
