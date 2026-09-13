@@ -16,9 +16,11 @@ import { BridgePage }   from './pages/BridgePage'
 import { DashboardPage } from './pages/DashboardPage'
 import { initTheme, useTheme } from './hooks/useTheme'
 import { useSeo } from './hooks/useSeo'
+import { initAnalytics } from './lib/analytics'
 import '@rainbow-me/rainbowkit/styles.css'
 
 initTheme()
+initAnalytics()
 
 const queryClient = new QueryClient()
 
