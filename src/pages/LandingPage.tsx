@@ -136,10 +136,14 @@ const SHOWCASE = [
   { src: '/showcase/blin.webp', symbol: 'BLIN', address: '0xaefb54306240502c5421be478fa16aacfa9698a2', chainId: 1 },
   { src: '/showcase/noi.webp',  symbol: 'NOI',  address: '0x397f1551aa7b22e382fed9f4c8e60f8f4968cf0f', chainId: 1 },
   { src: '/showcase/wkc.webp',  symbol: 'WKC',  address: '0x6ec90334d89dbdc89e08a133271be3d104128edb', chainId: 56 },
+  // Fictional tokens, labelled as demos on the card itself — a real project
+  // must never be shown as a Fair or Bad example.
+  { src: '/showcase/demo-fair.webp', symbol: 'DEMO', alt: 'Demo scan card showing a Fair (58/100) result' },
+  { src: '/showcase/demo-bad.webp',  symbol: 'DEMO', alt: 'Demo scan card showing a Bad (14/100) result' },
 ]
 
 function ScanCard() {
-  const [order, setOrder] = useState([0, 1, 2])
+  const [order, setOrder] = useState(() => SHOWCASE.map((_, i) => i))
   const [paused, setPaused] = useState(false)
 
   useEffect(() => {
@@ -152,36 +156,39 @@ function ScanCard() {
     <div
       onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}
       style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', marginBottom: '14%' }}
-      aria-label="Example scan results for $BLIN, $NOI and $WKC"
+      aria-label="Example scan results: $BLIN, $NOI, $WKC, and demo Fair and Bad cards"
     >
       {SHOWCASE.map((c, i) => {
         const depth = order.indexOf(i)          // 0 = front
         const front = depth === 0
+        // Only three layers are visible; the rest wait hidden behind the third.
+        const layer = Math.min(depth, 2)
         const img = (
-          <img src={c.src} alt={`FatDev scan result for $${c.symbol}`} width={1200} height={675}
+          <img src={c.src} alt={c.alt ?? `FatDev scan result for $${c.symbol}`} width={1200} height={675}
             loading={i === 0 ? 'eager' : 'lazy'} decoding="async"
             style={{ width: '100%', height: '100%', display: 'block', borderRadius: 14 }} />
         )
         return (
-          <div key={c.symbol}
+          <div key={c.src}
             onClick={front ? undefined : () => setOrder(o => [i, ...o.filter(x => x !== i)])}
             style={{
               position: 'absolute', inset: 0,
-              transform: `translateY(${depth * 12}%) scale(${1 - depth * 0.06})`,
+              transform: `translateY(${layer * 12}%) scale(${1 - layer * 0.06})`,
               transformOrigin: 'top center',
-              zIndex: 3 - depth,
-              opacity: depth === 0 ? 1 : depth === 1 ? 0.85 : 0.65,
-              filter: depth === 0 ? 'none' : `brightness(${1 - depth * 0.18})`,
+              zIndex: SHOWCASE.length - depth,
+              opacity: depth === 0 ? 1 : depth === 1 ? 0.85 : depth === 2 ? 0.65 : 0,
+              filter: depth === 0 ? 'none' : `brightness(${1 - layer * 0.18})`,
               transition: 'transform 600ms cubic-bezier(.2,.8,.2,1), opacity 600ms ease, filter 600ms ease',
               cursor: 'pointer',
+              pointerEvents: depth > 2 ? 'none' : 'auto',
               borderRadius: 14,
               boxShadow: front
                 ? '0 32px 64px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(255,215,0,0.18)'
                 : '0 16px 32px rgba(0,0,0,0.4)',
             }}>
             {front
-              ? <Link to={`/tools/security-scanner?address=${c.address}&chain=${c.chainId}`}
-                  aria-label={`Scan $${c.symbol}`} style={{ display: 'block', height: '100%' }}>{img}</Link>
+              ? <Link to={c.address ? `/tools/security-scanner?address=${c.address}&chain=${c.chainId}` : '/tools/security-scanner'}
+                  aria-label={c.address ? `Scan $${c.symbol}` : 'Open the scanner'} style={{ display: 'block', height: '100%' }}>{img}</Link>
               : img}
           </div>
         )
