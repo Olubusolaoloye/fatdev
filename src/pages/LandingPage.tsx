@@ -6,6 +6,7 @@ import Footer from '../components/Footer'
 import { useAppConfig } from '../hooks/useAppConfig'
 import Icon, { type IconName } from '../components/ui-kit/Icon'
 import ChainIcon from '../components/ui-kit/ChainIcon'
+import SpotlightList from '../components/ui-kit/SpotlightList'
 import { SUPPORTED_CHAINS, hasVerifiedRouter, CHAIN_NAME } from '../lib/wagmi'
 
 /**
@@ -544,6 +545,10 @@ export function LandingPage() {
             }}>
               <Icon name="scan" size={16} />Scan a Token →
             </Link>
+          </div>
+
+          <div style={{ animation: 'hero-in 0.7s ease 0.8s both' }}>
+            <SpotlightList />
           </div>
 
         </div>

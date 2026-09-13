@@ -1,4 +1,5 @@
 import { useStore } from '../../lib/store'
+import { rebalance, type DistKey } from '../../lib/taxSplit'
 import { TaxBar, Pill, StatusBox, FieldGroup, Toggle } from '../ui-kit'
 
 const inputStyle: React.CSSProperties = {
@@ -21,15 +22,17 @@ function PctSlider({ label, value, onChange, color }: {
   label: string; value: number; onChange: (v: number) => void; color: string
 }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
         <span style={{ fontSize: 12, color: 'var(--fd-ghost)', fontFamily: 'var(--fd-font-display)' }}>{label}</span>
-        <span style={{ fontSize: 12, fontFamily: 'var(--fd-font-mono)', color }}>{value}%</span>
+        <span style={{ fontSize: 12, fontFamily: 'var(--fd-font-mono)', color, minWidth: 36, textAlign: 'right' }}>{value}%</span>
       </div>
       <input
+        className="fd-dist-range"
         type="range" min={0} max={100} step={1} value={value}
+        aria-label={label}
         onChange={e => onChange(Number(e.target.value))}
-        style={{ accentColor: color, width: '100%', cursor: 'pointer' }}
+        style={{ '--c': color, '--p': `${value}%` } as React.CSSProperties}
       />
     </div>
   )
@@ -40,6 +43,10 @@ export function Step3Taxes() {
   const isStandard = cfg.tokenType === 'standard'
   const total = cfg.mktPct + cfg.lpPct + cfg.teamPct + cfg.buybackPct + cfg.burnPct
   const distOk = isStandard || total === 100
+  const setDist = (key: DistKey, v: number) => setCfg(rebalance(
+    { mktPct: cfg.mktPct, lpPct: cfg.lpPct, teamPct: cfg.teamPct, buybackPct: cfg.buybackPct, burnPct: cfg.burnPct },
+    key, v,
+  ))
   const buyOk  = cfg.buyTax < 2500
   const sellOk = cfg.sellTax < 2500
   const xferOk = cfg.transferTax < 2500
@@ -148,17 +155,17 @@ export function Step3Taxes() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <PctSlider label="Marketing (→ ETH to marketing wallet)" value={cfg.mktPct}
-              onChange={v => setCfg({ mktPct: v })} color="var(--fd-gold)" />
+              onChange={v => setDist('mktPct', v)} color="var(--fd-accent)" />
             <PctSlider label="Liquidity (→ auto-added to DEX)" value={cfg.lpPct}
-              onChange={v => setCfg({ lpPct: v })} color="var(--fd-cyan)" />
+              onChange={v => setDist('lpPct', v)} color="var(--fd-cyan)" />
             <PctSlider label="Team (→ ETH to team wallet)" value={cfg.teamPct}
-              onChange={v => setCfg({ teamPct: v })} color="#a78bfa" />
+              onChange={v => setDist('teamPct', v)} color="#a78bfa" />
             <PctSlider label="Buyback (→ ETH to buyback wallet)" value={cfg.buybackPct}
-              onChange={v => setCfg({ buybackPct: v })} color="#fb923c" />
+              onChange={v => setDist('buybackPct', v)} color="#fb923c" />
             <PctSlider
               label={`${burnLabel} (→ ${cfg.tokenType === 'reflection' ? 'reflected to holders' : 'burned as tokens'})`}
               value={cfg.burnPct}
-              onChange={v => setCfg({ burnPct: v })}
+              onChange={v => setDist('burnPct', v)}
               color={cfg.tokenType === 'reflection' ? '#34d399' : '#f87171'}
             />
           </div>
@@ -166,13 +173,13 @@ export function Step3Taxes() {
           {/* Distribution bar */}
           <div style={{ marginTop: 16, height: 8, borderRadius: 4, overflow: 'hidden', display: 'flex' }}>
             {[
-              { val: cfg.mktPct,     color: 'var(--fd-gold)' },
+              { val: cfg.mktPct,     color: 'var(--fd-accent)' },
               { val: cfg.lpPct,      color: 'var(--fd-cyan)' },
               { val: cfg.teamPct,    color: '#a78bfa' },
               { val: cfg.buybackPct, color: '#fb923c' },
               { val: cfg.burnPct,    color: cfg.tokenType === 'reflection' ? '#34d399' : '#f87171' },
             ].map((s, i) => s.val > 0 && (
-              <div key={i} style={{ width: `${s.val}%`, background: s.color, transition: 'width 200ms ease' }} />
+              <div key={i} style={{ width: `${(s.val / Math.max(100, total)) * 100}%`, background: s.color, transition: 'width 200ms ease' }} />
             ))}
             {total < 100 && (
               <div style={{ flex: 1, background: 'var(--fd-border)' }} />
@@ -200,8 +207,15 @@ export function Step3Taxes() {
       <style>{`
         @media (max-width: 600px) { .grid-3-tax { grid-template-columns: 1fr !important; } }
         input[type=number]:focus { border-color: var(--fd-cyan) !important; }
-        input[type=range] { -webkit-appearance: none; height: 4px; border-radius: 2px; background: var(--fd-border); }
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; }
+        .fd-dist-range { -webkit-appearance: none; appearance: none; width: 100%; height: 22px; margin: 0; background: transparent; cursor: pointer; touch-action: pan-y; }
+        .fd-dist-range:focus { outline: none; }
+        .fd-dist-range::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(to right, var(--c) 0 var(--p), var(--fd-border) var(--p) 100%); }
+        .fd-dist-range::-moz-range-track { height: 6px; border-radius: 3px; background: var(--fd-border); }
+        .fd-dist-range::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--c); }
+        .fd-dist-range::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; margin-top: -6px; border-radius: 50%; background: var(--c); border: 3px solid var(--fd-surface, #111); box-shadow: 0 0 0 1px var(--c); transition: transform 120ms ease; }
+        .fd-dist-range::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: var(--c); border: 3px solid var(--fd-surface, #111); box-shadow: 0 0 0 1px var(--c); }
+        .fd-dist-range:hover::-webkit-slider-thumb, .fd-dist-range:active::-webkit-slider-thumb { transform: scale(1.15); }
+        .fd-dist-range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--c); }
       `}</style>
     </div>
   )

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { getAppConfig } from '../lib/db'
 import { DEFAULT_FEATURE_FLAGS, normalizeFlags, type FeatureFlags, type FeatureKey } from '../lib/tools'
 import { DEFAULT_ADS, normalizeAds, type AdsConfig } from '../lib/ads'
+import { DEFAULT_SPOTLIGHT, normalizeSpotlight, type SpotlightConfig } from '../lib/spotlight'
 
 
 type AppConfig = {
@@ -9,6 +10,7 @@ type AppConfig = {
   maintenanceMessage: string
   features:           FeatureFlags
   ads:                AdsConfig
+  spotlight:          SpotlightConfig
   loading:            boolean
 }
 
@@ -26,6 +28,7 @@ export function useAppConfig(): AppConfig {
       maintenanceMessage: 'Scheduled maintenance in progress.',
       features:           DEFAULT_FEATURE_FLAGS,
       ads:                DEFAULT_ADS,
+      spotlight:          DEFAULT_SPOTLIGHT,
       loading:            true,
     }
   )
@@ -41,11 +44,12 @@ export function useAppConfig(): AppConfig {
     }
 
     fetchPromise = (async () => {
-      const [maintenance, message, features, ads] = await Promise.all([
+      const [maintenance, message, features, ads, spotlight] = await Promise.all([
         getAppConfig<boolean>('maintenance_mode',    false),
         getAppConfig<string> ('maintenance_message', 'Scheduled maintenance in progress.'),
         getAppConfig<Partial<FeatureFlags>>('feature_flags', DEFAULT_FEATURE_FLAGS),
         getAppConfig<unknown>('ads', DEFAULT_ADS),
+        getAppConfig<unknown>('spotlight', DEFAULT_SPOTLIGHT),
       ])
       cachedConfig = {
         maintenanceMode:    maintenance,
@@ -54,6 +58,7 @@ export function useAppConfig(): AppConfig {
         // Normalised here rather than at each render: the value is remote JSON
         // an admin edits by hand, so a malformed slide must not reach the UI.
         ads:                normalizeAds(ads),
+        spotlight:          normalizeSpotlight(spotlight),
         loading:            false,
       }
       setConfig(cachedConfig)

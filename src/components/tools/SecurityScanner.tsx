@@ -1,4 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { recordScan } from '../../lib/spotlight'
+import SpotlightCarousel from '../ui-kit/SpotlightCarousel'
 import { downloadShareCard, copyShareCard, type ShareCardData, type Tone } from '../../lib/shareCard'
 import { CHAIN_NAME, CHAIN_EXPLORERS, SUPPORTED_CHAINS } from '../../lib/wagmi'
 import { detectChains, fetchDexPairs, type ChainCandidate } from '../../lib/chainDetect'
@@ -145,6 +148,26 @@ export function SecurityScanner() {
   const ecosystem = detectEcosystem(address)
   const valid = ecosystem !== null
 
+  // Deep link from the spotlight: /tools/security-scanner?address=…&chain=…
+  const [params, setParams] = useSearchParams()
+  const linked = params.get('address')
+  const lastLinked = useRef<string | null>(null)
+  useEffect(() => {
+    if (!linked || linked === lastLinked.current) return
+    lastLinked.current = linked
+    setAddress(linked)
+    const chain = Number(params.get('chain'))
+    if (/^0x[0-9a-f]{40}$/i.test(linked) && chain > 0 && SUPPORTED_CHAINS.some(c => c.id === chain)) {
+      setError(''); setReport(null); setCandidates([]); setCardNotice('')
+      scanOn(linked, chain).catch((e: any) => { setError(e.message ?? 'Scan failed'); setPhase('idle') })
+    } else {
+      run(linked)
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    setParams({}, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linked])
+
   // ── Scan one chain ──────────────────────────────────────────────────────────
   async function scanOn(addr: string, chainId: number, knownPairs?: any[]) {
     setPhase('scanning')
@@ -167,26 +190,31 @@ export function SecurityScanner() {
       )
     }
 
-    setReport(buildScanReport({ address: addr, chainId, goPlus, honeypot, dexPairs: pairs }))
+    const r = buildScanReport({ address: addr, chainId, goPlus, honeypot, dexPairs: pairs })
+    setReport(r)
+    recordScan(r)
     setPhase('done')
   }
 
   // ── Detect then scan ────────────────────────────────────────────────────────
-  async function run() {
-    const addr = address.trim()
-    if (!valid) { setError(ADDRESS_HINT); return }
+  async function run(override?: string) {
+    const addr = (override ?? address).trim()
+    const eco = detectEcosystem(addr)
+    if (!eco) { setError(ADDRESS_HINT); return }
 
     setError(''); setReport(null); setCandidates([]); setCardNotice('')
 
     // Solana and Sui are identified by address shape alone — no chain detection
     // needed, and they use their own scan engines with chain-appropriate pillars.
-    if (ecosystem === 'solana' || ecosystem === 'sui') {
-      const chainId = ecosystem === 'solana' ? SOLANA_CHAIN_ID : SUI_CHAIN_ID
+    if (eco === 'solana' || eco === 'sui') {
+      const chainId = eco === 'solana' ? SOLANA_CHAIN_ID : SUI_CHAIN_ID
       setPhase('scanning')
       setActiveChain(chainId)
-      setStatus(`Auditing on ${ecosystem === 'solana' ? 'Solana' : 'Sui'}…`)
+      setStatus(`Auditing on ${eco === 'solana' ? 'Solana' : 'Sui'}…`)
       try {
-        setReport(ecosystem === 'solana' ? await scanSolana(addr) : await scanSui(addr))
+        const r = eco === 'solana' ? await scanSolana(addr) : await scanSui(addr)
+        setReport(r)
+        recordScan(r)
         setPhase('done')
       } catch (e: any) {
         setError(e.message ?? 'Scan failed')
@@ -444,7 +472,7 @@ export function SecurityScanner() {
             onKeyDown={e => e.key === 'Enter' && !busy && run()}
             aria-label="Token contract address"
           />
-          <button className="btn-primary" onClick={run} disabled={busy || !valid}
+          <button className="btn-primary" onClick={() => run()} disabled={busy || !valid}
             style={{
               padding: '10px 20px', whiteSpace: 'nowrap', minWidth: 108,
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
@@ -718,6 +746,13 @@ export function SecurityScanner() {
               <Icon name="x" size={10} />Clear
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Most scanned — hidden while a scan is running so the status stays in view */}
+      {!busy && (
+        <div style={{ marginTop: report ? 28 : 0, marginBottom: 8 }}>
+          <SpotlightCarousel />
         </div>
       )}
 
