@@ -169,22 +169,29 @@ export function buildSpotlight(cfg: SpotlightConfig, top: SpotlightToken[], now 
 }
 
 // ── Writing ──────────────────────────────────────────────────────────────────
-const SESSION_KEY = 'fd-scanned'
+const STORE_KEY = 'fd-scanned-at'
+/** The same browser can count the same token again after this long. */
+const RECOUNT_COOLDOWN_MS = 2 * 60_000
 /** Fired on window after a scan is counted, so open spotlights can refresh. */
 export const SCAN_RECORDED = 'fd-scan-recorded'
 
 /**
- * Count a completed scan. Once per token per browser session, so re-opening
- * the same result or switching tabs back and forth does not inflate the rank.
+ * Count a completed scan. Repeat scans count, but not within a short cooldown
+ * per token per browser, so refreshing or re-opening a result or flipping
+ * between chains does not inflate the rank.
  * Fire-and-forget: tracking must never break or slow a scan.
  */
 export function recordScan(r: ScanReport) {
   if (!supabaseReady) return
   const key = tokenKey(r.chainId, r.address)
   try {
-    const seen: string[] = JSON.parse(sessionStorage.getItem(SESSION_KEY) || '[]')
-    if (seen.includes(key)) return
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify([...seen, key].slice(-200)))
+    const now = Date.now()
+    const seen: Record<string, number> = JSON.parse(localStorage.getItem(STORE_KEY) || '{}')
+    if (seen[key] && now - seen[key] < RECOUNT_COOLDOWN_MS) return
+    seen[key] = now
+    // Drop stale entries so the map stays small.
+    for (const k of Object.keys(seen)) if (now - seen[k] > RECOUNT_COOLDOWN_MS) delete seen[k]
+    localStorage.setItem(STORE_KEY, JSON.stringify(seen))
   } catch { /* storage blocked — still count */ }
 
   supabase.rpc('record_scan', {
