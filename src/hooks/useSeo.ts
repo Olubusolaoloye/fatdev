@@ -37,6 +37,8 @@ function setLink(rel: string, href: string) {
 function resolveRoute(pathname: string): RouteSeo | null {
   const clean = pathname.replace(/\/+$/, '') || '/'
   if (ROUTE_BY_PATH[clean]) return ROUTE_BY_PATH[clean]
+  // Shareable token links are the scanner with a token preloaded.
+  if (clean.startsWith('/token/')) return ROUTE_BY_PATH['/tools/security-scanner'] ?? null
   const parents = Object.keys(ROUTE_BY_PATH)
     .filter(p => p !== '/' && clean.startsWith(p + '/'))
     .sort((a, b) => b.length - a.length)

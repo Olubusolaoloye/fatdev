@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useParams, useNavigate } from 'react-router-dom'
 import { recordScan } from '../../lib/spotlight'
 import SpotlightCarousel from '../ui-kit/SpotlightCarousel'
 import { downloadShareCard, copyShareCard, type ShareCardData, type Tone } from '../../lib/shareCard'
@@ -150,7 +150,10 @@ export function SecurityScanner() {
 
   // Deep link from the spotlight: /tools/security-scanner?address=…&chain=…
   const [params, setParams] = useSearchParams()
-  const linked = params.get('address')
+  const { address: pathAddress } = useParams<{ address?: string }>()
+  const navigate = useNavigate()
+  // /token/{address} and /tools/security-scanner/{address}, or the older ?address= form
+  const linked = pathAddress ? decodeURIComponent(pathAddress) : params.get('address')
   const lastLinked = useRef<string | null>(null)
   useEffect(() => {
     if (!linked || linked === lastLinked.current) return
@@ -164,7 +167,9 @@ export function SecurityScanner() {
       run(linked)
     }
     window.scrollTo({ top: 0, behavior: 'smooth' })
-    setParams({}, { replace: true })
+    // Query-string links are tidied into the shareable path form.
+    if (!pathAddress) navigate(`/tools/security-scanner/${encodeURIComponent(linked)}`, { replace: true })
+    else if (params.has('chain')) setParams({}, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linked])
 
@@ -201,6 +206,12 @@ export function SecurityScanner() {
     const addr = (override ?? address).trim()
     const eco = detectEcosystem(addr)
     if (!eco) { setError(ADDRESS_HINT); return }
+
+    // Keep the address bar on the shareable link for whatever is being scanned.
+    if (addr !== linked) {
+      lastLinked.current = addr
+      navigate(`/tools/security-scanner/${encodeURIComponent(addr)}`, { replace: true })
+    }
 
     setError(''); setReport(null); setCandidates([]); setCardNotice('')
 
@@ -297,6 +308,20 @@ export function SecurityScanner() {
       contract: r.address,
       logoUrl:  r.logoUrl,
     }
+  }
+
+  const [linkCopied, setLinkCopied] = useState(false)
+  function shareLink(r: ScanReport) {
+    const base = (import.meta.env.VITE_APP_URL || window.location.origin).replace(/\/$/, '')
+    return `${base}/token/${encodeURIComponent(r.address)}?chain=${r.chainId}`
+  }
+  async function copyLink() {
+    if (!report) return
+    try {
+      await navigator.clipboard.writeText(shareLink(report))
+      setLinkCopied(true)
+      window.setTimeout(() => setLinkCopied(false), 2000)
+    } catch { setCardNotice(`Copy this link: ${shareLink(report)}`) }
   }
 
   async function saveCard() {
@@ -693,8 +718,8 @@ export function SecurityScanner() {
                   <Icon name="image" size={16} style={{ color: 'var(--fd-cyan)' }} />Share this scan
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                  Branded 1200×675 image with the score, verdict, taxes, liquidity and every pillar.
-                  Sized for X, Telegram and Discord previews.
+                  Download the branded image, or copy the link — pasted on X, Telegram or Discord
+                  it unfurls into a preview card with the score.
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -705,6 +730,11 @@ export function SecurityScanner() {
                 <button className="btn-ghost" onClick={clipCard} disabled={cardBusy !== null}
                   style={{ fontSize: 13, padding: '8px 16px', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
                   {cardBusy === 'copy' ? 'Copying…' : <><Icon name="copy" size={15} />Copy image</>}
+                </button>
+                <button className="btn-ghost" onClick={copyLink}
+                  title="Pasted on X, Telegram or Discord, it unfurls into a preview card with the score"
+                  style={{ fontSize: 13, padding: '8px 16px', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                  {linkCopied ? <><Icon name="check" size={15} />Link copied</> : <><Icon name="link" size={15} />Copy link</>}
                 </button>
               </div>
             </div>

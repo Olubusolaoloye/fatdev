@@ -1,0 +1,6 @@
+# Build settings stay in the Netlify UI; this file only configures functions.
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+  # resvg ships a native binary — keep it out of the bundle so it loads as-is.
+  external_node_modules = ["@resvg/resvg-js"]

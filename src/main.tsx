@@ -80,6 +80,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                 <Route path="/"          element={<LandingPage />} />
                 <Route path="/tools"       element={<ToolsPage />} />
                 <Route path="/tools/:slug" element={<ToolsPage />} />
+                {/* Shareable scan links: /token/{address} and /tools/security-scanner/{address} */}
+                <Route path="/tools/:slug/:address" element={<ToolsPage />} />
+                <Route path="/token/:address"     element={<ToolsPage />} />
                 <Route path="/pricing"   element={<PricingPage />} />
                 <Route path="/migrate/*" element={<MigrateRouter />} />
                 <Route path="/bridge"     element={<BridgePage />} />

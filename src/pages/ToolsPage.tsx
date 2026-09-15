@@ -14,7 +14,9 @@ import { useAppConfig }    from '../hooks/useAppConfig'
 
 export function ToolsPage() {
   const { features, ads, loading } = useAppConfig()
-  const { slug } = useParams<{ slug?: string }>()
+  const params = useParams<{ slug?: string; address?: string }>()
+  // /token/{address} is the scanner with a token preloaded.
+  const slug = params.slug ?? (params.address ? 'security-scanner' : undefined)
   const navigate = useNavigate()
 
   // Only tools the admin has switched on

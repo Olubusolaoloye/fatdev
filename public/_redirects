@@ -1,1 +1,7 @@
+# Shareable token links: served by a function that writes that token's
+# preview card into the page head (crawlers do not run JavaScript).
+/token/*                     /.netlify/functions/token-page?address=:splat  200
+/tools/security-scanner/*    /.netlify/functions/token-page?address=:splat  200
+/og/token/*                  /.netlify/functions/og-token?address=:splat    200
+
 /*  /index.html  200
