@@ -312,7 +312,9 @@ export function SecurityScanner() {
 
   const [linkCopied, setLinkCopied] = useState(false)
   function shareLink(r: ScanReport) {
-    const base = (import.meta.env.VITE_APP_URL || window.location.origin).replace(/\/$/, '')
+    // Always the real domain, never window.location.origin — a Netlify
+    // deploy-preview or branch subdomain must never end up in a shared link.
+    const base = (import.meta.env.VITE_APP_URL || 'https://fatdev.org').replace(/\/$/, '')
     return `${base}/token/${encodeURIComponent(r.address)}?chain=${r.chainId}`
   }
   async function copyLink() {
